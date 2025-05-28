@@ -14,18 +14,8 @@ package main
 	libhttp "imagine/common/http"
 ***REMOVED***
 
-func main(***REMOVED*** {
-	router := chi.NewRouter(***REMOVED***
+func setupImageRouter(***REMOVED*** *chi.Mux {
 	imageRouter := chi.NewRouter(***REMOVED***
-
-	logger := libhttp.SetupChiLogger(***REMOVED***
-	correctLogger := slog.NewLogLogger(logger.Handler(***REMOVED***, slog.LevelDebug***REMOVED***
-
-	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
-		Logger: correctLogger,
-***REMOVED******REMOVED******REMOVED***
-
-	router.Use(middleware.AllowContentEncoding("deflate", "gzip"***REMOVED******REMOVED***
 
 	imageRouter.Get("/download", func(res http.ResponseWriter, req *http.Request***REMOVED*** {
 		panic("not implemented"***REMOVED***
@@ -35,11 +25,27 @@ func main(***REMOVED*** {
 		panic("not implemented"***REMOVED***
 ***REMOVED******REMOVED***
 
+	return imageRouter
+***REMOVED***
+
+func main(***REMOVED*** {
+	router := chi.NewRouter(***REMOVED***
+	imageRouter := setupImageRouter(***REMOVED***
+
+	logger := libhttp.SetupChiLogger(***REMOVED***
+	correctLogger := slog.NewLogLogger(logger.Handler(***REMOVED***, slog.LevelDebug***REMOVED***
+
+	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger: correctLogger,
+***REMOVED******REMOVED******REMOVED***
+
+	router.Use(middleware.AllowContentEncoding("deflate", "gzip"***REMOVED******REMOVED***
+	router.Use(middleware.RequestID***REMOVED***
+
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request***REMOVED*** {
 		jsonResponse := map[string]any{"message": "pong"***REMOVED***
 		render.JSON(res, req, jsonResponse***REMOVED***
 ***REMOVED******REMOVED***
-
 
 	router.Mount("/image", imageRouter***REMOVED***
 
