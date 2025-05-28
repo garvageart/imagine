@@ -1,14 +1,14 @@
 package utils
 
+import "testing"
+
 const (
 	AppName = "imagine"
 ***REMOVED***
 
 var (
-	IsProduction = IsEnvironment("production"***REMOVED***
-
-	IsTest = IsEnvironment("test"***REMOVED***
-
+	IsProduction  = IsEnvironment("production"***REMOVED***
+	IsTest        = testing.Testing(***REMOVED*** || IsEnvironment("test"***REMOVED***
 	IsDevelopment = !IsProduction && !IsTest
 
 	Environment = func(***REMOVED*** string {
