@@ -1,11 +1,16 @@
+# Misc folders
 archive
 references
 logs
-/resources/test
+var
+resources/test
 
+# Misc files
 auth/*.json
 
-### Node.js
+# Platform-specific
+# ---
+# Node.js
 test-results
 node_modules
 
