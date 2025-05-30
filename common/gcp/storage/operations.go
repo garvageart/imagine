@@ -42,8 +42,10 @@ func (s *ImagineStorage***REMOVED*** CreateObject(name string, data []byte***REM
 
 func (s *ImagineStorage***REMOVED*** ReadObject(name string***REMOVED*** ([]byte, error***REMOVED*** {
 	object := s.Bucket.Object(name***REMOVED***
+
 	reader, err := object.NewReader(s.Context***REMOVED***
 	emptyBytes := make([]byte, 0***REMOVED***
+
 ***REMOVED***
 		return emptyBytes, fmt.Errorf("error reading object %w", err***REMOVED***
 ***REMOVED***
@@ -57,7 +59,7 @@ func (s *ImagineStorage***REMOVED*** ReadObject(name string***REMOVED*** ([]byte
 
 	***REMOVED***
 
-		return make([]byte, 0***REMOVED***, fmt.Errorf("error reading object data %w", err***REMOVED***
+		return emptyBytes, fmt.Errorf("error reading object data %w", err***REMOVED***
 ***REMOVED***
 
 	gcsRes, err := io.ReadAll(reader***REMOVED***
