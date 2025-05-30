@@ -32,7 +32,7 @@ var (
 			panic(err***REMOVED***
 	***REMOVED***
 
-		return cwd + "/logs"
+		return cwd + "/var/logs"
 ***REMOVED***(***REMOVED***
 
 	LogFileDefaults = FileLog{
