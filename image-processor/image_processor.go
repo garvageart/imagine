@@ -4,9 +4,9 @@ package imgops
 ***REMOVED***
 
 	libvips "github.com/davidbyttow/govips/v2/vips"
-	
+
 	liberrors "imagine/common/errors"
-	"go.les-is.online/imagine/utils"
+***REMOVED***
 ***REMOVED***
 
 func ImageProcess(buffer []byte***REMOVED*** error {

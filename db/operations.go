@@ -4,11 +4,13 @@
 ***REMOVED***
 ***REMOVED***
 ***REMOVED***
-
-	"go.les-is.online/imagine/utils"
+***REMOVED***
 
 ***REMOVED***
 ***REMOVED***
+***REMOVED***
+***REMOVED***
+
 ***REMOVED***
 ***REMOVED***
 
@@ -162,14 +164,19 @@ func (db DB***REMOVED*** ReplaceOne(filter bson.D, replacement bson.D***REMOVED*
 func Initis(***REMOVED*** error {
 	mongoCtx, cancelMongo := context.WithTimeout(context.Background(***REMOVED***, 60*time.Second***REMOVED***
 	defer cancelMongo(***REMOVED***
+***REMOVED***
+
+***REMOVED***
+***REMOVED***
+***REMOVED***
 
 ***REMOVED***
 ***REMOVED***
 ***REMOVED***
 ***REMOVED***
-		User:         "dbadmin",
-		Password:     "Funkymonkey12345678900987654321",
-		DatabaseName: "admin",
+		User:         os.Getenv("MONGO_USER"***REMOVED***,
+		Password:     os.Getenv("MONGO_PASSWORD"***REMOVED***,
+***REMOVED***
 ***REMOVED***
 ***REMOVED***
 ***REMOVED***

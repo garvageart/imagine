@@ -260,13 +260,13 @@ func (server ImagineAuthServer***REMOVED*** Launch(router *chi.Mux***REMOVED*** 
 		userId := hex.EncodeToString(userIdBytes***REMOVED***
 
 		userStruct := &ImagineUser{
-			UUID:       userUUID.String(***REMOVED***,
-			ID:         userId,
-			Email:      email,
-			Username:   name,
-			CreatedAt:  carbon.Now(***REMOVED***.String(***REMOVED***,
-			UsedOAuth:  usedOAuth,
-			OAuthState: oauthState.Value,
+			UUID:          userUUID.String(***REMOVED***,
+			ID:            userId,
+			Email:         email,
+			Username:      name,
+			CreatedAt:     carbon.Now(***REMOVED***.String(***REMOVED***,
+			UsedOAuth:     usedOAuth,
+			OAuthState:    oauthState.Value,
 			OAuthProvider: oauthRedirect,
 	***REMOVED***
 
@@ -323,24 +323,11 @@ func main(***REMOVED*** {
 ***REMOVED***
 ***REMOVED***
 
-	config, err := server.ReadConfig(serverKey***REMOVED***
+	config, err := server.ReadConfig(***REMOVED***
 ***REMOVED***
 		panic("Unable to read config file"***REMOVED***
 ***REMOVED***
 
-	portValue, found := config["port"]
-
-	if !found {
-		panic("Can't find port value"***REMOVED***
-***REMOVED*** else {
-		// This is fucking weird
-		port, ok := portValue.(float64***REMOVED***
-
-		if !ok {
-			panic("port is not an float64"***REMOVED***
-	***REMOVED***
-
-		server.Port = int(port***REMOVED***
-		server.Launch(router***REMOVED***
-***REMOVED***
+	server.Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey***REMOVED******REMOVED***
+	server.Launch(router***REMOVED***
 ***REMOVED***

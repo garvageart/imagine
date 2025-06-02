@@ -30,13 +30,9 @@ var (
 		"Tempest"***REMOVED***
 ***REMOVED***
 
-func GenerateRandomBytes(n int***REMOVED*** ([]byte, error***REMOVED*** {
+func GenerateRandomBytes(n int***REMOVED*** ([]byte***REMOVED*** {
 	b := make([]byte, n***REMOVED***
-	_, err := rand.Read(b***REMOVED***
+	_, _ = rand.Read(b***REMOVED***
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-	return b, nil
+	return b
 ***REMOVED***

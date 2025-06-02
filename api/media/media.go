@@ -9,12 +9,12 @@ package main
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+
+
 ***REMOVED***
 
 	gcp "imagine/common/gcp/storage"
 	libhttp "imagine/common/http"
-
-***REMOVED***
 ***REMOVED***
 
 type ImagineMediaServer struct {
@@ -38,11 +38,12 @@ func (server ImagineMediaServer***REMOVED*** setupImageRouter(***REMOVED*** *chi
 		res.Header(***REMOVED***.Add("Content-Type", "text/plain"***REMOVED***
 		res.Write([]byte("not implemented"***REMOVED******REMOVED***
 ***REMOVED******REMOVED***
-
+	
 	imageRouter.Get("/upload", func(res http.ResponseWriter, req *http.Request***REMOVED*** {
 		res.WriteHeader(http.StatusNotImplemented***REMOVED***
 		res.Header(***REMOVED***.Add("Content-Type", "text/plain"***REMOVED***
 		res.Write([]byte("not implemented"***REMOVED******REMOVED***
+
 ***REMOVED******REMOVED***
 
 	return imageRouter
@@ -65,14 +66,12 @@ func (server ImagineMediaServer***REMOVED*** Launch(router *chi.Mux***REMOVED***
 	router.Mount("/image", imageRouter***REMOVED***
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request***REMOVED*** {
-		jsonResponse := map[string]any{"message": "You have been PONGED by the media server. Hey... pssht kid. You want some media? 📸"***REMOVED***
+		jsonResponse := map[string]any{"message": "pong"***REMOVED***
 		render.JSON(res, req, jsonResponse***REMOVED***
 ***REMOVED******REMOVED***
 
-	address := fmt.Sprintf("%s:%d", server.Host, server.Port***REMOVED***
-
-	logger.Info(fmt.Sprintf("Starting server at address: %s", address***REMOVED******REMOVED***
-	err := http.ListenAndServe(address, router***REMOVED***
+	logger.Info(fmt.Sprint("Starting server on port ", server.Port***REMOVED******REMOVED***
+	err := http.ListenAndServe(server.Host+":"+fmt.Sprint(server.Port***REMOVED***, router***REMOVED***
 
 ***REMOVED***
 		logger.Error(fmt.Sprintf("failed to start server: %s", err***REMOVED******REMOVED***
@@ -84,39 +83,19 @@ func main(***REMOVED*** {
 	router := chi.NewRouter(***REMOVED***
 	logger := libhttp.SetupChiLogger(key***REMOVED***
 
-	var host string
-	if utils.IsProduction {
-		host = "0.0.0.0"
-***REMOVED*** else {
-		host = "localhost"
-***REMOVED***
-
 	var server = &ImagineMediaServer{
 		ImagineServer: &libhttp.ImagineServer{
-			Host:   host,
+			Host:   "localhost",
 			Key:    key,
 			Logger: logger,
 ***REMOVED***
 ***REMOVED***
 
-	config, err := server.ReadConfig(key***REMOVED***
+	config, err := server.ReadConfig(***REMOVED***
 ***REMOVED***
 		panic("Unable to read config file"***REMOVED***
 ***REMOVED***
 
-	portValue, found := config["port"]
-
-	if !found {
-		panic("Can't find port value"***REMOVED***
-***REMOVED*** else {
-		// This is fucking weird
-		port, ok := portValue.(float64***REMOVED***
-
-		if !ok {
-			panic("port is not an float64"***REMOVED***
-	***REMOVED***
-
-		server.Port = int(port***REMOVED***
-		server.Launch(router***REMOVED***
-***REMOVED***
+	server.Port = config.GetInt(fmt.Sprintf("servers.%s.port", server.Key***REMOVED******REMOVED***
+	server.Launch(router***REMOVED***
 ***REMOVED***

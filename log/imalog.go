@@ -7,7 +7,7 @@ package log
 
 	slogmulti "github.com/samber/slog-multi"
 
-	"go.les-is.online/imagine/utils"
+***REMOVED***
 ***REMOVED***
 
 func SetupLogHandlers(***REMOVED*** []slog.Handler {
@@ -20,8 +20,8 @@ func SetupLogHandlers(***REMOVED*** []slog.Handler {
 ***REMOVED***
 
 	consoleHandlerOpts := slog.HandlerOptions{
-		AddSource:   shouldAddSource,
-		Level:       slog.LevelDebug,
+		AddSource: shouldAddSource,
+		Level:     slog.LevelDebug,
 ***REMOVED***
 
 	fileHandlerOpts := slog.HandlerOptions{

@@ -4,8 +4,9 @@ package http
 ***REMOVED***
 	"log/slog"
 
+***REMOVED***
+
 	"github.com/spf13/viper"
-	"go.les-is.online/imagine/utils"
 
 	libos "imagine/common/os"
 ***REMOVED***
@@ -22,7 +23,7 @@ type ImagineServer struct {
 	Logger *slog.Logger
 ***REMOVED***
 
-func (server ImagineServer***REMOVED*** ReadConfig(key string***REMOVED*** (viper.Viper, error***REMOVED*** {
+func (server ImagineServer***REMOVED*** ReadConfig(***REMOVED*** (viper.Viper, error***REMOVED*** {
 	configPath := libos.CurrentWorkingDirectory + "/config"
 
 	viper.SetConfigName(utils.AppName***REMOVED***
