@@ -1,24 +1,25 @@
 package libos
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
+import (
+	"fmt"
+	"os"
 	"strings"
-***REMOVED***
+)
+
 
 var (
-	CurrentWorkingDirectory = func(***REMOVED*** string {
-		cwd, err := os.Getwd(***REMOVED***
+	CurrentWorkingDirectory = func() string {
+		cwd, err := os.Getwd()
+		if err != nil {
+			panic(fmt.Errorf("error retrieving current working directory: %w", err))
+		}
 
-	***REMOVED***
-			panic(fmt.Errorf("error retrieving current working directory: %w", err***REMOVED******REMOVED***
-	***REMOVED***
-
-		return StandardisePaths(cwd***REMOVED***
-***REMOVED***(***REMOVED***
-***REMOVED***
+		return StandardisePaths(cwd)
+	}()
+	)
 
 // Microsoft you will pay for your crimes against standards
-func StandardisePaths(path string***REMOVED*** string {
-	return strings.ReplaceAll(path, "\\", "/"***REMOVED***
-***REMOVED***
+func StandardisePaths(path string) string {
+	return strings.ReplaceAll(path, "\\", "/")
+}
+

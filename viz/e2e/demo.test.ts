@@ -1,6 +1,6 @@
-import { expect, test ***REMOVED*** from '@playwright/test';
+import { expect, test, Page } from '@playwright/test';
 
-test('home page has expected h1', async ({ page ***REMOVED******REMOVED*** => {
-	await page.goto('/'***REMOVED***;
-	await expect(page.locator('h1'***REMOVED******REMOVED***.toBeVisible(***REMOVED***;
-***REMOVED******REMOVED***;
+test('home page has expected h1', async ({ page }: { page: Page }) => {
+	await page.goto('/');
+	await expect(page.locator('h1').toBeVisible());
+});

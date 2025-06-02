@@ -1,17 +1,19 @@
 package utils
 
-import "testing"
+import (
+	"testing"
+)
 
 const (
 	AppName = "imagine"
-***REMOVED***
+)
 
 var (
-	IsProduction  = IsEnvironment("production"***REMOVED***
-	IsTest        = testing.Testing(***REMOVED*** || IsEnvironment("test"***REMOVED***
+	IsProduction  = IsEnvironment("production")
+	IsTest        = testing.Testing() || IsEnvironment("test")
 	IsDevelopment = !IsProduction && !IsTest
 
-	Environment = func(***REMOVED*** string {
+	Environment = func() string {
 		switch true {
 		case IsProduction:
 			return "production"
@@ -19,6 +21,6 @@ var (
 			return "test"
 		default:
 			return "development"
-	***REMOVED***
-***REMOVED***(***REMOVED***
-***REMOVED***
+		}
+	}()
+)

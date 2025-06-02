@@ -19,7 +19,7 @@ declare module "svelte/elements" {
 		'data-sveltekit-preload-data'?: true | '' | 'hover' | 'tap' | 'off' | undefined | null;
 		'data-sveltekit-reload'?: true | '' | 'off' | undefined | null;
 		'data-sveltekit-replacestate'?: true | '' | 'off' | undefined | null;
-***REMOVED***
-***REMOVED***
+	}
+}
 
-export {***REMOVED***;
+export {};

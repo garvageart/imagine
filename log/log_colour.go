@@ -1,16 +1,16 @@
 package log
 
-***REMOVED***
+import (
 	"bytes"
-***REMOVED***
+	"context"
 	"encoding/json"
-***REMOVED***
+	"fmt"
+
 	"io"
 	"log/slog"
-	"strconv"
 	"strings"
 	"sync"
-***REMOVED***
+)
 
 const (
 	Reset = "\033[0m"
@@ -31,11 +31,11 @@ const (
 	LightMagenta = 95
 	LightCyan    = 96
 	White        = 97
-***REMOVED***
+)
 
 const (
 	timeFormat = "[01-02-2006 15:04:05.000]"
-***REMOVED***
+)
 
 type LogMessage struct {
 	Time        string
@@ -43,7 +43,7 @@ type LogMessage struct {
 	Level       slog.Level
 	Message     string
 	Bytes       string
-***REMOVED***
+}
 
 type SlogColourHandler struct {
 	handler          slog.Handler
@@ -52,65 +52,67 @@ type SlogColourHandler struct {
 	mutex            *sync.Mutex
 	showRecord       bool
 	outputEmptyAttrs bool
-	replaceAttrs     func(groups []string, a slog.Attr***REMOVED*** slog.Attr
-***REMOVED***
+	replaceAttrs     func([]string, slog.Attr) slog.Attr
+}
 
-func RGBToAnsiString(r, g, b uint8***REMOVED*** string {
-	return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b***REMOVED***
-***REMOVED***
 
-func colorize(colorCode int, v string***REMOVED*** string {
-	return fmt.Sprintf("\033[%sm%s%s", strconv.Itoa(colorCode***REMOVED***, v, Reset***REMOVED***
-***REMOVED***
+func RGBToAnsiString(r, g, b uint8) string {
+	return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
+}
 
-func (h *SlogColourHandler***REMOVED*** Enabled(ctx context.Context, level slog.Level***REMOVED*** bool {
+func colorize(colorCode int, v string) string {
+	return fmt.Sprintf("\033[%dm%s%s", colorCode, v, Reset)
+}
+
+func (h *SlogColourHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return true
-***REMOVED***
+}
 
-func (h *SlogColourHandler***REMOVED*** computeAttrs(ctx context.Context, r slog.Record***REMOVED*** (map[string]any, error***REMOVED*** {
-	h.mutex.Lock(***REMOVED***
-	defer func(***REMOVED*** {
-		h.buffer.Reset(***REMOVED***
-		h.mutex.Unlock(***REMOVED***
-***REMOVED***(***REMOVED***
+func (h *SlogColourHandler) computeAttrs(ctx context.Context, r slog.Record) (map[string]any, error) {
+	h.mutex.Lock()
+	defer func() {
+		h.buffer.Reset()
+		h.mutex.Unlock()
+	}()
 
-	if err := h.handler.Handle(ctx, r***REMOVED***; err != nil {
-	***REMOVED***, fmt.Errorf("error when calling inner handler's Handle: %w", err***REMOVED***
-***REMOVED***
+	if err := h.handler.Handle(ctx, r); err != nil {
+	return map[string]any{}, fmt.Errorf("error when calling inner handler's Handle: %w", err)
+	}
 
 	var attrs map[string]any
-	err := json.Unmarshal(h.buffer.Bytes(***REMOVED***, &attrs***REMOVED***
+	err := json.Unmarshal(h.buffer.Bytes(), &attrs)
 
-***REMOVED***
-	***REMOVED***, fmt.Errorf("error when unmarshaling inner handler's Handle result: %w", err***REMOVED***
-***REMOVED***
+	if err != nil {
+	return map[string]any{}, fmt.Errorf("error when unmarshaling inner handler's Handle result: %w", err)
+	}
 
 	return attrs, nil
-***REMOVED***
+}
 
-func SuppressDefaults(next func([]string, slog.Attr***REMOVED*** slog.Attr***REMOVED*** func([]string, slog.Attr***REMOVED*** slog.Attr {
-	return func(groups []string, a slog.Attr***REMOVED*** slog.Attr {
+func SuppressDefaults(next func([]string, slog.Attr) slog.Attr) func([]string, slog.Attr) slog.Attr {
+	return func(groups []string, a slog.Attr) slog.Attr {
 		if a.Key == slog.TimeKey ||
 			a.Key == slog.LevelKey ||
 			a.Key == slog.MessageKey {
-			return slog.Attr{***REMOVED***
-	***REMOVED***
+			return slog.Attr{}
+			}
 		if next == nil {
 			return a
-	***REMOVED***
-		return next(groups, a***REMOVED***
-***REMOVED***
-***REMOVED***
+		}
 
-func (h *SlogColourHandler***REMOVED*** WithAttrs(attrs []slog.Attr***REMOVED*** slog.Handler {
+		return next(groups, a)
+		}
+}
+
+func (h *SlogColourHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return h
-***REMOVED***
+}
 
-func (h *SlogColourHandler***REMOVED*** WithGroup(name string***REMOVED*** slog.Handler {
+func (h *SlogColourHandler) WithGroup(name string) slog.Handler {
 	return h
-***REMOVED***
+}
 
-func (h *SlogColourHandler***REMOVED*** Handle(ctx context.Context, record slog.Record***REMOVED*** error {
+func (h *SlogColourHandler) Handle(ctx context.Context, record slog.Record) error {
 	var attrs map[string]any
 	var err error
 	var attrsAsBytes []byte
@@ -118,82 +120,86 @@ func (h *SlogColourHandler***REMOVED*** Handle(ctx context.Context, record slog.
 	var levelString string
 	levelAttr := slog.Attr{
 		Key:   slog.LevelKey,
-		Value: slog.AnyValue(record.Level***REMOVED***,
-***REMOVED***
+		Value: slog.AnyValue(record.Level),
+	}
 
 	if h.replaceAttrs != nil {
-		levelAttr = h.replaceAttrs([]string{***REMOVED***, levelAttr***REMOVED***
-***REMOVED***
+		levelAttr = h.replaceAttrs([]string{}, levelAttr)
+	}
 
-	if !levelAttr.Equal(slog.Attr{***REMOVED******REMOVED*** {
-		levelString = levelAttr.Value.String(***REMOVED*** + ":"
+	if !levelAttr.Equal(slog.Attr{}) {
+		levelString = levelAttr.Value.String() + ":"
 
 		if record.Level <= slog.LevelDebug {
-			levelString = colorize(LightGreen, levelString***REMOVED***
-	***REMOVED*** else if record.Level <= slog.LevelInfo {
-			levelString = colorize(Cyan, levelString***REMOVED***
-	***REMOVED*** else if record.Level < slog.LevelWarn {
-			levelString = colorize(LightBlue, levelString***REMOVED***
-	***REMOVED*** else if record.Level < slog.LevelError {
-			levelString = colorize(LightYellow, levelString***REMOVED***
-	***REMOVED*** else if record.Level <= slog.LevelError+1 {
-			levelString = colorize(LightRed, levelString***REMOVED***
-	***REMOVED*** else if record.Level > slog.LevelError+1 {
-			levelString = colorize(LightMagenta, levelString***REMOVED***
-	***REMOVED***
-***REMOVED***
+			levelString = colorize(LightGreen, levelString)
+		} else if record.Level <= slog.LevelInfo {
+			levelString = colorize(Cyan, levelString)
+		} else if record.Level < slog.LevelWarn {
+			levelString = colorize(LightBlue, levelString)
+		} else if record.Level < slog.LevelError {
+			levelString = colorize(LightYellow, levelString)
+		} else if record.Level <= slog.LevelError+1 {
+			levelString = colorize(LightRed, levelString)
+		} else if record.Level > slog.LevelError+1 {
+			levelString = colorize(LightMagenta, levelString)
+		}
+	}
 
-	attrs, err = h.computeAttrs(ctx, record***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	attrs, err = h.computeAttrs(ctx, record)
+	if err != nil {
+		return err
+	}
 
-	if h.outputEmptyAttrs || len(attrs***REMOVED*** > 0 {
-		attrsAsBytes, err = json.MarshalIndent(attrs, "", "  "***REMOVED***
-	***REMOVED***
-			return fmt.Errorf("error when marshaling attrs: %w", err***REMOVED***
-	***REMOVED***
-***REMOVED***
+	if h.outputEmptyAttrs || len(attrs) > 0 {
+		attrsAsBytes, err = json.MarshalIndent(attrs, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error when marshaling attrs: %w", err)
+		}
+	}
 
 	var timestamp string
 	timeAttr := slog.Attr{
 		Key:   slog.TimeKey,
-		Value: slog.StringValue(record.Time.Format(timeFormat***REMOVED******REMOVED***,
-***REMOVED***
+		Value: slog.StringValue(record.Time.Format(timeFormat)),
+	}
+
 	if h.replaceAttrs != nil {
-		timeAttr = h.replaceAttrs([]string{***REMOVED***, timeAttr***REMOVED***
-***REMOVED***
-	if !timeAttr.Equal(slog.Attr{***REMOVED******REMOVED*** {
-		timestamp = colorize(LightGray, timeAttr.Value.String(***REMOVED******REMOVED***
-***REMOVED***
+		timeAttr = h.replaceAttrs([]string{}, timeAttr)
+	}
+
+	if !timeAttr.Equal(slog.Attr{}) {
+		timestamp = colorize(LightGray, timeAttr.Value.String())
+	}
 
 	var msg string
 	msgAttr := slog.Attr{
 		Key:   slog.MessageKey,
-		Value: slog.StringValue(record.Message***REMOVED***,
-***REMOVED***
+		Value: slog.StringValue(record.Message),
+	}
 
 	if h.replaceAttrs != nil {
-		msgAttr = h.replaceAttrs([]string{***REMOVED***, msgAttr***REMOVED***
-***REMOVED***
+		msgAttr = h.replaceAttrs([]string{}, msgAttr)
+	}
 
-	if !msgAttr.Equal(slog.Attr{***REMOVED******REMOVED*** {
-		msg = colorize(White, msgAttr.Value.String(***REMOVED******REMOVED***
-***REMOVED***
+	if !msgAttr.Equal(slog.Attr{}) {
+		msg = colorize(White, msgAttr.Value.String())
+	}
 
-	out := strings.Builder{***REMOVED***
-	if len(timestamp***REMOVED*** > 0 {
-		out.WriteString(timestamp***REMOVED***
-		out.WriteString(" "***REMOVED***
-***REMOVED***
-	if len(levelString***REMOVED*** > 0 {
-		out.WriteString(levelString***REMOVED***
-		out.WriteString(" "***REMOVED***
-***REMOVED***
-	if len(msg***REMOVED*** > 0 {
-		out.WriteString(msg***REMOVED***
-		out.WriteString(" "***REMOVED***
-***REMOVED***
+	out := strings.Builder{}
+	if len(timestamp) > 0 {
+		out.WriteString(timestamp)
+		out.WriteString(" ")
+	}
+
+	if len(levelString) > 0 {
+		out.WriteString(levelString)
+		out.WriteString(" ")
+	}
+
+	if len(msg) > 0 {
+		out.WriteString(msg)
+		out.WriteString(" ")
+	}
 
 	// 2 is the minimum length of a []byte when created as a literal
 	// Check this so that we don't display an empty []byte string in the console
@@ -204,35 +210,34 @@ func (h *SlogColourHandler***REMOVED*** Handle(ctx context.Context, record slog.
 	// any additional messages. This handles any weird potential edges cases
 	// Which? Idk but I'd rather not find out lmao
 	// This is fine for now
-	if len(attrsAsBytes***REMOVED*** > 2 {
-		out.WriteString(colorize(DarkGray, string(attrsAsBytes***REMOVED******REMOVED******REMOVED***
-***REMOVED***
+	if len(attrsAsBytes) > 2 {
+		out.WriteString(colorize(DarkGray, string(attrsAsBytes)))
+	}
 
-	_, err = io.WriteString(h.writer, out.String(***REMOVED***+"\n"***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	_, err = io.WriteString(h.writer, out.String()+"\n")
+	return err
+}
 
-***REMOVED***
-***REMOVED***
 
-func NewColourLogger(opts *ImalogHandlerOptions***REMOVED*** *SlogColourHandler {
+func NewColourLogger(opts *ImalogHandlerOptions) *SlogColourHandler {
 	if opts == nil {
-		opts = &ImalogHandlerOptions{***REMOVED***
-***REMOVED***
+		opts = &ImalogHandlerOptions{}
+	}
 
-	buffer := &bytes.Buffer{***REMOVED***
+	buffer := &bytes.Buffer{}
 
 	return &SlogColourHandler{
 		buffer:     buffer,
 		writer:     opts.Writer,
-		mutex:      &sync.Mutex{***REMOVED***,
+		mutex:      &sync.Mutex{},
 		showRecord: opts.ShowSource,
 		handler: slog.NewJSONHandler(buffer, &slog.HandlerOptions{
 			Level:       opts.Level,
 			AddSource:   opts.AddSource,
-			ReplaceAttr: SuppressDefaults(opts.ReplaceAttr***REMOVED***,
-	***REMOVED******REMOVED***,
+			ReplaceAttr: SuppressDefaults(opts.ReplaceAttr),
+		}),
 		outputEmptyAttrs: opts.OutputEmptyAttrs,
-***REMOVED***
-***REMOVED***
+	}
+}
+
+

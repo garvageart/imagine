@@ -1,51 +1,46 @@
 import fs from 'fs';
-import { CLIENT_IS_PRODUCTION, type ServerURLConfig ***REMOVED*** from "./constants";
+import { CLIENT_IS_PRODUCTION, type ServerURLConfig } from "./constants";
 
 /**
  * Reads a URL's hash and returns an object containing the query key/pair values as a properties
- * @param  {string***REMOVED*** url URL query string
+ * @param  {string url} URL query string
  */
-export function getURLParams(url: string***REMOVED***: any {
-    const urlParamString = new URL(url***REMOVED***.searchParams.toString(***REMOVED***;
-    const paramArray: Array<string[]> = [];
-
-    const params = urlParamString.split(/[?&]/***REMOVED***;
-    params.forEach(param => {
-        const property = param.split("="***REMOVED***;
-        paramArray.push(property***REMOVED***;
-    ***REMOVED******REMOVED***;
-    return Object.fromEntries(paramArray***REMOVED***;
-***REMOVED***
+export function getURLParams(url: string): any {
+    // Ew
+    const queryParams = Object.fromEntries(new URL(url).searchParams.entries());
+    return queryParams;
+}
 
 /**
  * Various methods for storing, retrieving and deleting cookies from the browser
  */
 export const cookieMethods = {
-    set: (key: string, value: string, expiresDate?: Date | string***REMOVED*** => {
-        document.cookie = `${key***REMOVED***=${value***REMOVED***; expires=${expiresDate***REMOVED***; Secure; path=/`;
-    ***REMOVED***,
-    get: (key: string***REMOVED***: string => {
+    set: (key: string, value: string, expiresDate?: Date | string) => {
+        document.cookie = `${key}=${value}; expires=${expiresDate}; Secure; path =/`;
+    },
+    get: (key: string): string => {
         const allCookies = document.cookie;
-        const cookieValue = allCookies.split("; "***REMOVED***.find(item => item.startsWith(key***REMOVED******REMOVED***?.split("="***REMOVED***[1]!;
+        const cookieValue = allCookies.split("; ").find(cookie => cookie.startsWith(`${key}`))?.split("=")[1]!;
 
         return cookieValue;
-    ***REMOVED***,
-    delete: (key: string***REMOVED*** => {
-        document.cookie = `${key***REMOVED***=; max-age=0; path=/`;
-    ***REMOVED***
-***REMOVED***;
+    },
+    delete: (key: string) => {
+        document.cookie = `${key}=; max-age=0; path =/`;
+    }
+};
 
-export const sleep = (time: number***REMOVED*** => new Promise(resolve => setTimeout(resolve, time***REMOVED******REMOVED***;
+export const sleep = (time: number) => new Promise(resolve => setTimeout(resolve, time));
 
-export function readConfig(***REMOVED***: any {
-    const fileData = fs.readFileSync('../../../config/imagine.json'***REMOVED***;
-    return JSON.parse(fileData.toString(***REMOVED******REMOVED***;
-***REMOVED***
+export function readConfig(): any {
+    const fileData = fs.readFileSync('../../../config/imagine.json');
+    return JSON.parse(fileData.toString());
+}
 
-export function createServerURL(serverURL: ServerURLConfig***REMOVED*** {
-    if (CLIENT_IS_PRODUCTION***REMOVED*** {
+export function createServerURL(serverURL: ServerURLConfig): string {
+    if (CLIENT_IS_PRODUCTION) {
         return serverURL.url;
-    ***REMOVED*** else {
+    } else {
         return serverURL.prod;
-    ***REMOVED***
-***REMOVED***
+    }
+}
+

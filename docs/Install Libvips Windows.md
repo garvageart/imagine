@@ -2,7 +2,7 @@
 
 ## Windows
 
-+ Install [msys2-x86_64](http://www.msys2.org/***REMOVED***
++ Install [msys2-x86_64](http://www.msys2.org/
 + In msys shell, do:
 ```
 pacman -Syuu
@@ -25,13 +25,13 @@ The default installation path of `msys2` is `C:\msys64` and you must change
 `<msys64>` to your installation path of `msys2`.
 
 ## Windows Alternative
-In case you are having struggles running libvips on Windows through the recommended instructions, [**Golibvips**](https://github.com/twincats/golibvips/***REMOVED*** is alternative libvips wrapper that work with windows by using vips Windows binary
+In case you are having struggles running libvips on Windows through the recommended instructions, [**Golibvips**](https://github.com/twincats/golibvips/ is alternative libvips wrapper that work with windows by using vips Windows binary
 
 ### Installation
 
 #### Step 1 : Download Vips windows binary
 
-Download vips windows binary from here [vips-dev-w64-all-8.13.3.zip](https://github.com/libvips/build-win64-mxe/releases/download/v8.13.3/vips-dev-w64-all-8.13.3.zip***REMOVED***
+Download vips windows binary from here [vips-dev-w64-all-8.13.3.zip](https://github.com/libvips/build-win64-mxe/releases/download/v8.13.3/vips-dev-w64-all-8.13.3.zip
 
 #### Step 2 : Setting Environtment Variable
 

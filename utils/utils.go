@@ -1,16 +1,17 @@
 package utils
 
-***REMOVED***
+import (
 	"encoding/json"
-***REMOVED***
+	"os"
+
 	"log"
 	"maps"
-***REMOVED***
+
 	"slices"
 	"strings"
 
 	"go.uber.org/zap"
-***REMOVED***
+)
 
 // A struct to hold default date values useful for formatting Golang dates
 type DateFormatValues struct {
@@ -21,7 +22,7 @@ type DateFormatValues struct {
 	Hour        string
 	Minute      string
 	Second      string
-***REMOVED***
+}
 
 var DefaultDateTimeValues = &DateFormatValues{
 	Year:        "2006",
@@ -31,69 +32,61 @@ var DefaultDateTimeValues = &DateFormatValues{
 	Hour:        "15",
 	Minute:      "04",
 	Second:      "05",
-***REMOVED***
+}
 
 const (
 	DefaultDateTimeFormat = "02012006_150405"
-***REMOVED***
+)
 
-func GetAppVersion(***REMOVED*** string {
-	data, err := os.ReadFile("version.txt"***REMOVED***
-
-***REMOVED***
-		fmt.Println("Error reading version file", err***REMOVED***
-		return ""
-***REMOVED***
-
-	return strings.Split(string(data***REMOVED***, "\n"***REMOVED***[0]
-***REMOVED***
+func GetAppVersion() string {
+	data, _ := os.ReadFile("version.txt")
+	return strings.Split(string(data), "\n")[0]
+}
 
 // Utility function to log and panic if an error occurs
-func FailOnError(err error, msg string***REMOVED*** {
-***REMOVED***
-		log.Panicf("%s: %s", msg, err***REMOVED***
-***REMOVED***
-***REMOVED***
+func FailOnError(err error, msg string) {
 
-func FileExists(path string***REMOVED*** bool {
-	info, err := os.Stat(path***REMOVED***
+	log.Panicf("%s: %s", msg, err)
+}
 
-	if os.IsNotExist(err***REMOVED*** {
+func FileExists(path string) bool {
+	info, err := os.Stat(path)
+
+	if os.IsNotExist(err) {
 		return false
-***REMOVED***
+	}
 
-	return !info.IsDir(***REMOVED***
-***REMOVED***
+	return !info.IsDir()
+}
 
 // Converts a map to a slice of zap.Fields
-func MapToZapFields(inputMap map[string]any***REMOVED*** []zap.Field {
-	fields := make([]zap.Field, 0, len(inputMap***REMOVED******REMOVED***
+func MapToZapFields(inputMap map[string]any) []zap.Field {
+	fields := make([]zap.Field, 0, len(inputMap))
 
 	for key, val := range inputMap {
-		fields = append(fields, zap.Any(key, val***REMOVED******REMOVED***
-***REMOVED***
+		fields = append(fields, zap.Any(key, val))
+	}
 
 	return fields
-***REMOVED***
+}
 
-func MapToSlice(inputMap map[string]any***REMOVED*** []any {
-	return slices.Collect(maps.Values(inputMap***REMOVED******REMOVED***
-***REMOVED***
+func MapToSlice(inputMap map[string]any) []any {
+	return slices.Collect(maps.Values(inputMap))
+}
 
-func IsEnvironment(env string***REMOVED*** bool {
-	return os.Getenv("env"***REMOVED*** == env ||
-		os.Getenv("ENV"***REMOVED*** == env ||
-		os.Getenv("environment"***REMOVED*** == env
-***REMOVED***
+func IsEnvironment(env string) bool {
+	return os.Getenv("env") == env ||
+		os.Getenv("ENV") == env ||
+		os.Getenv("environment") == env
+}
 
-func JsonToMap(jsonString string***REMOVED*** (map[string]any, error***REMOVED*** {
-	result := make(map[string]any***REMOVED***
+func JsonToMap(jsonString string) (map[string]any, error) {
+	result := make(map[string]any)
 
-	err := json.Unmarshal([]byte(jsonString***REMOVED***, &result***REMOVED***
+	err := json.Unmarshal([]byte(jsonString), &result)
+	if err != nil {
+		return nil, err
+	}
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
+	return result, err
+}

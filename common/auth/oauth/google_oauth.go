@@ -1,41 +1,41 @@
 package auth
 
-***REMOVED***
-***REMOVED***
+import (
+	"context"
 	"log/slog"
 	"net/http"
-***REMOVED***
+	"os"
 
-***REMOVED***
+	_ "github.com/joho/godotenv/autoload"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	googleapi "google.golang.org/api/oauth2/v2"
 	"google.golang.org/api/option"
 
 	libhttp "imagine/common/http"
-***REMOVED***
+)
 
 type OAuthServerSetup struct {
 	*libhttp.ImagineServer
-***REMOVED***
+}
 
 var (
 	GoogleOAuthConfig = &oauth2.Config{
-		ClientID:     os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"***REMOVED***,
-		ClientSecret: os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"***REMOVED***,
+		ClientID:     os.Getenv("GOOGLE_OAUTH2_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET"),
 		RedirectURL:  "http://localhost:7777/signin/oauth?provider=google",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
-***REMOVED***
+		},
 		Endpoint: google.Endpoint,
-***REMOVED***
+	}
 
 	GoogleOAuth = ImagineOAuth{
 		config: GoogleOAuthConfig,
-***REMOVED***
-***REMOVED***
-
+	}
+)
 
 type GoogleUserData struct {
 	Id            string `json:"id"`
@@ -45,23 +45,26 @@ type GoogleUserData struct {
 	Name          string `json:"name"`
 	Picture       string `json:"picture"`
 	Hd            string `json:"hd"`
-***REMOVED***
+}
 
-func (oauth ImagineOAuth***REMOVED*** GoogleOAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger***REMOVED*** (*googleapi.Userinfo, error***REMOVED*** {
-	ctx := context.Background(***REMOVED***
-	token := GoogleOAuth.OAuthHandler(res, req, logger***REMOVED***
-	oauth2Service, err := googleapi.NewService(ctx, option.WithTokenSource(GoogleOAuthConfig.TokenSource(ctx, token***REMOVED******REMOVED******REMOVED***
+func GoogleOAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger) (*googleapi.Userinfo, error) {
+	ctx := context.Background()
+	token, err := GoogleOAuth.OAuthHandler(res, req, logger)
 
-	if (err != nil***REMOVED*** {
-	***REMOVED***, err
-***REMOVED***
+	if err != nil {
+		return nil, err
+	}
 
-	userInfo, err := oauth2Service.Userinfo.Get(***REMOVED***.Do(***REMOVED***
+	oauth2Service, err := googleapi.NewService(ctx, option.WithTokenSource(GoogleOAuthConfig.TokenSource(ctx, token)))
 
+	if err != nil {
+		return nil, err
+	}
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
+	userInfo, err := oauth2Service.Userinfo.Get().Do()
+	if err != nil {
+		return nil, err
+	}
 
 	return userInfo, nil
-***REMOVED***
+}

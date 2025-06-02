@@ -1,15 +1,19 @@
 package main
 
-***REMOVED***
-	"imagine/log"
-***REMOVED***
+import (
+	"imagine/db"
+	// "imagine/log"
+)
 
-func main(***REMOVED*** {
-	handlers := log.SetupLogHandlers(***REMOVED***
-	logger := log.CreateLogger(handlers***REMOVED***
+func main() {
+	// handlers := log.SetupLogHandlers()
+	// logger := log.CreateLogger(handlers)
 
-	logger.Info("This is an info message"***REMOVED***
-	logger.Error("This is an error message"***REMOVED***
-	logger.Debug("This is a debug message"***REMOVED***
-	logger.Warn("This is a warning message"***REMOVED***
-***REMOVED***
+	// logger.Info("This is an info message")
+	// logger.Error("This is an error message")
+	// logger.Debug("This is a debug message")
+	// logger.Warn("This is a warning message")
+
+	// fmt.Println(os.)
+	db.Initis()
+}

@@ -1,11 +1,11 @@
-***REMOVED***
+package db
 
-***REMOVED***
-***REMOVED***
+import (
+	"context"
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+)
 
 type DB struct {
 	Address      string
@@ -18,36 +18,20 @@ type DB struct {
 	AppName      string
 	Collection   string
 	Context      context.Context
-	DBClient
-***REMOVED***
+}
 
-// Will likely be removed soon
-type DBClientCollectionString interface {
-	Connect(***REMOVED*** *mongo.Client
-	Disconnect(*mongo.Client***REMOVED***
-	Insert(collection string***REMOVED***
-	InsertMany(collection string***REMOVED***
-	Update(collection string***REMOVED***
-	UpdateMany(collection string***REMOVED***
-	ReplaceOne(collection string***REMOVED***
-	Exists(collection string, filter bson.D***REMOVED*** bool
-	Delete(collection string***REMOVED***
-	DeleteMany(collection string***REMOVED***
-	Find(collection string, filter bson.D, result any***REMOVED***
-	FindOne(collection string, filter bson.D, result any***REMOVED***
-***REMOVED***
-
+// DBClient defines the interface for database operations.
 type DBClient interface {
-	Connect(***REMOVED*** (*mongo.Client, error***REMOVED***
-	Disconnect(*mongo.Client***REMOVED*** error
-	Insert(document bson.D***REMOVED*** (*mongo.InsertOneResult, error***REMOVED***
-	InsertMany(documents []bson.D***REMOVED*** (*mongo.InsertManyResult, error***REMOVED***
-	Update(filter bson.D, document bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED***
-	UpdateMany(filter bson.D, documents []bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED***
-	ReplaceOne(filter bson.D, replacement bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED***
-	Exists(filter bson.D***REMOVED*** (bool, error***REMOVED***
-	Delete(document bson.D***REMOVED*** (*mongo.DeleteResult, error***REMOVED***
-	DeleteMany(documents []bson.D***REMOVED*** (*mongo.DeleteResult, error***REMOVED***
-	Find(filter bson.D, result any***REMOVED*** (*mongo.Cursor, error***REMOVED***
-	FindOne(filter bson.D, result any***REMOVED***
-***REMOVED***
+	Connect() (*mongo.Client, error)
+	Disconnect(*mongo.Client) (error)
+	Insert(document bson.D) (*mongo.InsertOneResult, error)
+	InsertMany(documents []bson.D) (*mongo.InsertManyResult, error)
+	Update(filter bson.D, document bson.D) (*mongo.UpdateResult, error)
+	UpdateMany(filter bson.D, documents []bson.D) (*mongo.UpdateResult, error)
+	ReplaceOne(filter bson.D, replacement bson.D) (*mongo.UpdateResult, error)
+	Exists(filter bson.D) (bool, error)
+	Delete(document bson.D) (*mongo.DeleteResult, error)
+	DeleteMany(documents []bson.D) (*mongo.DeleteResult, error)
+	Find(filter bson.D, result any) (*mongo.Cursor, error)
+	FindOne(filter bson.D, result any) (error)
+}

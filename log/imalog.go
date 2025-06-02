@@ -1,53 +1,63 @@
 package log
 
-***REMOVED***
-***REMOVED***
+import (
+	"fmt"
 	"log/slog"
-***REMOVED***
+	"os"
 
 	slogmulti "github.com/samber/slog-multi"
+	"imagine/utils" 
+)
 
-***REMOVED***
-***REMOVED***
-
-func SetupLogHandlers(***REMOVED*** []slog.Handler {
-	shouldAddSource := os.Getenv("LOG_SHOW_RECORD"***REMOVED*** == "true" || true
+func SetupLogHandlers() []slog.Handler {
+	logShowRecordEnv := os.Getenv("LOG_SHOW_RECORD")
+	shouldAddSource := logShowRecordEnv == "true" || logShowRecordEnv == ""
 	isProduction := utils.IsProduction
 
 	logFileJSON := FileLog{
 		Directory: LogDirectoryDefault,
-		Filename:  fmt.Sprint(LogFileFormatDefault, ".json"***REMOVED***,
-***REMOVED***
+		Filename:  fmt.Sprintf("%s.json", LogFileFormatDefault),
+	}
 
 	consoleHandlerOpts := slog.HandlerOptions{
 		AddSource: shouldAddSource,
 		Level:     slog.LevelDebug,
-***REMOVED***
+	}
 
 	fileHandlerOpts := slog.HandlerOptions{
 		AddSource: true,
 		Level:     slog.LevelDebug,
-***REMOVED***
+	}
 
 	var consoleLogger slog.Handler
-
 	if isProduction {
 		// Production logger with no colour
-		consoleLogger = slog.NewTextHandler(os.Stderr, &fileHandlerOpts***REMOVED***
-***REMOVED*** else {
+		consoleLogger = slog.NewTextHandler(os.Stderr, &fileHandlerOpts)
+	} else {
 		// Setups up colour logger
 		consoleLogger = NewColourLogger(&ImalogHandlerOptions{
 			HandlerOptions: &consoleHandlerOpts,
-	***REMOVED******REMOVED***
-***REMOVED***
+			Writer:         os.Stderr, // Explicitly set writer for colour logger
+		})
+	}
+
+	// Open the log file for the JSON handler
+	logFileWriter, err := logFileJSON.Open(LogFileDate) // Use LogFileDate or an appropriate date string
+	if err != nil {
+		// Fallback or panic if file cannot be opened
+		slog.Error("Failed to open log file for JSON handler", "path", logFileJSON.FilePath(), "error", err)
+		// Potentially return only consoleLogger or panic, depending on desired behavior
+		return []slog.Handler{consoleLogger}
+	}
+	// Note: logFileWriter needs to be closed on application shutdown.
 
 	return []slog.Handler{
-		slog.NewJSONHandler(logFileJSON, &consoleHandlerOpts***REMOVED***,
-		consoleLogger***REMOVED***
-***REMOVED***
+		slog.NewJSONHandler(logFileWriter, &fileHandlerOpts), // Use fileHandlerOpts for file logger
+		consoleLogger,
+	}
+}
 
-func CreateLogger(handlers []slog.Handler***REMOVED*** *slog.Logger {
-	logger := slog.New(slogmulti.Fanout(handlers...***REMOVED******REMOVED***
-
+func CreateLogger(handlers []slog.Handler) *slog.Logger {
+	logger := slog.New(slogmulti.Fanout(handlers...))
 	return logger
-***REMOVED***
+}

@@ -1,34 +1,35 @@
 package auth
 
-***REMOVED***
-***REMOVED***
+import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
-***REMOVED***
+	"os"
 
 	githubapi "github.com/google/go-github/github"
+	_ "github.com/joho/godotenv/autoload"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
-***REMOVED***
+)
 
 var (
 	GithubOAuthConfig = &oauth2.Config{
-		ClientID:     os.Getenv("GITHUB_OAUTH2_CLIENT_ID"***REMOVED***,
-		ClientSecret: os.Getenv("GITHUB_OAUTH2_CLIENT_SECRET"***REMOVED***,
+		ClientID:     os.Getenv("GITHUB_OAUTH2_CLIENT_ID"),
+		ClientSecret: os.Getenv("GITHUB_OAUTH2_CLIENT_SECRET"),
 		RedirectURL:  "http://localhost:7777/signin/oauth?provider=GitHub",
 		Scopes: []string{
 			"read:user",
 			"user:email",
-***REMOVED***
+		},
 		Endpoint: github.Endpoint,
-***REMOVED***
+	}
 
 	GithubOAuth = ImagineOAuth{
 		config: GithubOAuthConfig,
-***REMOVED***
-***REMOVED***
+	}
+)
 
 type GitHubUserData struct {
 	Login                   string `json:"login"`
@@ -74,27 +75,30 @@ type GitHubUserData struct {
 		Space         int    `json:"space"`
 		PrivateRepos  int    `json:"private_repos"`
 		Collaborators int    `json:"collaborators"`
-***REMOVED*** `json:"plan"`
-***REMOVED***
+	} `json:"plan"`
+}
 
-func GithubClient(token *oauth2.Token***REMOVED*** *githubapi.Client {
-	ctx := context.Background(***REMOVED***
-	ts := oauth2.StaticTokenSource(token***REMOVED***
-	tc := oauth2.NewClient(ctx, ts***REMOVED***
-	client := githubapi.NewClient(tc***REMOVED***
+func GithubClient(token *oauth2.Token) *githubapi.Client {
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(token)
+	tc := oauth2.NewClient(ctx, ts)
+	client := githubapi.NewClient(tc)
 
 	return client
-***REMOVED***
+}
 
-func (oauth ImagineOAuth***REMOVED*** GithubOAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger***REMOVED*** (*githubapi.User, error***REMOVED*** {
-	token := GithubOAuth.OAuthHandler(res, req, logger***REMOVED***
-	user, _, err := GithubClient(token***REMOVED***.Users.Get(context.Background(***REMOVED***, ""***REMOVED***
+func GithubOAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger) (*githubapi.User, error) {
+	token, err := GithubOAuth.OAuthHandler(res, req, logger)
+	if err != nil {
+		return nil, err
+	}
+	user, _, err := GithubClient(token).Users.Get(context.Background(), "")
 
-***REMOVED***
+	if err != nil {
 		errMsg := "error getting user data from GitHub"
-		logger.Error(errMsg***REMOVED***
-	***REMOVED***, errors.New(errMsg***REMOVED***
-***REMOVED***
+		logger.Error(errMsg)
+		return nil, errors.New(errMsg)
+	}
 
 	return user, nil
-***REMOVED***
+}

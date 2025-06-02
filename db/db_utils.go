@@ -1,13 +1,17 @@
-***REMOVED***
+package db
 
 import "go.mongodb.org/mongo-driver/v2/bson"
 
-func ToBSONDocument(v interface{***REMOVED******REMOVED*** (doc *bson.D, err error***REMOVED*** {
-	data, err := bson.Marshal(v***REMOVED***
-***REMOVED***
-		return
-***REMOVED***
+func ToBSONDocument(v any) (doc bson.D, err error) {
+	data, err := bson.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
 
-	err = bson.Unmarshal(data, &doc***REMOVED***
+	err = bson.Unmarshal(data, &doc)
+	if err != nil {
+		return nil, err
+	}
+
 	return
-***REMOVED***
+}

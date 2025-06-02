@@ -1,14 +1,14 @@
-{
-    // "json.schemas": [
-    //     {
-    //         "name": "imagine.json",
-    //         "description": "Config file for Imagine",
-    //         "fileMatch": [
-    //             "imagine.config.json",
-    //             "imagine.json",
-    //             ".imagine.json"
-    //         ],
-    //         "url": "https://json.schemastore.org/bower.json"
-    //     ***REMOVED***
-    // ]
-***REMOVED***
+// {
+//     "json.schemas": [
+//         {
+//             "name": "imagine.json",
+//             "description": "Config file for Imagine",
+//             "fileMatch": [
+//                 "imagine.config.json",
+//                 "imagine.json",
+//                 ".imagine.json"
+//             ],
+//             "url": "https://json.schemastore.org/bower.json"
+//         }
+//     ]
+// }

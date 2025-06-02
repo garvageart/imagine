@@ -1,45 +1,45 @@
 package log
 
-***REMOVED***
+import (
 	"io"
 	"log/slog"
-***REMOVED***
+	"os"
+
 	"regexp"
 	"runtime"
 
-***REMOVED***
-
 	"github.com/dromara/carbon/v2"
-***REMOVED***
+
+	"imagine/utils"
+)
 
 const (
 	ConsoleDateTimeDefaultFormatCarbon = "d-m-Y H:i:s"
-***REMOVED***
+)
 
 const (
 	ServerLoggerGroupKey = "http-chi-server"
 	// NOTE: Only here for reference, not currently used in any logic
-	LogFileNameFormat = "{AppName***REMOVED***-{AppVersion***REMOVED***-{DateTime***REMOVED***-{Context***REMOVED***[?].log"
-***REMOVED***
+	LogFileNameFormat = "{AppName}-{AppVersion}-{DateTime}-{Context}[?].log"
+)
 
 var (
-	LogFileDate    = carbon.Now(***REMOVED***.Format(FileDateTimeDefaultFormatCarbon***REMOVED***
-	DateTimeStdOut = carbon.Now(***REMOVED***.Format(ConsoleDateTimeDefaultFormatCarbon***REMOVED***
-***REMOVED***
+	LogFileDate    = carbon.Now().Format(FileDateTimeDefaultFormatCarbon)
+	DateTimeStdOut = carbon.Now().Format(ConsoleDateTimeDefaultFormatCarbon)
+)
 
 var (
 	LoggerProgramInfoGroup = slog.Group(ServerLoggerGroupKey,
-		slog.String("go_version", runtime.Version(***REMOVED******REMOVED***,
-		slog.String("environment", utils.Environment***REMOVED***,
-		slog.String("os", runtime.GOOS***REMOVED***,
-		slog.Int("pid", os.Getpid(***REMOVED******REMOVED***,
-	***REMOVED***
-***REMOVED***
+		slog.String("go_version", runtime.Version()),
+		slog.String("environment", utils.Environment),
+		slog.String("os", runtime.GOOS),
+		slog.Int("pid", os.Getpid()))
+)
 
 type LogFormat struct {
 	Json any
 	Text any
-***REMOVED***
+}
 
 type ImalogHandlerOptions struct {
 	// Not yet implemented
@@ -48,9 +48,9 @@ type ImalogHandlerOptions struct {
 	Writer           io.Writer
 	OutputEmptyAttrs bool
 	*slog.HandlerOptions
-***REMOVED***
+}
 
-func StripAnsi(str string***REMOVED*** string {
-	regex := regexp.MustCompile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]***REMOVED***`***REMOVED***
-	return regex.ReplaceAllString(str, ""***REMOVED***
-***REMOVED***
+func StripAnsi(str string) string {
+	regex := regexp.MustCompile(`/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g`)
+	return regex.ReplaceAllString(str, "")
+}

@@ -2,24 +2,18 @@
 	"servers": {
 		"media-server": {
 			"port": 7770
-***REMOVED***
+		},
 		"auth-server": {
 			"port": 7771
-***REMOVED***
+		},
 		"viz": {
 			"port": 7777
-	***REMOVED***
-***REMOVED***,
-	"logging": {
-		"level": "debug"
-***REMOVED***,
-	"gcloud": {
-		"storageBuckets": [
-			"image-thumbs",
-			"image-origin",
-			"image-optimized",
-			"image-raw",
-			"image-publishing"
-		]
-***REMOVED***
-***REMOVED***
+		},
+		"logging": {
+			"level": "debug"
+		},
+		"gcloud": {
+			"storageBuckets": ["image-thumbs", "image-origin", "image-optimized", "image-raw", "image-publishing"]
+		}
+	}
+}

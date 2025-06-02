@@ -7,7 +7,7 @@
 			"$lib/*": [
 				"../src/lib/*"
 			]
-***REMOVED***
+		},
 		"rootDirs": [
 			"..",
 			"./types"
@@ -23,7 +23,7 @@
 		"module": "esnext",
 		"noEmit": true,
 		"target": "esnext"
-***REMOVED***,
+	},
 	"include": [
 		"ambient.d.ts",
 		"non-ambient.d.ts",
@@ -46,4 +46,4 @@
 		"../src/service-worker.d.ts",
 		"../src/service-worker/**/*.d.ts"
 	]
-***REMOVED***
+}

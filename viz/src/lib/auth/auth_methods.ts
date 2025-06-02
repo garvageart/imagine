@@ -1,11 +1,11 @@
-import { goto ***REMOVED*** from "$app/navigation";
-import { AUTH_SERVER ***REMOVED*** from "$lib/constants";
-import { cookieMethods, createServerURL, getURLParams, sleep ***REMOVED*** from "$lib/utils";
+import { goto } from "$app/navigation";
+import { AUTH_SERVER } from "$lib/constants";
+import { cookieMethods, createServerURL, getURLParams, sleep } from "$lib/utils";
 
 interface AuthorizationCodeFlowResponse {
     code: string;
     state: string;
-***REMOVED***
+}
 
 interface AuthorizationCodeGrantResponse {
     access_token: string;
@@ -13,7 +13,7 @@ interface AuthorizationCodeGrantResponse {
     refresh_token: string;
     scope: string;
     token_type: string;
-***REMOVED***
+}
 
 interface OAuthResponseUserData {
     id: string;
@@ -22,47 +22,48 @@ interface OAuthResponseUserData {
     name: string;
     picture: string;
     hd: string;
-***REMOVED***
+}
 
-export const authServerURL = createServerURL(AUTH_SERVER***REMOVED***;
+export const authServerURL = createServerURL(AUTH_SERVER);
 
-export async function sendOAuthParams(provider: string | null***REMOVED***: Promise<boolean> {
-    const queryParams = getURLParams(location.href***REMOVED*** as AuthorizationCodeFlowResponse;
+export async function sendOAuthParams(provider: string | null): Promise<boolean> {
+    const queryParams = Object.fromEntries(new URLSearchParams(location.search).entries())
 
-    if (!queryParams.code***REMOVED*** {
+    if (!queryParams.code) {
         return false;
-    ***REMOVED***
+    }
 
-    if (!provider***REMOVED*** {
-        await sleep(3000***REMOVED***;
-        goto("/"***REMOVED***;
+
+    if (!provider) {
+        await sleep(3000);
+        goto("/");
 
         return false;
-    ***REMOVED***
+    }
 
-    const fetchURL = new URL(`${authServerURL***REMOVED***/oauth/${provider***REMOVED***`***REMOVED***;
-    Object.entries(queryParams***REMOVED***.forEach(([key, value]***REMOVED*** => {
-        fetchURL.searchParams.set(key, value***REMOVED***;
-    ***REMOVED******REMOVED***;
+    const fetchURL = new URL(`${authServerURL}/oauth/${provider}`);
+    for (const [key, value] of Object.entries(queryParams)) {
+        fetchURL.searchParams.set(key, value);
+    }
 
     const authData: OAuthResponseUserData = await fetch(fetchURL, {
         method: "POST",
         mode: "cors",
         credentials: "include"
-    ***REMOVED******REMOVED***.then(async (res***REMOVED*** => {
-        return await res.json(***REMOVED***;
-    ***REMOVED******REMOVED***.catch((err***REMOVED*** => {
-        console.error(err***REMOVED***;
+    }).then(async (res) => {
+        return await res.json();
+    }).catch((err) => {
+        console.error(err);
         return null;
-    ***REMOVED******REMOVED***;
+    });
 
 
-    if (authData.email***REMOVED*** {
-        goto("/signup"***REMOVED***;
-    ***REMOVED*** else {
-        cookieMethods.delete("img-state"***REMOVED***;
+    if (authData.email) {
+        goto("/signup");
+    } else {
+        cookieMethods.delete("img-state");
         return false;
-    ***REMOVED***
+    }
 
     return true;
-***REMOVED***
+}

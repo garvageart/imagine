@@ -1,35 +1,31 @@
 package config
 
-***REMOVED***
-***REMOVED***
-
-***REMOVED***
-
+import (
+	"fmt"
 	"github.com/spf13/viper"
-
 	libos "imagine/common/os"
-***REMOVED***
+	"imagine/utils"
+)
 
 type Config[T any] interface {
-	ReadConfig(***REMOVED*** (map[string]T, error***REMOVED***
-***REMOVED***
+	ReadConfig() (map[string]T, error)
+}
 
-func ReadConfig(***REMOVED*** (viper.Viper, error***REMOVED*** {
+func ReadConfig() (viper.Viper, error) {
 	configPath := libos.CurrentWorkingDirectory + "/config"
 
-	viper.SetConfigName(utils.AppName***REMOVED***
-	viper.SetConfigType("json"***REMOVED***
-	viper.AddConfigPath(configPath***REMOVED***
+	v := viper.New() // Create a new viper instance to avoid global state issues
+	v.SetConfigName(utils.AppName)
+	v.SetConfigType("json")
+	v.AddConfigPath(configPath)
 
-	err := viper.ReadInConfig(***REMOVED***
-
-***REMOVED***
-		if _, ok := err.(viper.ConfigFileNotFoundError***REMOVED***; ok {
-			return viper.Viper{***REMOVED***, fmt.Errorf("can't find config file: %w", err***REMOVED***
-	***REMOVED*** else {
-			return viper.Viper{***REMOVED***, fmt.Errorf("error reading config file: %w", err***REMOVED***
-	***REMOVED***
-***REMOVED***
-
-	return *viper.GetViper(***REMOVED***, nil
-***REMOVED***
+	err := v.ReadInConfig()
+	if err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			return viper.Viper{}, fmt.Errorf("can't find config file: %w", err)
+		} else {
+			return viper.Viper{}, fmt.Errorf("error reading config file: %w", err)
+		}
+	}
+	return *v, nil
+}

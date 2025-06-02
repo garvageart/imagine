@@ -18,4 +18,4 @@ type ImagineUser struct {
 	OAuthProvider string `json:"oauth_provider"`
 	OAuthState string `json:"oauth_state"`
 	UserToken string `json:"user_token"`
-***REMOVED***
+}

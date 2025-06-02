@@ -1,104 +1,106 @@
 package gcp
 
-***REMOVED***
-***REMOVED***
+import (
+	"context"
 	"encoding/json"
-***REMOVED***
-***REMOVED***
-	"path"
+	"fmt"
+	"os"
 
-***REMOVED***
+	"path"
 
 	"cloud.google.com/go/storage"
 	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"google.golang.org/api/option"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	liberrors "imagine/common/errors"
 	libos "imagine/common/os"
-***REMOVED***
+	"imagine/utils"
+)
 
 var (
-	CredentialsPath  = constructCredentialsPath(***REMOVED***
-	CredentialsBytes = func(***REMOVED*** []byte {
-		credsBytes, err := ReadCredentials(CredentialsPath***REMOVED***
-	***REMOVED***
-			panic(fmt.Sprint("Error reading credentials file", err***REMOVED******REMOVED***
-	***REMOVED***
+	CredentialsPath  = constructCredentialsPath()
+	CredentialsBytes = func() []byte {
+		credsBytes, err := ReadCredentials(CredentialsPath)
+		if err != nil {
+			panic(fmt.Sprint("Error reading credentials file", err))
+		}
 
 		return credsBytes
-***REMOVED***(***REMOVED***
-***REMOVED***
+	}()
+)
 
-func constructCredentialsPath(***REMOVED*** string {
-	wd, err := os.Getwd(***REMOVED***
+func constructCredentialsPath() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprint("Error getting working directory", err))
+	}
 
-***REMOVED***
-		panic(fmt.Sprint("Error getting working directory", err***REMOVED******REMOVED***
-***REMOVED***
-
-	pathConcat := path.Join(wd, os.Getenv("AUTH_PATH"***REMOVED***, os.Getenv("GCP_AUTH_FILE"***REMOVED******REMOVED***
-	finalPath := libos.StandardisePaths(pathConcat***REMOVED***
+	pathConcat := path.Join(wd, os.Getenv("AUTH_PATH"), os.Getenv("GCP_AUTH_FILE"))
+	finalPath := libos.StandardisePaths(pathConcat)
 
 	return finalPath
-***REMOVED***
+}
 
-func ReadCredentials(path string***REMOVED*** ([]byte, error***REMOVED*** {
-	credentials, err := os.ReadFile(path***REMOVED***
+func ReadCredentials(path string) ([]byte, error) {
+	credentials, err := os.ReadFile(path)
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
+	if err != nil {
+		return make([]byte, 0), err
+	}
 
 	return credentials, nil
-***REMOVED***
+}
 
-func CredentialsJSON(***REMOVED*** (CredentialsFileJSON, error***REMOVED*** {
+func CredentialsJSON() (CredentialsFileJSON, error) {
 	var credentialsJSON CredentialsFileJSON
-	credsJsonMarBytes, err := json.RawMessage.MarshalJSON(CredentialsBytes***REMOVED***
+	credsJsonMarBytes, err := json.RawMessage.MarshalJSON(CredentialsBytes)
 
-***REMOVED***
-		return CredentialsFileJSON{***REMOVED***, liberrors.NewErrorf("Failed to marshal raw JSON message: %w", err***REMOVED***
-***REMOVED***
+	if err != nil {
+		return CredentialsFileJSON{}, liberrors.NewErrorf("Failed to marshal raw JSON message: %w", err)
+	}
 
-	err = json.Unmarshal(credsJsonMarBytes, &credentialsJSON***REMOVED***
-
-***REMOVED***
-		return CredentialsFileJSON{***REMOVED***, liberrors.NewErrorf("Failed to unmarshal raw JSON message: %w", err***REMOVED***
-***REMOVED***
+	err = json.Unmarshal(credsJsonMarBytes, &credentialsJSON)
+	if err != nil {
+		return CredentialsFileJSON{}, liberrors.NewErrorf("Failed to unmarshal raw JSON message: %w", err)
+	}
 
 	return credentialsJSON, nil
-***REMOVED***
+}
 
-func setupGCSEmuClient(ctx context.Context, addr string***REMOVED*** (*storage.Client, error***REMOVED*** {
-	_ = os.Setenv("GCS_EMULATOR_HOST", addr***REMOVED***
+func setupGCSEmuClient(ctx context.Context, addr string) (*storage.Client, error) {
+	_ = os.Setenv("GCS_EMULATOR_HOST", addr)
 
-	client, err := gcsemu.NewClient(ctx***REMOVED***
-***REMOVED***
-	***REMOVED***, fmt.Errorf("failed to setup GCS emulator client: %w", err***REMOVED***
-***REMOVED***
-	defer client.Close(***REMOVED***
+	client, err := gcsemu.NewClient(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup GCS emulator client: %w", err)
+	}
+	defer client.Close()
 
 	return client, nil
-***REMOVED***
-func setupGCSClient(ctx context.Context***REMOVED*** (*storage.Client, error***REMOVED*** {
-	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(CredentialsBytes***REMOVED******REMOVED***
+}
 
-***REMOVED***
-	***REMOVED***, fmt.Errorf("failed to create storage client: %w", err***REMOVED***
-***REMOVED***
+func setupGCSClient(ctx context.Context) (*storage.Client, error) {
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(CredentialsBytes))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage client: %w", err)
+	}
 
 	return storageClient, nil
-***REMOVED***
+}
 
-func SetupClient(ctx context.Context***REMOVED*** (*storage.Client, error***REMOVED*** {
+func SetupClient(ctx context.Context) (*storage.Client, error) {
 	var client *storage.Client
 	var err error
 
-***REMOVED***
-		client, err = setupGCSEmuClient(ctx, "127.0.0.1:9000"***REMOVED***
-***REMOVED*** else {
-		client, err = setupGCSClient(ctx***REMOVED***
-***REMOVED***
+	if !utils.IsProduction {
+		client, err = setupGCSEmuClient(ctx, "127.0.0.1:9000")
+	} else {
+		client, err = setupGCSClient(ctx)
+	}
 
-***REMOVED***
-***REMOVED***
+	return client, err
+}

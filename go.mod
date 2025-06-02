@@ -22,21 +22,23 @@ require (
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-***REMOVED***
+)
 
 require (
 	cloud.google.com/go/storage v1.54.0
 	github.com/dromara/carbon/v2 v2.6.6
 	github.com/fullstorydev/emulators/storage v1.0.0
 	github.com/go-errors/errors v1.5.1
-	github.com/google/uuid v1.6.0
-	github.com/joho/godotenv v1.5.1
 	github.com/samber/slog-multi v1.4.0
 	github.com/spf13/viper v1.20.1
 	google.golang.org/api v0.232.0
-***REMOVED***
+)
 
-require github.com/google/go-querystring v1.1.0 // indirect
+require (
+	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/joho/godotenv v1.5.1
+)
 
 require (
 	cel.dev/expr v0.20.0 // indirect
@@ -98,4 +100,4 @@ require (
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-***REMOVED***
+)

@@ -1,90 +1,92 @@
 package log
 
-***REMOVED***
-***REMOVED***
+import (
+	"fmt"
+	"imagine/utils"
 	"log/slog"
-***REMOVED***
+	"os"
+
 	"path"
 	"path/filepath"
 	"strings"
-
-***REMOVED***
-***REMOVED***
+)
 
 const (
 	LogFileExt = "log"
-***REMOVED***
+)
 
 var (
 	FileDateTimeDefaultFormatCarbon = "dmY_His"
-***REMOVED***
+)
 
 var (
 	LogFileFormatDefault = fmt.Sprint(
 		utils.AppName,
-		"-", strings.ReplaceAll(utils.GetAppVersion(***REMOVED***, ".", "_"***REMOVED***,
-		"-", LogFileDate***REMOVED***
+		"-", strings.ReplaceAll(utils.GetAppVersion(),".", "_"),
+		"-", LogFileDate,
+	)
+	
 
-	LogDirectoryDefault = func(***REMOVED*** string {
-		cwd, err := os.Getwd(***REMOVED***
+	LogDirectoryDefault = func() string {
+		cwd, err := os.Getwd()
 
-	***REMOVED***
-			panic(err***REMOVED***
-	***REMOVED***
+		if err != nil {
+			panic(err)
+		}
 
-		return cwd + "/var/logs"
-***REMOVED***(***REMOVED***
+		return filepath.Join(cwd, "var", "logs")
+	}()
 
 	LogFileDefaults = FileLog{
 		Directory: LogDirectoryDefault,
 		Filename:  LogFileFormatDefault,
-***REMOVED***
-***REMOVED***
+	}
+)
+
 
 type FileLog struct {
 	Directory string
 	Filename  string
-***REMOVED***
+}
 
-func (fl FileLog***REMOVED*** Open(date string***REMOVED*** (file *os.File, err error***REMOVED*** {
-	path := fl.FilePath(***REMOVED***
+func (fl FileLog) Open(date string) (file *os.File, err error) {
+	path := fl.FilePath()
 
-	err = os.MkdirAll(filepath.Dir(path***REMOVED***, os.ModePerm***REMOVED***
-
-***REMOVED***
-		fmt.Println("Error creating directory:", err***REMOVED***
+	err = os.MkdirAll(filepath.Dir(path), os.ModePerm)
+	if err != nil {
 		return file, err
-***REMOVED***
+	}
 
-	// Using all these flags allows us to append to the file not overwrite the data lmao (important!***REMOVED***
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644***REMOVED***
-***REMOVED***
+	// Using all these flags allows us to append to the file not overwrite the data lmao (important!
+	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+}
 
-func (fl FileLog***REMOVED*** Write(data []byte***REMOVED*** (n int, err error***REMOVED*** {
-	path := fl.FilePath(***REMOVED***
+func (fl FileLog) Write(data []byte) (n int, err error) {
+	path := fl.FilePath()
 
-	file, err := fl.Open(path***REMOVED***
-***REMOVED***
-		fmt.Println("Error opening log file", err***REMOVED***
+	file, err := fl.Open(path)
+
+	if err != nil {
+		fmt.Println("Error opening log file", err)
 		return
-***REMOVED***
+	}
 
-	defer file.Close(***REMOVED***
+	defer file.Close()
 
-	return file.Write([]byte(data***REMOVED******REMOVED***
-***REMOVED***
+	return file.Write([]byte(data))
+}
 
-func (fl FileLog***REMOVED*** FilePath(***REMOVED*** string {
-	return path.Join(fl.Directory, fl.Filename+"."+LogFileExt***REMOVED***
-***REMOVED***
+func (fl FileLog) FilePath() string {
+	return path.Join(fl.Directory, fl.Filename+"."+LogFileExt)
+}
 
-func NewFileLogger(opts *ImalogHandlerOptions***REMOVED*** slog.Handler {
+func NewFileLogger(opts *ImalogHandlerOptions) slog.Handler {
 	logFormat := opts.Format
 
 	switch logFormat {
 	case logFormat.Text:
-		return slog.NewTextHandler(opts.Writer, opts.HandlerOptions***REMOVED***
+		return slog.NewTextHandler(opts.Writer, opts.HandlerOptions)
 	default:
-		return slog.NewJSONHandler(opts.Writer, opts.HandlerOptions***REMOVED***
-***REMOVED***
-***REMOVED***
+		return slog.NewJSONHandler(opts.Writer, opts.HandlerOptions)
+	}
+}

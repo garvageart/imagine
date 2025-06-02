@@ -1,6 +1,6 @@
 package auth
 
-***REMOVED***
+import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,113 +15,107 @@ package auth
 
 	"imagine/common/crypto"
 	libhttp "imagine/common/http"
-***REMOVED***
+)
 
 type ImagineOAuth struct {
 	config *oauth2.Config
-***REMOVED***
+}
 
-func (oauth ImagineOAuth***REMOVED*** OAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger***REMOVED*** *oauth2.Token {
-	redirectState := req.FormValue("state"***REMOVED***
-	cookieState, err := req.Cookie("img-state"***REMOVED***
-	redirectedStateHash := crypto.CreateHash([]byte(redirectState***REMOVED******REMOVED***
-	redirectStateHashString := base64.URLEncoding.EncodeToString(redirectedStateHash***REMOVED***
+func (oauth ImagineOAuth) OAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger) (*oauth2.Token, error) {
+	redirectState := req.FormValue("state")
+	cookieState, err := req.Cookie("img-state")
+	redirectedStateHash := crypto.CreateHash([]byte(redirectState))
+	redirectStateHashString := base64.URLEncoding.EncodeToString(redirectedStateHash)
 
 	if err == http.ErrNoCookie {
-		jsonResponse := map[string]any{"message": "state not found"***REMOVED***
-		render.JSON(res, req, jsonResponse***REMOVED***
-	***REMOVED***
-***REMOVED*** 
+		jsonResponse := map[string]any{"message": "state not found"}
+		render.JSON(res, req, jsonResponse)
+		return nil, err
+	}
 
 	if cookieState.Value != redirectStateHashString {
-		jsonResponse := map[string]any{"message": "invalid oauth state"***REMOVED***
+		jsonResponse := map[string]any{"message": "invalid oauth state"}
 		logger.Info("invalid oauth state", slog.Group(
 			"state",
-			slog.String("state", redirectStateHashString***REMOVED***,
-			slog.String("cookieState", cookieState.Value***REMOVED***,
-		***REMOVED******REMOVED***
+			slog.String("state", redirectStateHashString),
+			slog.String("cookieState", cookieState.Value),
+		))
 
-		render.JSON(res, req, jsonResponse***REMOVED***
-	***REMOVED***
-***REMOVED***
+		render.JSON(res, req, jsonResponse)
+		return nil, err
+	}
 
 	// For some odd reason, after a user has already been authenticated, when they
 	// reauthenticate Google returns a URL-encoded code so just incase, make sure
 	// decoded first
 	// https://stackoverflow.com/a/68917936
-	code, _ := url.QueryUnescape(req.FormValue("code"***REMOVED******REMOVED***
+	code, _ := url.QueryUnescape(req.FormValue("code"))
 
 	if code == "" {
-		res.Write([]byte("Code not found to provide access token..\n"***REMOVED******REMOVED***
-		reason := req.FormValue("error_reason"***REMOVED***
+		res.Write([]byte("Code not found to provide access token"))
+		reason := req.FormValue("error_reason")
 		if reason == "user_denied" {
-			res.Write([]byte("User has denied Permission.."***REMOVED******REMOVED***
-	***REMOVED***
+			res.Write([]byte("User has denied Permission.."))
+		}
+		return nil, err
+	}
 
-	***REMOVED***
-		// User has denied access..
-		// http.Redirect(w, r, "/", http.StatusTemporaryRedirect***REMOVED***
-***REMOVED***
+	token, err := oauth.config.Exchange(req.Context(), code)
+	if err != nil {
+		logger.Error("oauth exchange failed" + err.Error() + "\n")
+		return nil, err
+	}
 
-	token, err := oauth.config.Exchange(req.Context(***REMOVED***, code***REMOVED***
-***REMOVED***
-		logger.Error("oauth exchange failed" + err.Error(***REMOVED*** + "\n"***REMOVED***
-	***REMOVED***
-***REMOVED***
+	return token, nil
+}
 
-	return token
-***REMOVED***
-
-func FetchUserDataFromProvider(res http.ResponseWriter, req *http.Request, logger *slog.Logger, apiUrl string***REMOVED*** any {
-	resp, err := http.Get(apiUrl***REMOVED***
+func FetchUserDataFromProvider(res http.ResponseWriter, req *http.Request, logger *slog.Logger, apiUrl string) any {
+	resp, err := http.Get(apiUrl)
 	var userResponse []byte
 	var userData any
 
-***REMOVED***
+	if err != nil {
 		libhttp.ServerError(res, req, err, logger, nil,
 			"Failed to get user info from provider",
 			"",
-		***REMOVED***
-	***REMOVED***
-***REMOVED***
+		)
+	}
 
-	userResponse, err = io.ReadAll(resp.Body***REMOVED***
-***REMOVED***
+	userResponse, err = io.ReadAll(resp.Body)
+	if err != nil {
 		libhttp.ServerError(res, req, err, logger, nil,
 			"Failed to read user info from body",
 			"",
-		***REMOVED***
-	***REMOVED***
-***REMOVED***
+		)
+	}
 
-	err = json.Unmarshal(userResponse, &userData***REMOVED***
+	err = json.Unmarshal(userResponse, &userData)
+	if err != nil {
+		libhttp.ServerError(res, req, err, logger, nil,
+			"Failed to decode JSON",
+			"",
+		)
+	}
 
-***REMOVED***
-		logger.Error("Failed to decode JSON: " + err.Error(***REMOVED*** + "\n"***REMOVED***
-		http.Error(res, err.Error(***REMOVED***, http.StatusInternalServerError***REMOVED***
-	***REMOVED***
-***REMOVED***
-
-	resp.Body.Close(***REMOVED***
+	resp.Body.Close()
 	return userData
-***REMOVED***
+}
 
-func SetupOAuthURL(res http.ResponseWriter, req *http.Request, oauthConfig *oauth2.Config, provider string, state string***REMOVED*** (string, error***REMOVED*** {
-	URL, err := url.Parse(oauthConfig.Endpoint.AuthURL***REMOVED***
+func SetupOAuthURL(res http.ResponseWriter, req *http.Request, oauthConfig *oauth2.Config, provider string, state string) (string, error) {
+	URL, err := url.Parse(oauthConfig.Endpoint.AuthURL)
+	if err != nil {
+		return "", errors.New("error parsing oauth url for" + provider)
+	}
 
-***REMOVED***
-		return "", errors.New("error parsing oauth url for" + provider***REMOVED***
-***REMOVED***
+	parameters := url.Values{}
+	parameters.Add("client_id", oauthConfig.ClientID)
+	parameters.Add("scope", strings.Join(oauthConfig.Scopes, " "))
+	parameters.Add("redirect_uri", oauthConfig.RedirectURL)
+	parameters.Add("response_type", "code")
+	parameters.Add("state", state)
 
-	parameters := url.Values{***REMOVED***
-	parameters.Add("client_id", oauthConfig.ClientID***REMOVED***
-	parameters.Add("scope", strings.Join(oauthConfig.Scopes, " "***REMOVED******REMOVED***
-	parameters.Add("redirect_uri", oauthConfig.RedirectURL***REMOVED***
-	parameters.Add("response_type", "code"***REMOVED***
-	parameters.Add("state", state***REMOVED***
-
-	URL.RawQuery = parameters.Encode(***REMOVED***
-	url := URL.String(***REMOVED***
+	URL.RawQuery = parameters.Encode()
+	url := URL.String()
 
 	return url, nil
-***REMOVED***
+}

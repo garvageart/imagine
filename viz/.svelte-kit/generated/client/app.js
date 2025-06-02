@@ -1,11 +1,11 @@
-export { matchers ***REMOVED*** from './matchers.js';
+export { matchers } from './matchers.js';
 
 export const nodes = [
-	(***REMOVED*** => import('./nodes/0'***REMOVED***,
-	(***REMOVED*** => import('./nodes/1'***REMOVED***,
-	(***REMOVED*** => import('./nodes/2'***REMOVED***,
-	(***REMOVED*** => import('./nodes/3'***REMOVED***,
-	(***REMOVED*** => import('./nodes/4'***REMOVED***
+	() => import('./nodes/0'),
+	() => import('./nodes/1'),
+	() => import('./nodes/2'),
+	() => import('./nodes/3'),
+	() => import('./nodes/4')
 ];
 
 export const server_loads = [];
@@ -14,19 +14,19 @@ export const dictionary = {
 		"/": [2],
 		"/signin/oauth": [3],
 		"/signup": [4]
-***REMOVED***;
+	};
 
 export const hooks = {
-	handleError: (({ error ***REMOVED******REMOVED*** => { console.error(error***REMOVED*** ***REMOVED******REMOVED***,
+	handleError: (({ error }) => { console.error(error) }),
 	
-	reroute: ((***REMOVED*** => {***REMOVED******REMOVED***,
-	transport: {***REMOVED***
-***REMOVED***;
+	reroute: (() => {}),
+	transport: {}
+};
 
-export const decoders = Object.fromEntries(Object.entries(hooks.transport***REMOVED***.map(([k, v]***REMOVED*** => [k, v.decode]***REMOVED******REMOVED***;
+export const decoders = Object.fromEntries(Object.entries(hooks.transport).map(([k, v]) => [k, v.decode]));
 
 export const hash = false;
 
-export const decode = (type, value***REMOVED*** => decoders[type](value***REMOVED***;
+export const decode = (type, value) => decoders[type](value);
 
-export { default as root ***REMOVED*** from '../root.js';
+export { default as root } from '../root.js';

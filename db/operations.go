@@ -1,197 +1,188 @@
-***REMOVED***
+package db
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	_ "github.com/joho/godotenv/autoload"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-***REMOVED***
-***REMOVED***
+	"imagine/utils"
+)
 
-func (db DB***REMOVED*** Connect(***REMOVED*** (*mongo.Client, error***REMOVED*** {
+func (db DB) Connect() (*mongo.Client, error) {
+	host := fmt.Sprintf("%s:%d", db.Address, db.Port)
+	fmt.Println("Connecting to MongoDB...")
 
-	host := fmt.Sprintf("%s:%d", db.Address, db.Port***REMOVED***
-	fmt.Println("Connecting to MongoDB..."***REMOVED***
+	clientOpts := options.ClientOptions{
+		AppName: &db.AppName,
+		Auth: &options.Credential{
+			Username:   db.User,
+			Password:   db.Password,
+			AuthSource: "admin",
+		},
+		Hosts: []string{host},
+	}
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED******REMOVED***
+	client, err := mongo.Connect(&clientOpts)
+	if err != nil {
+		return client, err
+	}
 
-***REMOVED***
-		fmt.Println(err***REMOVED***
-***REMOVED***
-***REMOVED***
+	err = client.Ping(db.Context, nil)
 
-	if err := client.Ping(db.Context, nil***REMOVED***; err != nil {
-		fmt.Println(err***REMOVED***
-***REMOVED***
-***REMOVED***
+	if err != nil {
+		return client, fmt.Errorf("error pinging mongo: %w", err)
+	}
 
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB at", db.Address, "on port", db.Port***REMOVED***
+	fmt.Println("Pinged your deployment. You successfully connected to MongoDB at", db.Address, "on port", db.Port)
+	fmt.Println("Using database", db.DatabaseName)
 
-	fmt.Println("Using database", db.DatabaseName***REMOVED***
+	return client, nil
+}
 
-***REMOVED***
-***REMOVED***
+// Disconnect closes the MongoDB client connection.
+func (db DB) Disconnect(client *mongo.Client) error {
+	err := client.Disconnect(db.Context)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-func (db DB***REMOVED*** Disconnect(client *mongo.Client***REMOVED*** error {
-	err := client.Disconnect(db.Context***REMOVED***
+// Delete removes a single document matching the filter.
+func (db DB) Delete(document bson.D) (*mongo.DeleteResult, error) {
+	result, err := db.Database.Collection(db.Collection).DeleteOne(db.Context, document)
+	if err != nil {
+		return nil, err
+	}
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	return result, nil
+}
 
-***REMOVED***
-***REMOVED***
+// Exists checks if a document matching the filter exists.
+func (db DB) Exists(filter bson.D) (bool, error) {
+	err := db.Database.Collection(db.Collection).FindOne(db.Context, filter).Err()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
 
-func (db DB***REMOVED*** Delete(document bson.D***REMOVED*** (*mongo.DeleteResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.DeleteOne(db.Context, document***REMOVED***
+// Find retrieves documents matching the filter.
+func (db DB) Find(filter bson.D, result any) (*mongo.Cursor, error) {
+	cursor, err := db.Database.Collection(db.Collection).Find(db.Context, filter)
+	if err != nil {
+		return nil, err
+	}
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
+	defer cursor.Close(db.Context)
+	cursorErr := cursor.All(db.Context, result)
+	if cursorErr != nil {
+		return nil, cursorErr
+	}
 
-***REMOVED***
-***REMOVED***
+	return cursor, nil
+}
 
-func (db DB***REMOVED*** Exists(filter bson.D***REMOVED*** (bool, error***REMOVED*** {
-	err := db.Database.Collection(db.Collection***REMOVED***.FindOne(db.Context, filter***REMOVED***.Err(***REMOVED***
+// FindOne retrieves a single document matching the filter and decodes it into result.
+func (db DB) FindOne(filter bson.D, result any) error {
+	err := db.Database.Collection(db.Collection).FindOne(db.Context, filter).Decode(result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
-	***REMOVED***
+// Insert adds a new document to the collection.
+func (db DB) Insert(document bson.D) (*mongo.InsertOneResult, error) {
+	result, err := db.Database.Collection(db.Collection).InsertOne(db.Context, document)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
-		fmt.Println(err***REMOVED***
-***REMOVED***
-***REMOVED***
+// Update modifies a single document matching the filter.
+func (db DB) Update(filter bson.D, document bson.D) (*mongo.UpdateResult, error) {
+	result, err := db.Database.Collection(db.Collection).UpdateOne(db.Context, filter, document)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
-***REMOVED***
-***REMOVED***
+func (db DB) UpdateMany(filter bson.D, documents []bson.D) (*mongo.UpdateResult, error) {
+	result, err := db.Database.Collection(db.Collection).UpdateMany(db.Context, filter, documents)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
-func (db DB***REMOVED*** Find(filter bson.D, result any***REMOVED*** (*mongo.Cursor, error***REMOVED*** {
-	cursor, err := db.Database.Collection(db.Collection***REMOVED***.Find(db.Context, filter***REMOVED***
+func (db DB) DeleteMany(documents []bson.D) (*mongo.DeleteResult, error) {
+	result, err := db.Database.Collection(db.Collection).DeleteMany(db.Context, documents)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
+func (db DB) InsertMany(documents []bson.D) (*mongo.InsertManyResult, error) {
+	result, err := db.Database.Collection(db.Collection).InsertMany(db.Context, documents)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
-	cursorErr := cursor.All(db.Context, result***REMOVED***
+// ReplaceOne replaces a single document matching the filter with the replacement document.
+func (db DB) ReplaceOne(filter bson.D, replacement bson.D) (*mongo.UpdateResult, error) {
+	result, err := db.Database.Collection(db.Collection).ReplaceOne(db.Context, filter, replacement)
 
-***REMOVED***
-		fmt.Println(cursorErr***REMOVED***
-	***REMOVED***, cursorErr
-***REMOVED***
+	if err != nil {
+		return nil, err
+	}
 
-***REMOVED***
-***REMOVED***
+	return result, nil
+}
 
-func (db DB***REMOVED*** FindOne(filter bson.D, result any***REMOVED*** {
-	db.Database.Collection(db.Collection***REMOVED***.FindOne(db.Context, filter***REMOVED***.Decode(result***REMOVED***
-***REMOVED***
+// Initis initializes the database connection.
+func Initis() error {
+	mongoCtx, cancelMongo := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancelMongo()
 
-func (db DB***REMOVED*** Insert(document bson.D***REMOVED*** (*mongo.InsertOneResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.InsertOne(db.Context, document***REMOVED***
+	var db DBClient = DB{
+		Address:      "localhost",
+		Port:         27017,
+		User:         os.Getenv("MONGO_USER"),
+		Password:     os.Getenv("MONGO_PASSWORD"),
+		AppName:      utils.AppName,
+		DatabaseName: "imagine-dev",
+		Collection:   "images",
+		Context:      mongoCtx,
+	}
 
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
+	client, err := db.Connect()
+	if err != nil {
+		panic(err)
+	}
 
-***REMOVED***
-***REMOVED***
+	defer func() {
+		if client != nil {
+			if disconnectErr := db.Disconnect(client); disconnectErr != nil {
+				panic("error disconnecting from MongoDB: "+  disconnectErr.Error())
+			}
 
-func (db DB***REMOVED*** Update(filter bson.D, document bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.UpdateOne(db.Context, filter, document***REMOVED***
-
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-
-func (db DB***REMOVED*** UpdateMany(filter bson.D, documents []bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.UpdateMany(db.Context, filter, documents***REMOVED***
-
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-
-func (db DB***REMOVED*** DeleteMany(documents []bson.D***REMOVED*** (*mongo.DeleteResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.DeleteMany(db.Context, documents***REMOVED***
-
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-
-func (db DB***REMOVED*** InsertMany(documents []bson.D***REMOVED*** (*mongo.InsertManyResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.InsertMany(db.Context, documents***REMOVED***
-
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-
-func (db DB***REMOVED*** ReplaceOne(filter bson.D, replacement bson.D***REMOVED*** (*mongo.UpdateResult, error***REMOVED*** {
-	result, err := db.Database.Collection(db.Collection***REMOVED***.ReplaceOne(db.Context, filter, replacement***REMOVED***
-
-***REMOVED***
-	***REMOVED***, err
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-
-func Initis(***REMOVED*** error {
-	mongoCtx, cancelMongo := context.WithTimeout(context.Background(***REMOVED***, 60*time.Second***REMOVED***
-	defer cancelMongo(***REMOVED***
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-		User:         os.Getenv("MONGO_USER"***REMOVED***,
-		Password:     os.Getenv("MONGO_PASSWORD"***REMOVED***,
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-
-	client, err := db.Connect(***REMOVED***
-	defer func(***REMOVED*** {
-		db.Disconnect(client***REMOVED***
-		fmt.Println("Disconnected from MongoDB"***REMOVED***
-***REMOVED***(***REMOVED***
-
-***REMOVED***
-		fmt.Println("error connecting mongo db"***REMOVED***
-***REMOVED***
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
+			fmt.Println("Disconnected from MongoDB")
+		}
+	}()
+	return err
+}

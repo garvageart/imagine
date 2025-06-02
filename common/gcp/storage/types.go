@@ -11,4 +11,4 @@ type CredentialsFileJSON struct {
 	TokenURI                string `json:"token_uri"`
 	AuthProviderX509CertURL string `json:"auth_provider_x509_cert_url"`
 	ClientX509CertURL       string `json:"client_x509_cert_url"`
-***REMOVED***
+}

@@ -1,39 +1,35 @@
 package imgops
 
-***REMOVED***
-***REMOVED***
-
+import (
+	"os"
+	
 	libvips "github.com/davidbyttow/govips/v2/vips"
 
 	liberrors "imagine/common/errors"
-***REMOVED***
-***REMOVED***
+	"imagine/utils" 
+)
 
-func ImageProcess(buffer []byte***REMOVED*** error {
+func ImageProcess(buffer []byte) error {
 	// Hack to stop govips from logging any messages. Requires editing and exporting
-	// libvips.DisableLogging(***REMOVED*** from the original package source code.
+	// libvips.DisableLogging( from the original package source code.
 	// May need a check and change every once in a while
-	if utils.IsProduction || os.Getenv("LIBVIPS_DISABLE_LOGGING"***REMOVED*** == "true" {
-		libvips.DisableLogging(***REMOVED***
-***REMOVED***
+	if utils.IsProduction || os.Getenv("LIBVIPS_DISABLE_LOGGING") == "true" {
+		libvips.DisableLogging()
+	}
 
-	libvips.Startup(&libvips.Config{***REMOVED******REMOVED***
-	defer libvips.Shutdown(***REMOVED***
+	libvips.Startup(&libvips.Config{})
+	defer libvips.Shutdown()
 
-	image, err := libvips.NewImageFromBuffer(buffer***REMOVED***
+	image, err := libvips.NewImageFromBuffer(buffer)
+	if err != nil {
+		return liberrors.NewErrorf(err.Error())
+	}
+	defer image.Close()
 
-***REMOVED***
-		return liberrors.NewErrorf(err.Error(***REMOVED******REMOVED***
-***REMOVED***
-
-***REMOVED***
-		return liberrors.NewErrorf(err.Error(***REMOVED******REMOVED***
-***REMOVED***
-
-	ExportParams := libvips.NewDefaultJPEGExportParams(***REMOVED***
-	newImage, metadata, err := image.Export(ExportParams***REMOVED***
-
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+	exportParams := libvips.NewDefaultJPEGExportParams()
+	_, _, err = image.Export(exportParams)
+	if err != nil {
+		return liberrors.NewErrorf("failed to export image: %w", err)
+	}
+	return nil
+}

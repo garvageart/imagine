@@ -1,41 +1,41 @@
-import { svelteTesting ***REMOVED*** from '@testing-library/svelte/vite';
-import { sveltekit ***REMOVED*** from '@sveltejs/kit/vite';
-import { defineConfig ***REMOVED*** from 'vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
 import devtoolsJson from "vite-plugin-devtools-json";
 
 export default defineConfig({
-	plugins: [devtoolsJson(***REMOVED***, sveltekit(***REMOVED***],
+	plugins: [devtoolsJson(), sveltekit()],
 	test: {
 		workspace: [
 			{
 				extends: './vite.config.ts',
-				plugins: [svelteTesting(***REMOVED***],
+				plugins: [svelteTesting()],
 				test: {
 					name: 'client',
 					environment: 'jsdom',
 					clearMocks: true,
-					include: ['src/**/*.svelte.{test,spec***REMOVED***.{js,ts***REMOVED***'],
+					include: ['src/**/*.svelte.{test,spec.{js,ts}'],
 					exclude: ['src/lib/server/**'],
 					setupFiles: ['./vitest-setup-client.ts']
-			***REMOVED***
-	***REMOVED***
+				}
+			},
 			{
 				extends: './vite.config.ts',
 				test: {
 					name: 'server',
 					environment: 'node',
-					include: ['src/**/*.{test,spec***REMOVED***.{js,ts***REMOVED***'],
-					exclude: ['src/**/*.svelte.{test,spec***REMOVED***.{js,ts***REMOVED***']
-			***REMOVED***
-		***REMOVED***
-		]
-***REMOVED***,
+					include: ['src/**/*.{test,spec.{js,ts}'],
+					exclude: ['src/**/*.svelte.{test,spec.{js,ts}']
+				}
+			}
+		],
+	},
 	server: {
 		port: 7777,
 		cors: true
-***REMOVED***,
+	},
 	preview: {
 		port: 7777,
 		cors: true
-***REMOVED***
-***REMOVED******REMOVED***;
+	}
+});

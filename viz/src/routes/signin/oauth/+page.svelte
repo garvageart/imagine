@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { sendOAuthParams ***REMOVED*** from "$lib/auth/auth_methods";
+	import { sendOAuthParams } from "$lib/auth/auth_methods";
 
-	const provider: string | null = new URL(location.href***REMOVED***.searchParams.get("provider"***REMOVED***;
-	sendOAuthParams(provider***REMOVED***;
+	const provider: string | null = new URL(location.href).searchParams.get("provider");
+	sendOAuthParams(provider);
 </script>
 
-{#if !provider***REMOVED***
+{#if !provider}
 	OAuth provider not specified, redirecting back home page...
-{/if***REMOVED***
+{/if}
 
-<p>Signing in to {provider***REMOVED***...</p>
+<p>Signing in to {provider}</p>

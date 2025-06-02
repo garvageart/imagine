@@ -1,44 +1,41 @@
 package libos
 
-***REMOVED***
-***REMOVED***
+import (
+	"os"
 	"path/filepath"
-***REMOVED***
+)
 
 type File struct {
 	Path string
-***REMOVED***
+}
 
 type OsPerm struct {
 	DirPerm  os.FileMode
 	FilePerm os.FileMode
-***REMOVED***
+}
 
-func (fl File***REMOVED*** Open(date string***REMOVED*** (file *os.File, err error***REMOVED*** {
+func (fl File) Open(date string) (file *os.File, err error) { // date string might be unused if Path is absolute and complete
 	path := fl.Path
 
-	err = os.MkdirAll(filepath.Dir(path***REMOVED***, os.ModePerm***REMOVED***
-
-***REMOVED***
+	// Create directory if it doesn't exist
+	err = os.MkdirAll(filepath.Dir(path), os.ModePerm) // os.ModePerm (0777) is often too permissive for production
+	if err != nil {
 		return file, err
-***REMOVED***
+	}
 
-	// Using all these flags allows us to append to the file not overwrite the data lmao (important!***REMOVED***
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644***REMOVED***
-***REMOVED***
+	// Using all these flags allows us to append to the file not overwrite the data lmao (important!
+	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+}
 
-func (fl File***REMOVED*** Write(data []byte***REMOVED*** (n int, err error***REMOVED*** {
-	file, err := fl.Open(fl.Path***REMOVED***
-
-***REMOVED***
+func (fl File) Write(data []byte) (n int, err error) {
+	file, err := fl.Open("") // Assuming date is not strictly needed here or should be passed
+	if err != nil {
 		return 0, err
-***REMOVED***
+	}
+	defer file.Close()
+	return file.Write(data)
+}
 
-	defer file.Close(***REMOVED***
-
-	return file.Write([]byte(data***REMOVED******REMOVED***
-***REMOVED***
-
-func (fl File***REMOVED*** Read(***REMOVED*** ([]byte, error***REMOVED*** {
-	return os.ReadFile(fl.Path***REMOVED***
-***REMOVED***
+func (fl File) Read() ([]byte, error) {
+	return os.ReadFile(fl.Path)
+}

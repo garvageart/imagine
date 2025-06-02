@@ -1,10 +1,6 @@
 package auth
 
-import "crypto/rand"
-
-const (
-	APIKeyPrefix = "img"
-***REMOVED***
+import "crypto/rand" // aliased to avoid conflict with math/rand/v2 if used in the same package elsewhere
 
 var (
 	// Choose a random horse name because why not
@@ -27,12 +23,17 @@ var (
 		"Chip",
 		"Summoner",
 		"Lightning",
-		"Tempest"***REMOVED***
-***REMOVED***
+		"Tempest",
+	}
+)
 
-func GenerateRandomBytes(n int***REMOVED*** ([]byte***REMOVED*** {
-	b := make([]byte, n***REMOVED***
-	_, _ = rand.Read(b***REMOVED***
+var(
+	APIKeyPrefix = "img"
+)
+
+func GenerateRandomBytes(n int) ([]byte) {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
 
 	return b
-***REMOVED***
+}

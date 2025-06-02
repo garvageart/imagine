@@ -1,44 +1,42 @@
 package http
 
-***REMOVED***
-***REMOVED***
+
+import (
 	"log/slog"
-
-***REMOVED***
-
 	"github.com/spf13/viper"
 
 	libos "imagine/common/os"
-***REMOVED***
+	"imagine/utils"
+	"fmt"
+)
 
 type Server struct {
 	Port int
 	Host string
-***REMOVED***
+}
 
 type ImagineServer struct {
 	Port   int
 	Host   string
 	Key    string
 	Logger *slog.Logger
-***REMOVED***
+}
 
-func (server ImagineServer***REMOVED*** ReadConfig(***REMOVED*** (viper.Viper, error***REMOVED*** {
+func (server ImagineServer) ReadConfig() (viper.Viper, error) {
 	configPath := libos.CurrentWorkingDirectory + "/config"
 
-	viper.SetConfigName(utils.AppName***REMOVED***
-	viper.SetConfigType("json"***REMOVED***
-	viper.AddConfigPath(configPath***REMOVED***
+	viper.SetConfigName(utils.AppName)
+	viper.SetConfigType("json")
+	viper.AddConfigPath(configPath)
 
-	err := viper.ReadInConfig(***REMOVED***
+	err := viper.ReadInConfig()
+	if err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			return viper.Viper{}, fmt.Errorf("can't find config file: %w", err)
+		}
+		// For other errors when reading the config
+		return viper.Viper{}, fmt.Errorf("error reading config file: %w", err)
+	}
 
-***REMOVED***
-		if _, ok := err.(viper.ConfigFileNotFoundError***REMOVED***; ok {
-			return viper.Viper{***REMOVED***, fmt.Errorf("can't find config file: %w", err***REMOVED***
-	***REMOVED*** else {
-			return viper.Viper{***REMOVED***, fmt.Errorf("error reading config file: %w", err***REMOVED***
-	***REMOVED***
-***REMOVED***
-
-	return *viper.GetViper(***REMOVED***, nil
-***REMOVED***
+	return *viper.GetViper(), nil
+}

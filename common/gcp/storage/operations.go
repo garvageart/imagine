@@ -1,82 +1,68 @@
 package gcp
 
-***REMOVED***
-***REMOVED***
-***REMOVED***
+import (
+	"context"
+	"fmt"
 	"io"
 
 	"cloud.google.com/go/storage"
-***REMOVED***
+)
 
 type ImagineStorageOperations interface {
-	CreateObject(***REMOVED***
-	ReadObject(***REMOVED***
-	DeleteObject(***REMOVED***
-	MoveObject(***REMOVED***
-***REMOVED***
+	CreateObject(name string, data []byte) (int, error)
+	ReadObject(name string) ([]byte, error)
+	DeleteObject(name string) error
+	MoveObject(srcName string, destName string) error
+}
 
 type ImagineStorage struct {
 	Bucket  *storage.BucketHandle
 	Context context.Context
 	ImagineStorageOperations
-***REMOVED***
+}
 
-func (s *ImagineStorage***REMOVED*** CreateObject(name string, data []byte***REMOVED*** (int, error***REMOVED*** {
-	object := s.Bucket.Object(name***REMOVED***
+func (s *ImagineStorage) CreateObject(name string, data []byte) (int, error) {
+	object := s.Bucket.Object(name)
+	writer := object.NewWriter(s.Context)
 
-	writer := object.NewWriter(s.Context***REMOVED***
-	numOfBytesWritten, err := fmt.Fprint(writer, data***REMOVED***
+	numOfBytesWritten, err := writer.Write(data) // Use writer.Write for []byte
+	if err != nil {
+		return numOfBytesWritten, fmt.Errorf("error writing data. Wrote %d bytes %w", numOfBytesWritten, err)
+	}
 
-***REMOVED***
-		return numOfBytesWritten, fmt.Errorf("error writing data. Wrote %d bytes %w", numOfBytesWritten, err***REMOVED***
-***REMOVED***
-
-	err = writer.Close(***REMOVED***
-
-***REMOVED***
-		return numOfBytesWritten, fmt.Errorf("error closing object writer %w", err***REMOVED***
-***REMOVED***
-
+	err = writer.Close(
+	)
+	if err != nil {
+		return numOfBytesWritten, fmt.Errorf("error closing object writer %w", err)
+	}
 	return numOfBytesWritten, nil
-***REMOVED***
+}
 
-func (s *ImagineStorage***REMOVED*** ReadObject(name string***REMOVED*** ([]byte, error***REMOVED*** {
-	object := s.Bucket.Object(name***REMOVED***
+func (s *ImagineStorage) ReadObject(name string) ([]byte, error) {
+	object := s.Bucket.Object(name)
+	emptyBytes := make([]byte, 0)
 
-	reader, err := object.NewReader(s.Context***REMOVED***
-	emptyBytes := make([]byte, 0***REMOVED***
+	reader, err := object.NewReader(s.Context)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return emptyBytes, fmt.Errorf("object does not exist %w", err)
+		}
+		return emptyBytes, fmt.Errorf("error reading object %w", err)
+	}
+	defer reader.Close()
 
-***REMOVED***
-		return emptyBytes, fmt.Errorf("error reading object %w", err***REMOVED***
-***REMOVED***
-
-	defer reader.Close(***REMOVED***
-
-	reader, readerErr := object.NewReader(s.Context***REMOVED***
-	if readerErr != nil {
-		if readerErr == storage.ErrObjectNotExist {
-			return emptyBytes, fmt.Errorf("object does not exist %w", readerErr***REMOVED***
-
-	***REMOVED***
-
-		return emptyBytes, fmt.Errorf("error reading object data %w", err***REMOVED***
-***REMOVED***
-
-	gcsRes, err := io.ReadAll(reader***REMOVED***
-***REMOVED***
-		return emptyBytes, fmt.Errorf("error reading object data %w", err***REMOVED***
-***REMOVED***
-
+	gcsRes, err := io.ReadAll(reader)
+	if err != nil {
+		return emptyBytes, fmt.Errorf("error reading object data %w", err)
+	}
 	return gcsRes, nil
-***REMOVED***
+}
 
-func (s *ImagineStorage***REMOVED*** DeleteObject(name string***REMOVED*** error {
-	object := s.Bucket.Object(name***REMOVED***
-	err := object.Delete(s.Context***REMOVED***
-
-***REMOVED***
-		return fmt.Errorf("error deleting object %w", err***REMOVED***
-***REMOVED***
-
-***REMOVED***
-***REMOVED***
+func (s *ImagineStorage) DeleteObject(name string) error {
+	object := s.Bucket.Object(name)
+	err := object.Delete(s.Context)
+	if err != nil {
+		return fmt.Errorf("error deleting object %w", err)
+	}
+	return nil
+}
