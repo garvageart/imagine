@@ -22,7 +22,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/joho/godotenv/autoload"
 
-	// "github.com/google/uuid"
+	"github.com/google/uuid"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"golang.org/x/oauth2"
 
@@ -51,6 +51,26 @@ type ImagineAuthCodeFlow struct {
 // Idk what this is or what I meant to put here
 type ImagineAuthPasswordFlow struct {
 	Ctate string
+}
+
+type ImagineUser struct {
+	UUID          string `json:"uuid"`
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	DisplayName   string `json:"display_name"`
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	Hash          string `json:"hash"`
+	Salt          string `json:"salt"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	DeletedAt     string `json:"deleted_at"`
+	UsedOAuth     bool   `json:"used_oauth"`
+	OAuthProvider string `json:"oauth_provider"`
+	OAuthState    string `json:"oauth_state"`
+	UserToken     string `json:"user_token"`
 }
 
 func (server ImagineAuthServer) Launch(router *chi.Mux) {
@@ -118,7 +138,6 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			providerErr := errors.New("unsupported provider")
 			if provider != "" {
 				providerErr = errors.New("no provider... provided")
-
 				libhttp.ServerError(res, req, providerErr, logger, nil,
 					"",
 					"Error siging you in. Please try again later.",
@@ -128,9 +147,9 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 					"",
 					"Error siging you in. Please try again later.",
 				)
-
 			}
 		}
+
 		state, err := gonanoid.New(24)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
@@ -250,57 +269,57 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 	})
 
 	router.Put("/user/create", func(res http.ResponseWriter, req *http.Request) {
-		// oauthRedirect := req.FormValue("oauth_redirect")
-		// continueUrl := req.FormValue("continue")
-		// oauthState := req.CookiesNamed("img-state")[0]
-		// email := req.FormValue("email")
-		// name := req.FormValue("name")
-		// userUUID := uuid.New()
-		// userIdBytes, err := userUUID.MarshalBinary()
-		// usedOAuth := oauthRedirect != ""
+		oauthRedirect := req.FormValue("oauth_redirect")
+		continueUrl := req.FormValue("continue")
+		oauthState := req.CookiesNamed("img-state")[0]
+		email := req.FormValue("email")
+		name := req.FormValue("name")
+		userUUID := uuid.New()
+		userIdBytes, err := userUUID.MarshalBinary()
+		usedOAuth := oauthRedirect != ""
 
-		// if err != nil {
-		// 	libhttp.ServerError(res, req, err, logger, nil,
-		// 		"error marshaling uuid for user id",
-		// 		"Error creating your account, please try again later",
-		// 	)
-		// }
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"error marshaling uuid for user id",
+				"Error creating your account, please try again later",
+			)
+		}
 
-		// userId := hex.EncodeToString(userIdBytes)
+		userId := hex.EncodeToString(userIdBytes)
 
-		// userStruct := &ImagineUser{
-		// 	UUID:          userUUID.String(),
-		// 	ID:            userId,
-		// 	Email:         email,
-		// 	Username:      name,
-		// 	CreatedAt:     carbon.Now().String(),
-		// 	UsedOAuth:     usedOAuth,
-		// 	OAuthState:    oauthState.Value,
-		// 	OAuthProvider: oauthRedirect,
-		// }
+		userStruct := &ImagineUser{
+			UUID:          userUUID.String(),
+			ID:            userId,
+			Email:         email,
+			Username:      name,
+			CreatedAt:     carbon.Now().String(),
+			UsedOAuth:     usedOAuth,
+			OAuthState:    oauthState.Value,
+			OAuthProvider: oauthRedirect,
+		}
 
-		// userDocument, err := db.ToBSONDocument(userStruct)
-		// if err != nil {
-		// 	libhttp.ServerError(res, req, err, logger, nil,
-		// 		"error marshalling user document",
-		// 		"Error creating your account, please try again later",
-		// 	)
-		// }
+		userDocument, err := db.ToBSONDocument(userStruct)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"error marshalling user document",
+				"Error creating your account, please try again later",
+			)
+		}
 
-		// _, err = database.Insert(userDocument)
-		// if err != nil {
-		// 	libhttp.ServerError(res, req, err, logger, nil,
-		// 		"err creating user account on database",
-		// 		"Error creating your account, please try again later",
-		// 	)
-		// }
+		_, err = database.Insert(userDocument)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"err creating user account on database",
+				"Error creating your account, please try again later",
+			)
+		}
 
-		// time.Sleep(2000)
-		// if continueUrl != "" {
-		// 	continueUrl = "/"
-		// }
+		time.Sleep(2000)
+		if continueUrl != "" {
+			continueUrl = "/"
+		}
 
-		// http.Redirect(res, req, continueUrl, http.StatusTemporaryRedirect)
+		http.Redirect(res, req, continueUrl, http.StatusTemporaryRedirect)
 	})
 
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
