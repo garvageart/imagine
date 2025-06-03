@@ -41,6 +41,7 @@ func SetupLogHandlers() []slog.Handler {
 		})
 	}
 
+	// Everything below is AI generated when I was trying to fix my git fuck up so idk
 	// Open the log file for the JSON handler
 	logFileWriter, err := logFileJSON.Open(LogFileDate) // Use LogFileDate or an appropriate date string
 	if err != nil {
