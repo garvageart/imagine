@@ -62,8 +62,6 @@ type ImagineUser struct {
 	DisplayName   string `json:"display_name"`
 	Email         string `json:"email"`
 	Password      string `json:"password"`
-	Hash          string `json:"hash"`
-	Salt          string `json:"salt"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 	DeletedAt     string `json:"deleted_at"`
