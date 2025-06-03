@@ -23,7 +23,7 @@ export const UI_SERVER = new ServerURLConfig("http://localhost", 7777, "https://
 
 
 const IS_BROWSER_ENV = {
-    production: window !== undefined ? (location.port === '') || location.hostname === 'localhost' : false
+    production: window !== undefined ? (location.port === '') || (location.hostname !== 'localhost') : false
 };
 
 export const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || screen.orientation.type === 'portrait-primary';
