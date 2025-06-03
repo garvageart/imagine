@@ -2,7 +2,7 @@
 	import { authServerURL } from "$lib/auth/auth_methods";
 	import { cookieMethods } from "../lib/utils";
 
-	let loginState = cookieMethods.get("img-state");
+	let loginState = cookieMethods.get("imag-state");
 </script>
 
 <h1>Welcome to <code>viz</code></h1>

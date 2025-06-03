@@ -50,7 +50,7 @@ type ImagineAuthCodeFlow struct {
 
 // Idk what this is or what I meant to put here
 type ImagineAuthPasswordFlow struct {
-	Ctate string
+	State string
 }
 
 type ImagineUser struct {
@@ -164,7 +164,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		encryptedState := base64.URLEncoding.EncodeToString(stateHash)
 
 		http.SetCookie(res, &http.Cookie{
-			Name:     "img-state",
+			Name:     "imag-state",
 			Value:    encryptedState,
 			Expires:  carbon.Now().AddYear().StdTime(),
 			Path:     "/",
@@ -254,7 +254,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		}
 
 		http.SetCookie(res, &http.Cookie{
-			Name:     "img-auth_token",
+			Name:     "imag-auth_token",
 			Value:    tokenString,
 			Expires:  expiryTime,
 			HttpOnly: true,
@@ -271,7 +271,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 	router.Put("/user/create", func(res http.ResponseWriter, req *http.Request) {
 		oauthRedirect := req.FormValue("oauth_redirect")
 		continueUrl := req.FormValue("continue")
-		oauthState := req.CookiesNamed("img-state")[0]
+		oauthState := req.CookiesNamed("imag-state")[0]
 		email := req.FormValue("email")
 		name := req.FormValue("name")
 		userUUID := uuid.New()

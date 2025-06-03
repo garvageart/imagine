@@ -1,12 +1,12 @@
-package imgops
+package imageops
 
 import (
 	"fmt"
 	"os"
-	
+
 	exiftool "github.com/barasher/go-exiftool"
 	libvips "github.com/davidbyttow/govips/v2/vips"
-	
+
 	libos "imagine/common/os"
 )
 

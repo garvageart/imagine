@@ -61,7 +61,7 @@ export async function sendOAuthParams(provider: string | null): Promise<boolean>
     if (authData.email) {
         goto("/signup");
     } else {
-        cookieMethods.delete("img-state");
+        cookieMethods.delete("imag-state");
         return false;
     }
 

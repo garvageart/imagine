@@ -1,12 +1,12 @@
-package imgops
+package imageops
 
 import (
 	"os"
-	
+
 	libvips "github.com/davidbyttow/govips/v2/vips"
 
 	liberrors "imagine/common/errors"
-	"imagine/utils" 
+	"imagine/utils"
 )
 
 func ImageProcess(buffer []byte) error {
