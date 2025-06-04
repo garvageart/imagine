@@ -3,9 +3,9 @@ package libos
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 )
-
 
 var (
 	CurrentWorkingDirectory = func() string {
@@ -16,10 +16,13 @@ var (
 
 		return StandardisePaths(cwd)
 	}()
-	)
+)
 
 // Microsoft you will pay for your crimes against standards
 func StandardisePaths(path string) string {
-	return strings.ReplaceAll(path, "\\", "/")
+	if runtime.GOOS == "windows" {
+		return strings.ReplaceAll(path, "/", "\\")
+	} else {
+		return strings.ReplaceAll(path, "\\", "/")
+	}
 }
-
