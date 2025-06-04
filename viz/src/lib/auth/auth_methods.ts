@@ -27,7 +27,7 @@ interface OAuthResponseUserData {
 export const authServerURL = createServerURL(AUTH_SERVER);
 
 export async function sendOAuthParams(provider: string | null): Promise<boolean> {
-    const queryParams = Object.fromEntries(new URLSearchParams(location.search).entries())
+    const queryParams = Object.fromEntries(new URLSearchParams(location.search).entries());
 
     if (!queryParams.code) {
         return false;
@@ -60,10 +60,9 @@ export async function sendOAuthParams(provider: string | null): Promise<boolean>
 
     if (authData.email) {
         goto("/signup");
+        return true;
     } else {
         cookieMethods.delete("imag-state");
         return false;
     }
-
-    return true;
 }
