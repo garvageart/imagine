@@ -18,6 +18,7 @@ const (
 )
 
 const (
+	// idk wtf this is about
 	ServerLoggerGroupKey = "http-chi-server"
 	// NOTE: Only here for reference, not currently used in any logic
 	LogFileNameFormat = "{AppName}-{AppVersion}-{DateTime}-{Context}[?].log"
@@ -29,11 +30,13 @@ var (
 )
 
 var (
-	LoggerProgramInfoGroup = slog.Group(ServerLoggerGroupKey,
+	LoggerProgramInfoGroup = slog.Group("program_info",
 		slog.String("go_version", runtime.Version()),
 		slog.String("environment", utils.Environment),
 		slog.String("os", runtime.GOOS),
-		slog.Int("pid", os.Getpid()))
+		slog.Int("pid", os.Getpid()),
+		slog.String("app_version", utils.GetAppVersion()),
+	)
 )
 
 type LogFormat struct {
