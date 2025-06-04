@@ -128,6 +128,46 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 		jsonResponse := map[string]any{"message": "You have been PONGED by the auth server. What do you want here? 🤨"}
+		logger.Info("server pinged", slog.String("request_id", libhttp.GetRequestID(req)))
+		render.JSON(res, req, jsonResponse)
+	})
+
+	router.Get("/generateApiKey", func(res http.ResponseWriter, req *http.Request) {
+		keys, err := auth.GenerateAPIKey()
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"error generating api key",
+				"There was an error generating your API key",
+			)
+
+			return
+		}
+
+		consumerKey := keys["consumer_key"]
+		generatedAt := carbon.Now()
+
+		apiDataDocument, err := db.ToBSONDocument(
+			&ImagineAPIData{
+				APIKeyHashed: keys["hashed_key"],
+				GeneratedAt:  generatedAt.StdTime(),
+			},
+		)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil, "error marshaling api key to BSON into database", "Something went wrong on our side, please try again later")
+			return
+		}
+
+		_, err = database.Insert(apiDataDocument)
+		if err != nil {
+			// Return the key
+			libhttp.ServerError(res, req, err, logger, nil, "error inserting api key into database", "Something went wrong on our side, please try again later")
+			return
+		}
+
+		logger.Info("Generated an API key", slog.String("request_id", libhttp.GetRequestID(req)))
+		jsonResponse := map[string]any{"consumer_key": consumerKey}
+
+		res.WriteHeader(http.StatusOK)
 		render.JSON(res, req, jsonResponse)
 	})
 
