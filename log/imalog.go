@@ -5,13 +5,28 @@ import (
 	"log/slog"
 	"os"
 
+	"imagine/utils"
+
 	slogmulti "github.com/samber/slog-multi"
-	"imagine/utils" 
 )
 
-func SetupLogHandlers() []slog.Handler {
+var (
+	GlobalLogger    = CreateLogger(SetupDefaultLogHandlers())
+	DefaultLogLevel = func() slog.Level {
+		logDebugEnvVar := os.Getenv("LOG_DEBUG")
+		if !utils.IsProduction ||
+			logDebugEnvVar != "" ||
+			logDebugEnvVar == "true" {
+			return slog.LevelDebug
+		}
+
+		return slog.LevelInfo
+	}()
+)
+
+func SetupDefaultLogHandlers() []slog.Handler {
 	logShowRecordEnv := os.Getenv("LOG_SHOW_RECORD")
-	shouldAddSource := logShowRecordEnv == "true" || logShowRecordEnv == ""
+	shouldAddSource := logShowRecordEnv == "true"
 	isProduction := utils.IsProduction
 
 	logFileJSON := FileLog{
@@ -21,12 +36,12 @@ func SetupLogHandlers() []slog.Handler {
 
 	consoleHandlerOpts := slog.HandlerOptions{
 		AddSource: shouldAddSource,
-		Level:     slog.LevelDebug,
+		Level:     DefaultLogLevel,
 	}
 
 	fileHandlerOpts := slog.HandlerOptions{
 		AddSource: true,
-		Level:     slog.LevelDebug,
+		Level:     DefaultLogLevel,
 	}
 
 	var consoleLogger slog.Handler
@@ -41,24 +56,19 @@ func SetupLogHandlers() []slog.Handler {
 		})
 	}
 
-	// Everything below is AI generated when I was trying to fix my git fuck up so idk
-	// Open the log file for the JSON handler
-	logFileWriter, err := logFileJSON.Open(LogFileDate) // Use LogFileDate or an appropriate date string
-	if err != nil {
-		// Fallback or panic if file cannot be opened
-		slog.Error("Failed to open log file for JSON handler", "path", logFileJSON.FilePath(), "error", err)
-		// Potentially return only consoleLogger or panic, depending on desired behavior
-		return []slog.Handler{consoleLogger}
-	}
-	// Note: logFileWriter needs to be closed on application shutdown.
-
 	return []slog.Handler{
-		slog.NewJSONHandler(logFileWriter, &fileHandlerOpts), // Use fileHandlerOpts for file logger
+		slog.NewJSONHandler(logFileJSON, &fileHandlerOpts),
 		consoleLogger,
 	}
 }
 
 func CreateLogger(handlers []slog.Handler) *slog.Logger {
 	logger := slog.New(slogmulti.Fanout(handlers...))
+	logger = logger.With(LoggerProgramInfoGroup)
+
 	return logger
+}
+
+func CreateDefaultLogger() *slog.Logger {
+	return CreateLogger(SetupDefaultLogHandlers())
 }

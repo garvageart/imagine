@@ -2,13 +2,15 @@ package log
 
 import (
 	"fmt"
-	"imagine/utils"
 	"log/slog"
 	"os"
 
 	"path"
 	"path/filepath"
 	"strings"
+
+	libos "imagine/common/os"
+	"imagine/utils"
 )
 
 const (
@@ -22,19 +24,12 @@ var (
 var (
 	LogFileFormatDefault = fmt.Sprint(
 		utils.AppName,
-		"-", strings.ReplaceAll(utils.GetAppVersion(),".", "_"),
+		"-", strings.ReplaceAll(utils.GetAppVersion(), ".", "_"),
 		"-", LogFileDate,
 	)
-	
 
 	LogDirectoryDefault = func() string {
-		cwd, err := os.Getwd()
-
-		if err != nil {
-			panic(err)
-		}
-
-		return filepath.Join(cwd, "var", "logs")
+		return path.Join(libos.CurrentWorkingDirectory, "var", "logs")
 	}()
 
 	LogFileDefaults = FileLog{
@@ -43,13 +38,12 @@ var (
 	}
 )
 
-
 type FileLog struct {
 	Directory string
 	Filename  string
 }
 
-func (fl FileLog) Open(date string) (file *os.File, err error) {
+func (fl FileLog) Open() (file *os.File, err error) {
 	path := fl.FilePath()
 
 	err = os.MkdirAll(filepath.Dir(path), os.ModePerm)
@@ -57,14 +51,12 @@ func (fl FileLog) Open(date string) (file *os.File, err error) {
 		return file, err
 	}
 
-	// Using all these flags allows us to append to the file not overwrite the data lmao (important!
+	// Using all these flags allows us to append to the file not overwrite the data lmao (important!)
 	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 func (fl FileLog) Write(data []byte) (n int, err error) {
-	path := fl.FilePath()
-
-	file, err := fl.Open(path)
+	file, err := fl.Open()
 
 	if err != nil {
 		fmt.Println("Error opening log file", err)
@@ -73,11 +65,11 @@ func (fl FileLog) Write(data []byte) (n int, err error) {
 
 	defer file.Close()
 
-	return file.Write([]byte(data))
+	return file.Write(data)
 }
 
 func (fl FileLog) FilePath() string {
-	return path.Join(fl.Directory, fl.Filename+"."+LogFileExt)
+	return libos.StandardisePaths(path.Join(fl.Directory, fl.Filename+"."+LogFileExt))
 }
 
 func NewFileLogger(opts *ImalogHandlerOptions) slog.Handler {
