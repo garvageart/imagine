@@ -5,7 +5,6 @@
 	import hotkeys from "hotkeys-js";
 	import { fullscreen } from "$lib/utils";
 
-	let sidebarOpen: boolean = $state(true);
 	hotkeys("f11", () => {
 		if (document.fullscreenElement) {
 			fullscreen.exit();
@@ -20,7 +19,7 @@
 		<DevWelcomeText></DevWelcomeText>
 		<LoginButtons />
 	</div>
-	<Sidebar bind:sidebarOpen></Sidebar>
+	<Sidebar></Sidebar>
 </main>
 
 <style>

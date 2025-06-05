@@ -1,19 +1,18 @@
 <script lang="ts">
 	import CloseIcon from "./CloseIcon.svelte";
+	import { sidebar } from "$lib/states/index.svelte";
 
 	let sidebarEl: HTMLElement;
-	let { sidebarOpen = $bindable() } = $props();
+	let sidebarOpen = $derived(sidebar.open);
 </script>
 
-<aside bind:this={sidebarEl} id="viz-sidebar" class={sidebarOpen ? "" : "closed"}>
+<aside bind:this={sidebarEl} id="viz-sidebar" class="border {sidebarOpen ? '' : 'closed'}">
 	<span id="close-sidebar">
-		{#if sidebarOpen}
-			<CloseIcon
-				onclick={() => {
-					sidebarOpen = !sidebarOpen;
-				}}
-			/>
-		{/if}
+		<CloseIcon
+			onclick={() => {
+				sidebar.open = !sidebar.open;
+			}}
+		/>
 	</span>
 </aside>
 
@@ -25,7 +24,7 @@
 		min-width: 15%;
 		display: flex;
 		position: relative;
-		transition: all 0.5s;
+		transition: min-width 0.5s;
 		transition-timing-function: linear(
 			0 0%,
 			0 1.8%,
@@ -55,7 +54,6 @@
 		&.closed {
 			min-width: 0;
 			border-left: 0;
-			// display: none;
 		}
 	}
 

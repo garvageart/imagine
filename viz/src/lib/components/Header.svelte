@@ -1,9 +1,19 @@
+<script lang="ts">
+	import { sidebar } from "$lib/states/index.svelte";
+	import MaterialIcon from "./MaterialIcon.svelte";
+</script>
 
 <header>
 	<a id="viz-title" href="/">viz</a>
+	<button
+		id="viz-menu-icon"
+		onclick={() => {
+			sidebar.open = !sidebar.open;
+		}}
+	>
+		<MaterialIcon iconName="menu" />
+	</button>
 </header>
-
-<slot></slot>
 
 <style>
 	header {
@@ -19,5 +29,11 @@
 		font-family: var(--imag-code-font);
 		font-weight: 700;
 		font-size: 2em;
+	}
+
+	#viz-menu-icon {
+		display: inline-flex;
+		margin-left: auto;
+		cursor: pointer;
 	}
 </style>
