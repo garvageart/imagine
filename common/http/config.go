@@ -1,28 +1,59 @@
 package http
 
-
 import (
 	"log/slog"
+
 	"github.com/spf13/viper"
 
+	"fmt"
 	libos "imagine/common/os"
 	"imagine/utils"
-	"fmt"
+)
+
+var (
+	ServerKeys = map[string]string{
+		"auth":  "auth-server",
+		"media": "media-server",
+		"viz":   "viz",
+	}
+
+	ImagineServers = func() map[string]*ImagineServer {
+		var host string
+		if utils.IsProduction {
+			host = "0.0.0.0"
+		} else {
+			host = "localhost"
+		}
+
+		config, err := ReadConfig()
+		if err != nil {
+			panic("Unable to read config file")
+		}
+
+		result := map[string]*ImagineServer{}
+		for serverName, serverKey := range ServerKeys {
+			result[serverName] = &ImagineServer{}
+			result[serverName].Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey))
+			result[serverName].Host = host
+			result[serverName].Key = serverKey
+		}
+
+		return result
+	}()
 )
 
 type Server struct {
 	Port int
 	Host string
+	Key  string
 }
 
 type ImagineServer struct {
-	Port   int
-	Host   string
-	Key    string
+	*Server
 	Logger *slog.Logger
 }
 
-func (server ImagineServer) ReadConfig() (viper.Viper, error) {
+func ReadConfig() (viper.Viper, error) {
 	configPath := libos.CurrentWorkingDirectory + "/config"
 
 	viper.SetConfigName(utils.AppName)

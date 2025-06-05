@@ -31,6 +31,7 @@ import (
 	"imagine/common/crypto"
 	libhttp "imagine/common/http"
 	"imagine/db"
+	imalog "imagine/log"
 	"imagine/utils"
 )
 
@@ -172,6 +173,47 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 	})
 
 	router.Get("/oauth", func(res http.ResponseWriter, req *http.Request) {
+		authTokenCookie := req.CookiesNamed("imag-auth_token")[0].Value
+		authToken, err := jwt.Parse(authTokenCookie, func(token *jwt.Token) (interface{}, error) {
+			return jwtSecretBytes, nil
+		})
+
+		switch {
+		case authToken.Valid:
+			logger.Info("user already authenticated", slog.String("request_id", libhttp.GetRequestID(req)))
+			jsonResponse := map[string]any{"message": "user already authenticated"}
+
+			render.JSON(res, req, jsonResponse)
+			return
+		case errors.Is(err, jwt.ErrTokenMalformed):
+			logger.Info("malformed token", slog.String("request_id", libhttp.GetRequestID(req)))
+			jsonResponse := map[string]any{"error": "malformed token"}
+
+			res.WriteHeader(http.StatusBadRequest)
+			render.JSON(res, req, jsonResponse)
+			return
+		case errors.Is(err, jwt.ErrTokenSignatureInvalid):
+			logger.Error("invalid token signature", slog.String("request_id", libhttp.GetRequestID(req)))
+			jsonResponse := map[string]any{"error": "invalid token signature"}
+
+			res.WriteHeader(http.StatusBadRequest)
+			render.JSON(res, req, jsonResponse)
+			return
+		case errors.Is(err, jwt.ErrTokenExpired):
+			logger.Info("token expired", slog.String("request_id", libhttp.GetRequestID(req)))
+			jsonResponse := map[string]any{"error": "token expired"}
+
+			res.WriteHeader(http.StatusForbidden)
+			http.Redirect(res, req, "localhost:7777/", http.StatusTemporaryRedirect)
+			render.JSON(res, req, jsonResponse)
+			return
+		default:
+			libhttp.ServerError(res, req, err, logger, nil,
+				"couldn't handle token error",
+				"Something went wrong on our side, please try again later",
+			)
+		}
+
 		var oauthConfig *oauth2.Config
 		provider := req.FormValue("provider")
 
@@ -202,7 +244,6 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 				"error generating oauth state",
 				"",
 			)
-
 			return
 		}
 
@@ -280,7 +321,9 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 
 		// Create a new JWT token with claims
 		claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"sub": userEmail,         // Subject (user identifier
+			// This probably bad and maybe we should generate an ID here instead
+			"sub": userEmail, // Subject (user identifier)
+			"aud": "viz",
 			"iss": serverKey,         // Issuer
 			"iat": time.Now().Unix(), // Issued at
 			"exp": expiryTime,        // Expiration time
@@ -289,7 +332,10 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 
 		tokenString, err := claims.SignedString(jwtSecretBytes)
 		if err != nil {
-			res.Write([]byte("Error creating JWT token:" + err.Error()))
+			libhttp.ServerError(res, req, err, logger, nil,
+				"Failed to sign JWT token",
+				"Could not process your login information. Please try again later",
+			)
 			return
 		}
 
@@ -308,6 +354,8 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
 		})
+
+		logger.Info("User logged in with OAuth", slog.String("provider", provider))
 
 		res.Header().Add("Content-Type", "application/json")
 		res.WriteHeader(http.StatusOK)
@@ -332,7 +380,6 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		}
 
 		userId := hex.EncodeToString(userIdBytes)
-
 		userStruct := &ImagineUser{
 			UUID:          userUUID.String(),
 			ID:            userId,
@@ -383,26 +430,8 @@ func main() {
 	router := chi.NewRouter()
 	logger := libhttp.SetupChiLogger(serverKey)
 
-	var host string
-	if utils.IsProduction {
-		host = "0.0.0.0"
-	} else {
-		host = "localhost"
-	}
+	server := ImagineAuthServer{ImagineServer: libhttp.ImagineServers[serverKey]}
+	server.ImagineServer.Logger = logger
 
-	var server = &ImagineAuthServer{
-		ImagineServer: &libhttp.ImagineServer{
-			Host:   host,
-			Key:    serverKey,
-			Logger: logger,
-		},
-	}
-
-	config, err := server.ReadConfig()
-	if err != nil {
-		panic("Unable to read config file")
-	}
-
-	server.Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey))
 	server.Launch(router)
 }

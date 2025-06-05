@@ -14,6 +14,10 @@ import (
 	libhttp "imagine/common/http"
 )
 
+const(
+	serverKey = "media-server"
+)
+
 type ImagineMediaServer struct {
 	*libhttp.ImagineServer
 }
@@ -74,21 +78,11 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 }
 
 func main() {
-	key := "media-server"
 	router := chi.NewRouter()
-	logger := libhttp.SetupChiLogger(key)
+	logger := libhttp.SetupChiLogger(serverKey)
 
-	var server = &ImagineMediaServer{
-		ImagineServer: &libhttp.ImagineServer{
-			Host:   "localhost",
-			Key:    key,
-			Logger: logger,
-		}}
+	server := ImagineMediaServer{ImagineServer: libhttp.ImagineServers[serverKey]}
+	server.ImagineServer.Logger = logger
 
-	config, err := server.ReadConfig()
-	if err != nil {
-		panic("Unable to read config file: " + err.Error())
-	}
-	server.Port = config.GetInt(fmt.Sprintf("servers.%s.port", server.Key))
 	server.Launch(router)
 }
