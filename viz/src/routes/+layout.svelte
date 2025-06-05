@@ -12,7 +12,7 @@
 	header {
 		background-color: var(--imag-blue-100);
 		height: 2.5em;
-		padding: 0.5em 1em;
+		padding: 0.5em 1.5em;
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--imag-blue-20);
