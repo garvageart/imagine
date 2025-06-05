@@ -1,13 +1,67 @@
-<aside id="viz-sidebar">
-	<div class="viz-menuitem">Collections</div>
+<script lang="ts">
+	import CloseIcon from "./CloseIcon.svelte";
+
+	let sidebarEl: HTMLElement;
+	let { sidebarOpen = $bindable() } = $props();
+</script>
+
+<aside bind:this={sidebarEl} id="viz-sidebar" class={sidebarOpen ? "" : "closed"}>
+	<span id="close-sidebar">
+		{#if sidebarOpen}
+			<CloseIcon
+				onclick={() => {
+					sidebarOpen = !sidebarOpen;
+				}}
+			/>
+		{/if}
+	</span>
 </aside>
 
-<style>
+<style lang="scss">
 	#viz-sidebar {
 		background-color: var(--imag-blue-100);
-		border-right: 1px solid var(--imag-blue-20);
+		border-left: 1px solid var(--imag-blue-20);
 		height: 100%;
 		min-width: 15%;
 		display: flex;
+		position: relative;
+		transition: all 0.5s;
+		transition-timing-function: linear(
+			0 0%,
+			0 1.8%,
+			0.01 3.6%,
+			0.03 6.35%,
+			0.07 9.1%,
+			0.13 11.4%,
+			0.19 13.4%,
+			0.27 15%,
+			0.34 16.1%,
+			0.54 18.35%,
+			0.66 20.6%,
+			0.72 22.4%,
+			0.77 24.6%,
+			0.81 27.3%,
+			0.85 30.4%,
+			0.88 35.1%,
+			0.92 40.6%,
+			0.94 47.2%,
+			0.96 55%,
+			0.98 64%,
+			0.99 74.4%,
+			1 86.4%,
+			1 100%
+		);
+
+		&.closed {
+			min-width: 0;
+			border-left: 0;
+			// display: none;
+		}
+	}
+
+	#close-sidebar {
+		position: absolute;
+		left: 0;
+		margin: 0.2em;
 	}
 </style>
