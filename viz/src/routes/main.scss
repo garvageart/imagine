@@ -1,4 +1,5 @@
 @import url('../../static/css/general-sans.css');
+@import 'material-symbols/sharp.css';
 
 /* Colours */
 :root {
@@ -51,6 +52,13 @@ code {
 
 button {
     font-family: var(--imag-display-font);
+    background-color: transparent;
+    color: var(--imag-text-color);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+	font-size: 1em;
 }
 
 a {
@@ -64,8 +72,14 @@ a:hover {
 
 body {
     height: 100vh;
-        width: 100vw;
-        display: flex;
-        flex-direction: column;
-        position: relative;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.material-symbols-sharp {
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 48;
+    font-size: 2em;
+    user-select: none;
 }
