@@ -1,8 +1,10 @@
 <script>
 	import Header from "$lib/components/Header.svelte";
-	import "./main.scss";
+	import "$lib/styles/scss/main.scss";
+
+	let { children } = $props();
 </script>
 
 <Header></Header>
 
-<slot></slot>
+{@render children()}
