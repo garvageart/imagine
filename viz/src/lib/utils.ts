@@ -18,8 +18,12 @@ export const cookieMethods = {
     set: (key: string, value: string, expiresDate?: Date | string) => {
         document.cookie = `${key}=${value}; expires=${expiresDate}; Secure; path =/`;
     },
-    get: (key: string): string => {
-        const allCookies = document.cookie;
+    get: (key: string): string | null => {
+        if (!browser) {
+            return null;
+        }
+
+        const allCookies = document?.cookie;
         const cookieValue = allCookies.split("; ").find(cookie => cookie.startsWith(`${key}`))?.split("=")[1]!;
 
         return cookieValue;
