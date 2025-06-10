@@ -2,6 +2,8 @@
 // No gutters
 // No text alignment with justified container classes (center-xs, for example)
 
+@use "sass:math";
+
 .row {
   @include row();
 }
@@ -66,12 +68,12 @@
   @for $i from 1 through $grid-columns {
     .col-#{$thisPrefix}-#{$i} {
       box-sizing: border-box;
-      flex-basis: 100% / $grid-columns * $i;
-      max-width: 100% / $grid-columns * $i;
+      flex-basis: math.div(100%, $grid-columns) * $i;
+      max-width: math.div(100%, $grid-columns) * $i;
       padding: $gutter;
     }
     .col-#{$thisPrefix}-offset-#{$i} {
-      margin-left: 100% / $grid-columns * $i;
+      margin-left: math.div(100%, $grid-columns) * $i;
     }
   }
   .row.start-#{$thisPrefix} {
