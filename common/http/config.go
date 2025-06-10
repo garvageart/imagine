@@ -31,11 +31,12 @@ var (
 		}
 
 		result := map[string]*ImagineServer{}
-		for serverName, serverKey := range ServerKeys {
-			result[serverName] = &ImagineServer{}
-			result[serverName].Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey))
-			result[serverName].Host = host
-			result[serverName].Key = serverKey
+		for _, serverKey := range ServerKeys {
+			result[serverKey] = &ImagineServer{Server: &Server{}}
+			
+			result[serverKey].Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey))
+			result[serverKey].Host = host
+			result[serverKey].Key = serverKey
 		}
 
 		return result
