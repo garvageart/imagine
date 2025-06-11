@@ -1,6 +1,7 @@
+@use './sassflexboxgrid/main.scss';
+@use '../../components/panels/viz-panel.scss';
 @import url('../../../../static/css/general-sans.css');
 @import 'material-symbols/sharp.css';
-@import './sassflexboxgrid/main.scss';
 
 /* Colours */
 :root {
@@ -17,7 +18,7 @@
 }
 /* Fonts */
 :root {
-    --imag-display-font: "General Sans Variable", sans-serif;
+    --imag-display-font: "Public Sans", sans-serif;
     --imag-code-font: "Roboto Mono", monospace;
 }
 

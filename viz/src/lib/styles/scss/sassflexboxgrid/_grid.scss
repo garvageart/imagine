@@ -1,31 +1,34 @@
+@use "sass:list";
 // Creds to https://github.com/kristoferjoseph/flexboxgrid
 // No gutters
 // No text alignment with justified container classes (center-xs, for example)
 
 @use "sass:math";
+@use "./mixins/grid-mixins";
+@use "./variables/grid-variables";
 
 .row {
-  @include row();
+  @include grid-mixins.row();
 }
 
 .row.reverse {
-  @include row-reverse();
+  @include grid-mixins.row-reverse();
 }
 
 .row.natural-height {
-  @include row-natural-height();
+  @include grid-mixins.row-natural-height();
 }
 
 .row.flex-column {
-  @include row-flex-column();
+  @include grid-mixins.row-flex-column();
 }
 
 .col {
-  @include col();
+  @include grid-mixins.col();
 }
 
 .col.reverse {
-  @include col-reverse();
+  @include grid-mixins.col-reverse();
 }
 
 .first {
@@ -63,17 +66,17 @@
     flex-grow: 1;
     flex-basis: 0;
     max-width: 100%;
-    padding: $gutter;
+    padding: grid-variables.$gutter;
   }
-  @for $i from 1 through $grid-columns {
+  @for $i from 1 through grid-variables.$grid-columns {
     .col-#{$thisPrefix}-#{$i} {
       box-sizing: border-box;
-      flex-basis: math.div(100%, $grid-columns) * $i;
-      max-width: math.div(100%, $grid-columns) * $i;
-      padding: $gutter;
+      flex-basis: math.div(100%, grid-variables.$grid-columns) * $i;
+      max-width: math.div(100%, grid-variables.$grid-columns) * $i;
+      padding: grid-variables.$gutter;
     }
     .col-#{$thisPrefix}-offset-#{$i} {
-      margin-left: math.div(100%, $grid-columns) * $i;
+      margin-left: math.div(100%, grid-variables.$grid-columns) * $i;
     }
   }
   .row.start-#{$thisPrefix} {
@@ -108,31 +111,31 @@
   }
 } // Mixin to run inside of for loop - creates col/breakpoint classes
 
-@for $i from 1 through length($breakpoint-up-prefixes) {
-  $thisPrefix: nth($breakpoint-up-prefixes, $i);
+@for $i from 1 through list.length(grid-variables.$breakpoint-up-prefixes) {
+  $thisPrefix: list.nth(grid-variables.$breakpoint-up-prefixes, $i);
   @if $thisPrefix == "xs" {
     @include col-factory($thisPrefix);
   } @else if $thisPrefix == "sm" {
-    @media #{$breakpoint-sm-up} {
+    @media #{grid-variables.$breakpoint-sm-up} {
       @include col-factory($thisPrefix);
     }
   } @else if $thisPrefix == "md" {
-    @media #{$breakpoint-md-up} {
+    @media #{grid-variables.$breakpoint-md-up} {
       @include col-factory($thisPrefix);
     }
   } @else if $thisPrefix == "lg" {
-    @media #{$breakpoint-lg-up} {
+    @media #{grid-variables.$breakpoint-lg-up} {
       @include col-factory($thisPrefix);
     }
   } @else if $thisPrefix == "xl" {
-    @media #{$breakpoint-xl-up} {
+    @media #{grid-variables.$breakpoint-xl-up} {
       @include col-factory($thisPrefix);
     }
   }
 }
 
 .col-gutter-lr {
-    padding: 0 $gutter;
+    padding: 0 grid-variables.$gutter;
 }
 
 .col-no-gutter {
