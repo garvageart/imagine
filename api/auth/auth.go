@@ -124,7 +124,8 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 	}()
 
 	if mongoErr != nil {
-		panic("error connecting mongo db " + mongoErr.Error())
+		logger.Error("error connecting to mongodb", slog.Any("error", mongoErr))
+		panic("")
 	}
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
