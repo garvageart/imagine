@@ -1,25 +1,21 @@
 <script lang="ts">
 	import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
-	import Sidebar from "$lib/components/Sidebar.svelte";
 	import LoginButtons from "$lib/components/LoginButtons.svelte";
-	import hotkeys from "hotkeys-js";
-	import { fullscreen } from "$lib/utils";
+	import VizPanel from "$lib/components/panels/VizPanel.svelte";
 
-	hotkeys("f11", () => {
-		if (document.fullscreenElement) {
-			fullscreen.exit();
-		} else {
-			fullscreen.enter();
-		}
-	});
+	let vizContent: HTMLDivElement;
 </script>
 
+<svelte:head>
+	<title>viz</title>
+</svelte:head>
+
 <main>
-	<div id="viz-content">
-		<DevWelcomeText></DevWelcomeText>
-		<LoginButtons />
+	<div bind:this={vizContent} id="viz-content">
+		<!-- <DevWelcomeText></DevWelcomeText> -->
+		<!-- <LoginButtons /> -->
+		<VizPanel />
 	</div>
-	<Sidebar></Sidebar>
 </main>
 
 <style>
@@ -37,5 +33,6 @@
 		align-items: center;
 		width: 100%;
 		height: 100%;
+		overflow: auto;
 	}
 </style>

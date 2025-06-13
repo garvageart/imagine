@@ -1,0 +1,87 @@
+.splitpanes.viz-theme {
+    .splitpanes__pane {
+        background-color: var(--imag-bg-color)
+    }
+
+    .splitpanes__splitter {
+        background-color: var(--imag-blue-100);
+        box-sizing: border-box;
+        position: relative;
+        flex-shrink: 0;
+        
+        &:before,
+        &:after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            transition: opacity 0.20s;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        &:hover:before,
+        &:hover:after,
+        &:active {
+            background-color: rgb(24, 133, 223);
+        }
+    
+        &:hover:before {
+            opacity: 1;
+        }
+        
+        &:first-child {
+            cursor: auto;
+        }
+    }
+}
+
+.viz-theme {    
+    &.splitpanes .splitpanes .splitpanes__splitter {
+        z-index: 1;
+    }
+    
+    &.splitpanes--vertical>.splitpanes__splitter,
+    .splitpanes--vertical>.splitpanes__splitter {
+        width: 1px;
+        background-color: var(--imag-blue-100);
+        cursor: col-resize;
+        
+        &:before,
+        &:after {
+            width: 3px;
+            height: 100%;
+        }
+
+        &:active {
+            width: 2px;
+        }
+    }
+    
+    &.splitpanes--horizontal>.splitpanes__splitter,
+    .splitpanes--horizontal>.splitpanes__splitter {
+        height: 1px;
+        background-color: var(--imag-blue-100);
+        cursor: row-resize;
+        
+        &:before,
+        &:after {
+            width: 100%;
+            height: 3px;
+        }
+
+        &:active {
+            height: 2px;
+        }
+    }
+    
+    .splitpanes__splitter {
+        position: relative;
+        
+        &.splitpanes__splitter__active {
+            z-index: 2;
+            /* Fix an issue of overlap fighting with a near hovered splitter */
+        }
+    }
+    
+}
