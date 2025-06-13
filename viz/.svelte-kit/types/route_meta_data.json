@@ -1,9 +1,17 @@
 {
 	"/": [
-		"src/routes/+page.ts"
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/collections": [
+		"src/routes/collections/+page.server.ts",
+		"src/routes/+layout.ts"
 	],
 	"/signin/oauth": [
-		"src/routes/signin/oauth/+page.ts"
+		"src/routes/signin/oauth/+page.ts",
+		"src/routes/+layout.ts"
 	],
-	"/signup": []
+	"/signup": [
+		"src/routes/+layout.ts"
+	]
 }
