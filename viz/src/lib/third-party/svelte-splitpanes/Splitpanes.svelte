@@ -1,4 +1,5 @@
 <script context="module" lang="ts">
+  import './internal/default-theme.scss'
   export const KEY = {};
 
   type ResultType = boolean | { passive: boolean };
@@ -30,7 +31,7 @@
   })();
 </script>
 
-<script lang="ts" strictEvents>
+<script lang="ts" >
   import { onMount, onDestroy, setContext, createEventDispatcher, tick, afterUpdate } from 'svelte';
   import { writable } from 'svelte/store';
   import type {
@@ -1067,70 +1068,3 @@
   {/if}
   <slot />
 </div>
-
-<style global lang="scss">
-  @use 'internal/default-theme';
-
-  div.splitpanes--horizontal.splitpanes--dragging {
-    cursor: row-resize;
-  }
-  div.splitpanes--vertical.splitpanes--dragging {
-    cursor: col-resize;
-  }
-
-  .splitpanes {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    &--vertical {
-      flex-direction: row;
-    }
-    &--horizontal {
-      flex-direction: column;
-    }
-    &--dragging * {
-      user-select: none;
-    }
-    &__pane {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      .splitpanes--vertical & {
-        transition: width 0.2s ease-out;
-      }
-      .splitpanes--horizontal & {
-        transition: height 0.2s ease-out;
-      }
-
-      /** Add also a direct child selector, for dealing with specifity of nested splitpanes transition.
-			    This issue was happening in the examples on nested splitpanes, vertical inside horizontal.
-			    I think it's better to keep also the previous CSS selector for (potential) old browser compatibility.
-			  */
-      .splitpanes--vertical > & {
-        transition: width 0.2s ease-out;
-      }
-      .splitpanes--horizontal > & {
-        transition: height 0.2s ease-out;
-      }
-
-      .splitpanes--dragging & {
-        transition: none;
-        pointer-events: none;
-      }
-
-      .splitpanes--freeze & {
-        transition: none;
-      }
-    }
-    // Disable default zoom behavior on touch device when double tapping splitter.
-    &__splitter {
-      touch-action: none;
-    }
-    &--vertical > .splitpanes__splitter {
-      min-width: 1px;
-    }
-    &--horizontal > .splitpanes__splitter {
-      min-height: 1px;
-    }
-  }
-</style>
