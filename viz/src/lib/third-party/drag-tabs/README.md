@@ -1,8 +1,7 @@
-> As of version `1.0.0` this library exposes ES modules. Use an ES module aware transpiler such as Webpack, Rollup or Browserify + babelify to bundle it for the browser.
+# drag-tabs (for Imagine)
+A fork of [drag-tabs](https://github.com/bpmn-io/drag-tabs) for `imagine` updated using TypeScript
 
-# drag-tabs
-
-[![Build Status](https://github.com/bpmn-io/drag-tabs/actions/workflows/CI.yml/badge.svg)](https://github.com/bpmn-io/drag-tabs/actions/workflows/CI.yml)
+<hr>
 
 A tiny utility that makes tabs inside a container draggable.
 
