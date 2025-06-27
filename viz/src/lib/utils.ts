@@ -84,3 +84,114 @@ export function copyToClipboard(text: string) {
     document.execCommand('copy');
     document.body.removeChild(textArea);
 }
+
+export function debounce(func: () => any, wait: number | undefined) {
+    let timeoutId: number | null = null;
+    return (...args: any) => {
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+        }
+
+        timeoutId = window.setTimeout(() => {
+            // @ts-ignore
+            func(...args);
+        }, wait);
+    };
+};
+
+export class VizStoreValue<V = string> {
+    key: string;
+    value: V | null = null;
+
+    constructor(key: string, value?: V) {
+        this.key = key;
+
+        if (value) {
+            this.value = value;
+        }
+    }
+
+    get = (): V | null => {
+        const item = localStorage.getItem("viz:" + this.key);
+
+        if (!item || item === "undefined") {
+            return null;
+        }
+
+        if (item?.startsWith("{") || item?.startsWith("[")) {
+            return JSON.parse(item) as V;
+        }
+
+        return item !== null ? item as V : null;
+    };
+
+    set = (value: V) => {
+        this.value = value;
+        let tempStr: string;
+
+        if (typeof value === 'object' && value !== null) {
+            tempStr = JSON.stringify(value);
+        } else {
+            tempStr = value as unknown as string;
+        }
+
+        localStorage.setItem("viz:" + this.key, tempStr);
+    };
+
+    delete = () => {
+        localStorage.removeItem("viz:" + this.key);
+    };
+}
+
+export function checkDOMForID(id: string) {
+    const el = document.getElementById(id);
+
+    if (el) {
+        return true;
+    }
+
+    return false;
+}
+
+export function swapArrayElements<A>(array: A[], index1: number, index2: number) {
+    array[index1] = array.splice(index2, 1, array[index1])[0];
+};
+
+export function debugEvent(event: CustomEvent, printAsString: boolean = false) {
+    console.log("Event:", event.type);
+
+    if (printAsString) {
+        console.log("Detail:", JSON.stringify(event.detail, null, 2));
+        return;
+    }
+
+    console.log("Detail:", event.detail);
+}
+
+// TODO: Move utility functions to purpose made files
+// instead of shoving them down all one utility file
+export function generateKeyId(length = 10): string {
+    return "sp-" + generateRandomString(length);
+}
+
+export function arrayHasDuplicates(arr: any[]): { hasDuplicates: boolean, duplicates: any[]; } {
+    let dupli: never[] = [];
+    arr.reduce((acc, curr) => {
+        if (acc.indexOf(curr) === -1 && arr.indexOf(curr) !== arr.lastIndexOf(curr)) {
+            acc.push(curr);
+        }
+        return acc;
+    }, dupli);
+
+    if (dupli.length > 0) {
+        return {
+            hasDuplicates: true,
+            duplicates: dupli
+        };
+    }
+
+    return {
+        hasDuplicates: false,
+        duplicates: []
+    };
+}
