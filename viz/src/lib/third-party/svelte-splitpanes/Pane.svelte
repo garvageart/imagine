@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { getContext, onMount, onDestroy, hasContext } from "svelte";
 	import { KEY } from "./Splitpanes.svelte";
-	import type { ClientCallbacks, IPane, PaneInitFunction, SplitContext } from "./index.js";
+	import type { ClientCallbacks, IPane, IPaneSerialized, PaneInitFunction, SplitContext } from "./index.js";
 	import { browser } from "./internal/env.js";
 	import { gatheringKey } from "./internal/GatheringRound.svelte";
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import { carefullCallbackSource } from "./internal/utils/functions";
+	import { writable, type Writable } from "svelte/store";
+	import { arrayHasDuplicates, generateRandomString, VizStoreValue } from "$lib/utils";
+	import { allTabs } from "./state";
 
 	const {
 		ssrRegisterPaneSize,
@@ -13,7 +16,8 @@
 		clientOnly: clientOnlyContext,
 		isHorizontal,
 		showFirstSplitter,
-		veryFirstPaneKey
+		veryFirstPaneKey,
+		keyId
 	} = getContext<SplitContext>(KEY);
 
 	// PROPS
@@ -76,6 +80,10 @@
 				index: 0,
 				key,
 				element: element,
+				childs: [],
+				parent: keyId,
+				id: usedId,
+				keyId: usedKeyId,
 				givenSize: size,
 				sz: () => sz,
 				setSz: (v) => {
@@ -90,7 +98,9 @@
 				setSplitterActive: (isActive: boolean) => {
 					isSplitterActive = isActive;
 				},
-				isReady: false
+				isReady: false,
+				isActive,
+				tabs: tabs ?? []
 			};
 
 			clientCallbacks = clientOnlyContext?.onPaneAdd(inst);
@@ -122,7 +132,17 @@
 	<!-- this a11y issue is known, and will be taken care of as part of the a11y feature issue in #11 -->
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<div class={`splitpanes__pane ${clazz || ""}`} bind:this={element} on:click={carefullClientCallbacks?.("onPaneClick")} {style}>
+	<div
+		id={usedId}
+		data-viz-sp-id={usedKeyId}
+		class={`splitpanes__pane ${clazz || ""}`}
+		bind:this={element}
+		on:click={(event) => {
+			carefullClientCallbacks?.("onPaneClick")(event);
+			$isActive = true;
+		}}
+		{style}
+	>
 		<slot />
 	</div>
 {/if}

@@ -33,8 +33,16 @@
 
 <script lang="ts">
 	import { onMount, onDestroy, setContext, createEventDispatcher, tick, afterUpdate } from "svelte";
-	import { writable } from "svelte/store";
-	import type { IPane, IPaneSizingEvent, SplitContext, PaneInitFunction, ClientCallbacks } from "./index.js";
+	import { get, writable, type Writable } from "svelte/store";
+	import type {
+		IPane,
+		IPaneSizingEvent,
+		SplitContext,
+		PaneInitFunction,
+		ClientCallbacks,
+		ITree,
+		IPaneSerialized
+	} from "./index.js";
 	import GatheringRound from "./internal/GatheringRound.svelte";
 	import { browser } from "./internal/env.js";
 	import { getDimensionName } from "./internal/utils/sizing.js";
@@ -88,9 +96,17 @@
 		"pane-maximize": CustomEvent<IPane>;
 
 		/**
+		 * Fires when a pane is reset to its default size.
+		 *
+		 * Returns the reset pane object with its dimensions.
+		 *
+		 */
+		"pane-reset": CustomEvent<IPane>;
+
+		/**
 		 * Fires when splitpanes is ready.
 		 */
-		ready: CustomEvent<void>;
+		ready: CustomEvent<Map<string, IPaneSerialized[]>>;
 
 		/**
 		 * Fires while resizing (on mousemove/touchmove).
@@ -104,7 +120,7 @@
 		 *
 		 * Returns the clicked pane object with its dimensions.
 		 */
-		resized: CustomEvent<IPaneSizingEvent[]>;
+		resized: CustomEvent<Map<string, IPaneSerialized[]>>;
 
 		/**
 		 * Fires when a pane is added.
@@ -151,8 +167,13 @@
 	export let id: string = undefined;
 	// horiz or verti?
 	export let horizontal = false;
-	// when true, moving a splitter can push other panes
-	export let pushOtherPanes = true;
+	/**
+	 * NOTE: The library default is true, but a Viz `SubPanel` size should only
+	 * be able to be changed by the user, not by other panes
+	 *
+	 * when true, moving a splitter can push other panes
+	 */
+	export let pushOtherPanes = false;
 	// open/close on double click
 	export let dblClickSplitter = true;
 	// true if RTL
@@ -166,6 +187,24 @@
 	// css class
 	let clazz = "";
 	export { clazz as class };
+
+	// FOR VIZ ONLY ----------------
+	const storedLayout = new VizStoreValue<Record<string, IPaneSerialized[]>>("layout").get();
+
+	export let id: string;
+	// let splitpaneId: string | undefined = Object.keys(storedLayout ?? {}).find((splitpaneId) => splitpaneId === id);
+
+	if (!id || id === "") {
+		throw new Error("Splitpanes: id is required");
+	}
+
+	let splitpanesKeyId = storedLayout?.[id].map((pane) => pane.parent)[0];
+	export let keyId: string = "";
+	const usedKeyId = splitpanesKeyId ?? keyId ?? generateRandomString(10);
+
+	let isRoot: boolean;
+	let splitpanes: Writable<ITree> = writable({ id });
+	let currentFocusedPane: HTMLElement;
 
 	// VARIABLES ----------------
 
@@ -197,6 +236,7 @@
 	const showFirstSplitter = writable<boolean>(firstSplitter);
 	// tells the key of the very first pane, or undefined if not recieved yet
 	const veryFirstPaneKey = writable<unknown>(undefined);
+
 	let activeSplitterElement: HTMLElement;
 	let activeSplitterDrag: number;
 	let ssrPaneDefinedSizeSum = 0;
@@ -227,6 +267,7 @@
 	};
 
 	setContext<SplitContext>(KEY, {
+		keyId: usedKeyId,
 		showFirstSplitter,
 		veryFirstPaneKey,
 		isHorizontal,
@@ -255,7 +296,7 @@
 			$veryFirstPaneKey = pane.key;
 		}
 
-		//inserts pane at proper array index
+		// inserts pane at proper array index
 		panes.splice(index, 0, pane);
 
 		// reindex panes
@@ -272,7 +313,7 @@
 				// 4. Fire `pane-add` event.
 				dispatch("pane-add", {
 					index,
-					panes: prepareSizeEvent()
+					panes: prepareResizeEvent()
 				});
 			});
 		}
@@ -318,7 +359,7 @@
 				// 4. Fire `pane-remove` event.
 				dispatch("pane-remove", {
 					removed,
-					panes: prepareSizeEvent()
+					panes: prepareResizeEvent()
 				});
 			}
 		}
@@ -463,13 +504,13 @@
 			const tdrag = getOrientedDiff(currentMouseDrag, containerSizeWithoutBorder, _isRTL);
 			calculatePanesSize(tdrag, containerSizeWithoutBorder);
 
-			dispatch("resize", prepareSizeEvent());
+			dispatch("resize", prepareResizeEvent());
 		}
 	}
 
 	function onMouseUp() {
 		if (isDragging) {
-			dispatch("resized", prepareSizeEvent());
+			dispatch("resized", calculateTree());
 		}
 		isMouseDown = false;
 
@@ -569,20 +610,73 @@
 			}
 
 			dispatch("pane-maximize", splitterPane);
-			dispatch("resized", prepareSizeEvent());
+			dispatch("resized", calculateTree());
 		}
 		// onMouseUp might not be called on the second click, so update the mouse state.
 		// TODO: Should also check and unbind events, but better IMO to not bind&unbind on every click, so ignored for now.
 		isMouseDown = false;
 	}
 
-	const prepareSizeEvent = (): IPaneSizingEvent[] =>
+	function findPanesChildren() {
+		for (const pane of panes) {
+			const childrenElements = Array.from(pane.element.children).filter((el) => isSplitpanes(el) || isPane(el));
+			for (const child of childrenElements) {
+				pane.childs.push(child.attributes.getNamedItem("data-viz-sp-id")?.value as string);
+			}
+		}
+	}
+
+	const prepareResizeEvent = (): IPaneSizingEvent[] =>
 		panes.map((pane) => ({
 			min: pane.min(),
 			max: pane.max(),
 			size: pane.sz(),
 			snap: pane.snap()
 		}));
+
+	function calculateTree() {
+		findPanesChildren();
+		// this seems computationally expensive so idk about this rn
+		const panesStr = JSON.stringify(
+			panes.map((pane) => {
+				return {
+					id: pane.id,
+					keyId: pane.keyId,
+					index: pane.index,
+					givenSize: pane.givenSize,
+					parent: pane.parent,
+					element: pane.element,
+					size: pane.sz(),
+					min: pane.min(),
+					max: pane.max(),
+					snap: pane.snap(),
+					childs: pane.childs,
+					tabs: pane.tabs,
+					isActive: get(pane.isActive)
+				};
+			})
+		);
+
+		// Still worried about performance but we will see lolz
+		const panesParsed = JSON.parse(panesStr) as IPaneSerialized[];
+		for (const pane of panesParsed) {
+			for (let [key, value] of Object.entries(pane.element)) {
+				let newKey = key.startsWith("__") ? key.replace("__", "") : key;
+				(pane.element as Record<string, any>)[newKey] = value;
+				
+				delete (pane.element as Record<string, any>)[key];
+			}
+
+			// unnecessary to keep svelte metadata in prod (if it even shows up then)
+			if (!dev) {
+				delete (pane.element as Record<string, any>)["svelte_meta"];
+			}
+		}
+
+		$allSplitpanes.set(id, panesParsed);
+
+		return $allSplitpanes;
+	}
 
 	/**
 	 * Returns the drag percentage of the splitter relative to the 2 parts it's inbetween, meaning the ratio between

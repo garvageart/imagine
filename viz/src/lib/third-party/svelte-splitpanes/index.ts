@@ -1,5 +1,8 @@
-import type { Readable } from 'svelte/store';
+import type { ComponentProps } from "svelte";
+import type { Readable, Writable } from 'svelte/store';
 
+import Splitpanes from './Splitpanes.svelte';
+import type { VizTab } from "$lib/components/panels/SubPanel.svelte";
 export { default as Splitpanes } from './Splitpanes.svelte';
 export { default as Pane } from './Pane.svelte';
 
@@ -18,6 +21,7 @@ export interface ClientCallbacks {
 
 // methods passed from splitpane to children panes
 export interface SplitContext {
+  keyId: string;
   /** Tells the key of the very first pane, or undefined if not recieved yet. */
   veryFirstPaneKey: Readable<any>;
   isHorizontal: Readable<boolean>;
@@ -57,6 +61,8 @@ export interface IPaneSizingEvent {
 
 // the definition of a pane
 export interface IPane {
+  id?: string;
+  keyId?: string;
   // unique key per pane
   key: any;
   element: HTMLElement;
@@ -70,4 +76,46 @@ export interface IPane {
   setSplitterActive: (isActive: boolean) => void;
   givenSize: number | null;
   isReady: boolean;
+  isActive: Writable<boolean>;
+  parent: string | null;
+  childs: string[];
+  tabs: VizTab[];
 }
+
+interface SerializedElement {
+  svelte_meta?: {
+    loc: {
+      file: string,
+      line: number,
+      column: number;
+    };
+  },
+  attributes?: any,
+  className: string,
+  style: string;
+}
+
+export interface IPaneSerialized {
+  id: string;
+  keyId: string;
+  index: number;
+  givenSize: number;
+  parent: string;
+  element: SerializedElement;
+  size: number;
+  min: number;
+  max: number;
+  snap: number;
+  childs: string[];
+  tabs: VizTab[];
+}
+
+type ISplitpanes = ComponentProps<typeof Splitpanes> & {
+  keyId?: string;
+  panes?: IPane[];
+  isRoot?: boolean;
+  element?: HTMLElement;
+  childs?: string[];
+};
+
+export type ITree = ISplitpanes;
