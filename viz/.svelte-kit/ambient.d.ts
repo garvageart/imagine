@@ -41,7 +41,7 @@ declare module '$env/static/private' {
 	export const ComSpec: string;
 	export const CONDA_PROMPT_MODIFIER: string;
 	export const DriverData: string;
-	export const EFC_13536_1592913036: string;
+	export const EFC_11316_1592913036: string;
 	export const GIT_ASKPASS: string;
 	export const GOPATH: string;
 	export const HADRONPATH: string;
@@ -92,6 +92,7 @@ declare module '$env/static/private' {
 	export const OS: string;
 	export const Path: string;
 	export const PATHEXT: string;
+	export const pnpm_config_verify_deps_before_run: string;
 	export const PNPM_HOME: string;
 	export const PNPM_SCRIPT_SRC_DIR: string;
 	export const POSH_CURSOR_COLUMN: string;
@@ -178,7 +179,7 @@ declare module '$env/dynamic/private' {
 		ComSpec: string;
 		CONDA_PROMPT_MODIFIER: string;
 		DriverData: string;
-		EFC_13536_1592913036: string;
+		EFC_11316_1592913036: string;
 		GIT_ASKPASS: string;
 		GOPATH: string;
 		HADRONPATH: string;
@@ -229,6 +230,7 @@ declare module '$env/dynamic/private' {
 		OS: string;
 		Path: string;
 		PATHEXT: string;
+		pnpm_config_verify_deps_before_run: string;
 		PNPM_HOME: string;
 		PNPM_SCRIPT_SRC_DIR: string;
 		POSH_CURSOR_COLUMN: string;
