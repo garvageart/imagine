@@ -1,10 +1,21 @@
 .splitpanes.viz-theme {
     .splitpanes__pane {
-        background-color: var(--imag-bg-color)
+        background-color: var(--imag-bg-color);
+    }
+
+    .splitpanes__pane__active {
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        -webkit-box-sizing: border-box;
+        box-shadow: 0 31.5px 0 var(--imag-outline-colour) inset,
+                1.5px 0 0 var(--imag-outline-colour) inset,
+                -1.5px 0 0 var(--imag-outline-colour) inset,
+                0 -1.5px 0 var(--imag-outline-colour) inset;
+        z-index: 10;
     }
 
     .splitpanes__splitter {
-        background-color: var(--imag-blue-100);
+        background-color: var(--imag-blue-60);
         box-sizing: border-box;
         position: relative;
         flex-shrink: 0;
@@ -23,11 +34,15 @@
         &:hover:before,
         &:hover:after,
         &:active {
-            background-color: rgb(24, 133, 223);
+            background-color: var(--imag-outline-colour);
         }
     
         &:hover:before {
-            opacity: 1;
+            opacity: 100%;
+        }
+
+        &:hover:after {
+            width: 2px;
         }
         
         &:first-child {
@@ -44,7 +59,7 @@
     &.splitpanes--vertical>.splitpanes__splitter,
     .splitpanes--vertical>.splitpanes__splitter {
         width: 1px;
-        background-color: var(--imag-blue-100);
+        background-color: var(--imag-blue-60);
         cursor: col-resize;
         
         &:before,
@@ -61,7 +76,7 @@
     &.splitpanes--horizontal>.splitpanes__splitter,
     .splitpanes--horizontal>.splitpanes__splitter {
         height: 1px;
-        background-color: var(--imag-blue-100);
+        background-color: var(--imag-blue-60);
         cursor: row-resize;
         
         &:before,
@@ -83,5 +98,14 @@
             /* Fix an issue of overlap fighting with a near hovered splitter */
         }
     }
-    
+}
+
+// All last children inside the panel/pane by default have some padding
+// instead of setting each ones padding individually  
+.splitpanes__pane > *:last-child {
+    padding: 0.5em;
+}
+
+.splitpanes__pane > :is(.splitpanes, .splitpanes__pane) {
+    padding: 0em
 }
