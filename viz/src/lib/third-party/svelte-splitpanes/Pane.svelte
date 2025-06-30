@@ -20,24 +20,35 @@
 		keyId
 	} = getContext<SplitContext>(KEY);
 
-	// PROPS
-
-	export let size: number | null = null;
-	export let minSize = 0;
-	export let maxSize = 100;
-	export let snapSize = 0;
-	// css class
-	let clazz = "";
-	export { clazz as class };
-
 	// FOR VIZ ONLY
-	// PROPS
-	export let smoothExpand = false;
-	export let id: string;
-	export let paneKeyId: string = "";
+	interface Props {
+		// PROPS
+		size?: number | null;
+		minSize?: number;
+		maxSize?: number;
+		snapSize?: number;
+		class?: string;
+		// PROPS
+		smoothExpand?: boolean;
+		id: string;
+		paneKeyId?: string;
+		children?: import("svelte").Snippet;
+	}
+
+	let {
+		size = $bindable(null),
+		minSize = $bindable(0),
+		maxSize = $bindable(100),
+		snapSize = $bindable(0),
+		class: clazz = "",
+		smoothExpand = false,
+		id,
+		paneKeyId = "",
+		children
+	}: Props = $props();
 
 	// VARIABLES
-	let usedKeyId = paneKeyId ?? generateRandomString(10);
+	let usedKeyId = $state(paneKeyId ?? generateRandomString(10));
 	let usedId = id;
 	let isActive: Writable<boolean> = writable(false);
 	let tabs = $allTabs.get(paneKeyId);
@@ -70,9 +81,9 @@
 	const gathering = !browser && hasContext(gatheringKey);
 	const { undefinedPaneInitSize } = (!gathering ? onPaneInit(key) : {}) as ReturnType<PaneInitFunction>;
 
-	let element: HTMLElement;
-	let sz: number = size ?? undefinedPaneInitSize;
-	let isSplitterActive = false;
+	let element: HTMLElement | undefined = $state();
+	let sz: number = $state(size ?? undefinedPaneInitSize);
+	let isSplitterActive = $state(false);
 
 	// CALLBACKS
 
@@ -96,20 +107,21 @@
 	};
 
 	// REACTIVE
-	$: {
+	$effect(() => {
 		if (browser && typeof size === "number") {
 			reportGivenSizeChangeSafe(size);
 		}
-	}
+	});
 
 	let transitionClass = smoothExpand ? `transition: ${$isHorizontal ? "height" : "width"} 0.2s ease-out;` : "";
-	$: dimension = getDimensionName($isHorizontal);
-	$: style = `${dimension}: ${sz}%; ${transitionClass}`;
-	$: {
+	let dimension = $derived(getDimensionName($isHorizontal));
+	let style = $derived(`${dimension}: ${sz}%; ${transitionClass}`);
+
+	$effect(() => {
 		if (!$isActive) {
 			element?.classList.remove("splitpanes__pane__active");
 		}
-	}
+	});
 
 	if (gathering && ssrRegisterPaneSize) {
 		ssrRegisterPaneSize(size);
@@ -118,7 +130,7 @@
 			const inst: IPane = {
 				index: 0,
 				key,
-				element: element,
+				element: element!,
 				childs: [],
 				parent: keyId,
 				id: usedId,
@@ -152,9 +164,6 @@
 		onMount(() => {
 			document.addEventListener("click", (event) => {
 				const target = event.target as HTMLElement;
-				if (!target) {
-					return;
-				}
 
 				if (!element) {
 					return;
@@ -180,34 +189,40 @@
 	<!-- Splitter -->
 	{#if $veryFirstPaneKey !== key || $showFirstSplitter}
 		<!-- this a11y issue is known, and will be taken care of as part of the a11y feature issue in #11 -->
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div
 			class="splitpanes__splitter {isSplitterActive ? 'splitpanes__splitter__active' : ''}"
-			on:mousedown={carefullClientCallbacks?.("onSplitterDown")}
-			on:touchstart={carefullClientCallbacks?.("onSplitterDown")}
-			on:click={carefullClientCallbacks?.("onSplitterClick")}
-			on:dblclick={carefullClientCallbacks?.("onSplitterDblClick")}
-		/>
+			onmousedown={carefullClientCallbacks?.("onSplitterDown")}
+			ontouchstart={carefullClientCallbacks?.("onSplitterDown")}
+			onclick={carefullClientCallbacks?.("onSplitterClick")}
+			ondblclick={carefullClientCallbacks?.("onSplitterDblClick")}
+		></div>
 	{/if}
 
 	<!-- Pane -->
 	<!-- this a11y issue is known, and will be taken care of as part of the a11y feature issue in #11 -->
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		id={usedId}
 		data-viz-sp-id={usedKeyId}
 		class={`splitpanes__pane ${clazz || ""}`}
 		bind:this={element}
-		on:click={(event) => {
+		onclick={(event) => {
 			carefullClientCallbacks?.("onPaneClick")(event);
+			const target = event.target as HTMLElement;
+
+			if (target.classList.contains("viz-sub_panel-header")) {
+				return;
+			}
+
 			$isActive = true;
 		}}
 		{style}
 	>
-		<slot />
+		{@render children?.()}
 	</div>
 {/if}
 
