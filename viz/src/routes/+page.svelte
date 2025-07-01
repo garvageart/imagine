@@ -1,10 +1,20 @@
+<script module lang="ts">
+	declare global {
+		interface Window {
+			debug?: boolean;
+			___VIZ_CONFIG___?: VizConfig;
+		}
+	}
+</script>
+
 <script lang="ts">
 	import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
 	import LoginButtons from "$lib/components/LoginButtons.svelte";
 	import VizPanel from "$lib/components/panels/VizPanel.svelte";
 	import { login } from "$lib/states/index.svelte";
+	import type { VizConfig } from "$lib/types/config.types";
 
-	let vizContentContainer: HTMLDivElement;
+	let vizContentContainer: HTMLDivElement | undefined = $state();
 	const loginState = login.state;
 </script>
 
@@ -14,8 +24,8 @@
 
 <main>
 	<div class="viz-content-container" bind:this={vizContentContainer}>
-		<!-- <DevWelcomeText></DevWelcomeText> -->
 		{#if !loginState}
+			<DevWelcomeText />
 			<LoginButtons />
 		{:else}
 			<VizPanel id="viz-content" />
