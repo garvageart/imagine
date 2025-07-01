@@ -1,39 +1,51 @@
 <script lang="ts">
 	import { DEFAULT_THEME } from "$lib/constants";
 	import { panels } from "$lib/layouts/test";
-	import { Splitpanes as Panel, type IPaneSerialized } from "$lib/third-party/svelte-splitpanes";
-	import { allSplitpanes } from "$lib/third-party/svelte-splitpanes/state";
+	import { Splitpanes as Panel } from "$lib/third-party/svelte-splitpanes";
+	import { layoutState } from "$lib/third-party/svelte-splitpanes/state";
 	import { debugEvent, generateKeyId, VizStoreValue } from "$lib/utils";
-	import SubPanel from "./SubPanel.svelte";
-
-	function constructLayout() {
-		
-	}
+	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
 
 	let { id }: { id: string } = $props();
 	const theme = DEFAULT_THEME;
-	const saveLayout = new VizStoreValue<Record<string, IPaneSerialized[]>>("layout");
+	const saveLayout = new VizStoreValue<VizSubPanel[]>("layout");
 	const storedLayout = saveLayout.get();
 
-	if (storedLayout) {
-		for (const [key, values] of Object.entries(storedLayout)) {
-			$allSplitpanes.set(key, values);
-		}
+	$layoutState = storedLayout ?? panels;
+	// This derived value was initially used to do
+	// further layout calculations like checking if a single pane
+	// needs to be used but that seems to have just fixed itself?
+	// So for now all it does is save the layout every time it is adjusted
+	const internalLayoutState = $derived.by(() => {
+		let result: VizSubPanel[] = $layoutState;
+		saveLayout.set(result);
+
+		return result;
+	}) as VizSubPanel[];
+
+	if (window.debug) {
+		$inspect("global state", $layoutState);
+		$inspect("internal layout state", internalLayoutState);
 	}
 </script>
 
-<Panel
-	keyId={generateKeyId(16)}
-	{theme}
-	style="height: 100%"
-	pushOtherPanes={false}
-	{id}
-	on:resized={(event) => {
-		debugEvent(event);
-		saveLayout.set(Object.fromEntries(event.detail));
-	}}
->
-	<!--
+<!-- Without the #key block around the entire panel, the entire panel does not update even if its
+ children are updated. svelte-splitpanes needs to recalculate its children based on the updates
+-->
+{#key internalLayoutState}
+	<Panel
+		{id}
+		{theme}
+		keyId={generateKeyId(16)}
+		style="height: 100%"
+		pushOtherPanes={false}
+		on:resized={(event) => {
+			debugEvent(event);
+			$layoutState = event.detail;
+			saveLayout.set(event.detail);
+		}}
+	>
+		<!--
 Okay so, here's the problem,
 
 I need a single source of (reactive) truth for the layout.
@@ -49,26 +61,39 @@ that can be used to generate the layout (like it is currently below)
 I can maybe use a schema of some sort that describes the layout based on a sort of input structure,
 similar to what ProseMirror does, but without all of the complicated shape stuff and regex etc etc.
 Just something that sort of describes the shape
+
+Update - 28/06/2025:
+I think in V1, if I'm not able to find a decent way to describe a model,
+the user will have to create their own tabs/layout on their first launch
+and I can give them some pre-configured layouts to choose if they wish.
+However, those will have to be custom made and typed out manually :)
+
+We can soooort of generate layouts at the moment (like those stored in localStorage) but those don't contain the
+component yet which is a bit of a problem I guess
 	-->
-	{#each panels as panel}
-		{#if !panel.childs}
-			<SubPanel {...panel}></SubPanel>
-		{:else}
-			{@const subpanel = panel.childs.parentSubPanel}
-			<SubPanel {...subpanel} header={false}>
-				<Panel
-					{...panel.childs.parentPanel}
-					on:resized={(event) => {
-						debugEvent(event);
-						saveLayout.set(Object.fromEntries(event.detail));
-					}}
-				>
-					<SubPanel {...panel} />
-					{#each panel.childs.subPanel as subPanel}
-						<SubPanel {...subPanel} />
-					{/each}
-				</Panel>
-			</SubPanel>
-		{/if}
-	{/each}
-</Panel>
+		{#each internalLayoutState as panel}
+			{#if !panel.childs}
+				<SubPanel {...panel}></SubPanel>
+			{:else}
+				{@const subpanel = panel.childs.parentSubPanel}
+				{@const id = panel.id + "-" + panel.paneKeyId}
+				<SubPanel {...subpanel} header={false}>
+					<Panel
+						{...panel.childs.parentPanel}
+						{id}
+						on:resized={(event) => {
+							debugEvent(event);
+							$layoutState = event.detail;
+							saveLayout.set(internalLayoutState);
+						}}
+					>
+						<SubPanel {...panel} />
+						{#each panel.childs.subPanel as subPanel}
+							<SubPanel {...subPanel} />
+						{/each}
+					</Panel>
+				</SubPanel>
+			{/if}
+		{/each}
+	</Panel>
+{/key}

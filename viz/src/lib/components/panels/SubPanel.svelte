@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import { getContext, type Component } from "svelte";
-	import Splitpanes, { KEY } from "$lib/third-party/svelte-splitpanes/Splitpanes.svelte";
+	import { type Component } from "svelte";
+	import Splitpanes from "$lib/third-party/svelte-splitpanes/Splitpanes.svelte";
 	// TODO: Reorganise and clean up component
 	// e.g. move types to seperate file, clean up props etc etc
 
@@ -25,10 +25,11 @@
 
 <script lang="ts">
 	import type { ComponentProps, Snippet } from "svelte";
-	import { Pane, type SplitContext } from "$lib/third-party/svelte-splitpanes";
+	import { Pane } from "$lib/third-party/svelte-splitpanes";
 	import { generateKeyId, swapArrayElements } from "$lib/utils";
 	import MaterialIcon from "../MaterialIcon.svelte";
-	import { allSplitpanes, allTabs } from "$lib/third-party/svelte-splitpanes/state";
+	import { allTabs, layoutState } from "$lib/third-party/svelte-splitpanes/state";
+	import { views } from "$lib/layouts/test";
 
 	interface Props {
 		id: string;
@@ -43,21 +44,22 @@
 	}
 
 	const defaultClass = "viz-panel";
-
 	let className: string = $state(defaultClass);
 
 	const allProps: Props & ComponentProps<typeof Pane> = $props();
+
 	let panelTabs = $state(allProps.tabs ?? []);
 	let id = allProps.id;
 	let header = allProps.header ?? true;
-	const keyId = allProps.paneKeyId ?? generateKeyId();
+
 	const children = allProps.children;
+	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
-	const parentKeyId = getContext<SplitContext>(KEY).keyId;
 
 	// inject parent id into tabs
 	for (const tab of panelTabs) {
 		tab.parent = keyId;
+		tab.component = views.find((view) => view.id === tab.id)?.component!;
 	}
 
 	if (allProps.class) {
@@ -68,14 +70,20 @@
 		throw Error("Viz: Header is showing, but no tabs are provided");
 	}
 
-	let activeTab = $state.raw(panelTabs[0]);
+	const storedActiveTab = $allTabs.get(keyId)?.find((tab) => tab.isActive === true);
+	let activeTab = $state.raw(storedActiveTab ?? panelTabs[0]);
+
 	if (panelTabs.length > 0) {
 		$allTabs.set(keyId, panelTabs);
 		panelTabs[0].isActive = true;
+	} else {
+		$allTabs.delete(keyId);
 	}
 
-	$inspect(panelTabs);
-	$inspect($allTabs);
+	if (window.debug === true) {
+		$inspect("panel tabs " + keyId, panelTabs);
+		$inspect("all tabs " + keyId, $allTabs);
+	}
 	function draggable(node: HTMLElement, data: TabData) {
 		let state = JSON.stringify(data);
 
@@ -111,35 +119,14 @@
 			const data = event.dataTransfer.getData("text/json");
 			const state = JSON.parse(data) as TabData;
 			const tabKeyId = node.getAttribute("data-tab-id");
-			let parentElement: HTMLElement | undefined = undefined;
+			const nodeParentId = node.parentElement?.getAttribute("data-viz-sp-id");
 
-			for (const [key, value] of $allSplitpanes.entries()) {
-				const parentElementCheck = document.getElementById(key);
-				if (!parentElementCheck || !parentElementCheck.contains(node)) {
-					continue;
-				}
-
-				parentElement = parentElementCheck;
-				// console.log(parentElementCheck, parentElementCheck?.contains(node), value);
-				break;
-			}
-
-			if (!tabKeyId) {
+			if (state.data.id === parseInt(tabKeyId!)) {
 				return;
 			}
 
-			if (state.data.id === parseInt(tabKeyId)) {
-				return;
-			}
-
-			if (!panelTabs.includes(state.data)) {
-				console.log("not there yet");
-				const paneTabs = $allTabs.get(keyId);
-
-				if (!paneTabs) {
-					return;
-				}
-
+			if (panelTabs.map((tab) => tab.id).includes(state.data.id) === false) {
+				// Remove it from its original pane first
 				const splicedTabs = $allTabs.get(state.data.parent!)?.splice(state.index, 1);
 
 				if (!splicedTabs || splicedTabs.length === 0) {
@@ -150,8 +137,35 @@
 				state.data.isActive = true;
 
 				panelTabs.push(...splicedTabs);
-				$allTabs.set(keyId, panelTabs);
+				$allTabs.set(keyId, [...panelTabs]);
 
+				if ($allTabs.get(state.data.parent!)?.length === 0) {
+					$allTabs.delete(state.data.parent!);
+
+					const currentLayout = $layoutState;
+					let indx = currentLayout.findIndex((panel) => panel.paneKeyId === state.data.parent);
+					let spliced: VizSubPanel[] = [];
+					let isChild = false;
+
+					if (indx === -1) {
+						isChild = true;
+						indx = currentLayout[0].childs?.subPanel.findIndex((panel) => panel.paneKeyId === state.data.parent) ?? -1;
+					}
+
+					if (indx !== -1 && isChild) {
+						spliced = currentLayout[0].childs?.subPanel.splice(indx, 1) ?? [];
+					} else {
+						spliced = currentLayout.splice(indx, 1);
+					}
+
+					const splicedTabs = spliced.map((panel) => panel.tabs ?? []).flat();
+					const subPanelToUpdate = currentLayout.find((panel) => panel.paneKeyId === keyId);
+
+					subPanelToUpdate?.tabs?.push(...splicedTabs);
+					$layoutState = [...currentLayout];
+				}
+
+				state.data.parent = nodeParentId!;
 				state.index = panelTabs.length - 1;
 				activeTab = state.data;
 
@@ -170,22 +184,26 @@
 			// If element is dropped on the header, just move the element
 			// to the end of the array since there are no other elements
 			// in the header
-			if (node.classList.contains("viz-sub_panel-header")) {
+			const tabIndex = panelTabs.findIndex((tab) => tab.id === state.data.id);
+
+			if (tabIndex === panelTabs.length - 1) {
+				activeTab = state.data;
+				return;
+			}
+
+			if (node.classList.contains("viz-sub_panel-header") && tabIndex === state.index) {
 				panelTabs.push(state.data);
 				// index shifts up one when added towards the end
 				// so just track back
 				//
 				// btw: this is so wank but it works
 				if (state.index === 0) {
-					console.log("hellodkslds");
 					panelTabs.splice(state.index, 1);
 				} else {
-					console.log("SDHSJDHSJSDHJ");
 					panelTabs.splice(state.index - 1, 1);
 				}
-			} else {
+			} else if (tabIndex === state.index) {
 				// Swap it if it's dropped on a tab
-				console.log("grrrrrrrrrrr");
 				swapArrayElements(
 					panelTabs,
 					state.index,
@@ -197,7 +215,7 @@
 		}
 	}
 
-	function drop(node: HTMLElement) {
+	function tabDrop(node: HTMLElement) {
 		node.addEventListener("drop", (e) => {
 			node.classList.remove("drop-hover-above");
 			ondrop(node, e);
@@ -210,6 +228,15 @@
 			}
 
 			node.classList.add("drop-hover-above");
+		});
+
+		node.addEventListener("dragleave", (e) => {
+			const target = e.target as HTMLElement;
+			if (node === target) {
+				return;
+			}
+
+			node.classList.remove("drop-hover-above");
 		});
 
 		node.addEventListener("dragend", (e) => {
@@ -245,7 +272,7 @@
 	a header into a different panel, place that panel in place and update the state
 	for Splitpanes
 		-->
-		<div class="viz-sub_panel-header" role="tablist" tabindex="0" ondragover={(event) => onDropOver(event)}>
+		<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
 			{#each panelTabs as tab, i}
 				{#if tab.name.trim() != ""}
 					{@const tabNameId = tab.name.toLowerCase().replaceAll(" ", "-")}
@@ -261,7 +288,7 @@
 							activeTab = tab;
 						}}
 						use:draggable={data}
-						use:drop
+						use:tabDrop
 						ondragover={(event) => onDropOver(event)}
 					>
 						<span class="viz-sub_panel-name">{tab.name}</span>
@@ -274,6 +301,20 @@
 					</button>
 				{/if}
 			{/each}
+
+			<button
+				id="viz-debug-button"
+				class="viz-tab-button"
+				aria-label="Reset and Reload"
+				title="Reset and Reload"
+				onclick={() => {
+					localStorage.removeItem("viz:layout");
+					location.reload();
+				}}
+			>
+				<span class="viz-sub_panel-name">Reset Layout</span>
+				<MaterialIcon iconName="refresh" />
+			</button>
 		</div>
 	{/if}
 	{#if activeTab?.component}
@@ -283,16 +324,20 @@
 		</div>
 	{/if}
 	{#if children}
-		<div class="viz-sub_panel-content">
+		<div class="viz-sub_panel-content" data-pane-key={keyId}>
 			{@render children?.()}
 		</div>
 	{/if}
 </Pane>
 
 <style lang="scss">
+	#viz-debug-button {
+		position: absolute;
+		right: 0;
+	}
+
 	.viz-sub_panel-header {
 		min-height: 1em;
-		border-bottom: 1px solid var(--imag-blue-60);
 		background-color: var(--imag-blue-100);
 		font-size: 13px;
 		display: flex;
