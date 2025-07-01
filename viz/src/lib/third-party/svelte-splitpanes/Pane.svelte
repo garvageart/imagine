@@ -151,8 +151,13 @@
 				},
 				isReady: false,
 				isActive,
-				tabs: tabs ?? []
+				tabs: tabs ?? null
 			};
+
+			if (!inst.tabs) {
+				// @ts-ignore
+				delete inst.tabs;
+			}
 
 			clientCallbacks = clientOnlyContext?.onPaneAdd(inst);
 		});
