@@ -72,7 +72,7 @@
 	}
 
 	if (header === true && panelTabs?.length === 0) {
-		throw Error("Viz: Header is showing, but no tabs are provided");
+		throw Error("Viz: Header is showing, but no tabs are provided for: " + keyId);
 	}
 
 	const storedActiveTab = $allTabs.get(keyId)?.find((tab) => tab.isActive === true);
