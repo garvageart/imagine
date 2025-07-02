@@ -375,6 +375,7 @@
 			if (isReady) {
 				// 3. tick and resize the panes.
 				await tickAndResetPaneSizes();
+				normalizePaneSizes();
 
 				// 4. Fire `pane-remove` event.
 				dispatch("pane-remove", {
@@ -726,6 +727,39 @@
 			snap: pane.snap()
 		}));
 
+	// Note: Partially written by Co-Pilot
+	function normalizePaneSizes() {
+		// Remove panes with size 0 or that are not visible
+		panes = panes.filter((pane) => pane.sz() > 0);
+
+		// Reindex panes
+		for (let i = 0; i < panes.length; i++) {
+			panes[i].index = i;
+		}
+
+		// Recalculate total size
+		const total = panes.reduce((sum, pane) => sum + pane.sz(), 0);
+
+		if (total !== 100 && total > 0) {
+			for (let i = 0; i < panes.length; i++) {
+				const pane = panes[i];
+				pane.setSz((pane.sz() / total) * 100);
+			}
+		}
+
+		// Enforce min/max constraints
+		for (let i = 0; i < panes.length; i++) {
+			const pane = panes[i];
+			if (pane.sz() < pane.min()) {
+				pane.setSz(pane.min());
+			}
+
+			if (pane.sz() > pane.max()) {
+				pane.setSz(pane.max());
+			}
+		}
+	}
+
 	function calculateTree() {
 		findPanesChildren();
 		const currentLayout = $layoutState;
@@ -736,6 +770,9 @@
 
 			if (pane) {
 				updatedPanel.size = pane.sz();
+				updatedPanel.minSize = pane.min();
+				updatedPanel.maxSize = pane.max();
+				updatedPanel.snapSize = pane.snap();
 			}
 
 			if (panel.childs && panel.childs.subPanel && Array.isArray(panel.childs.subPanel)) {
@@ -1007,6 +1044,7 @@
 	 */
 	function resetPaneSizes() {
 		equalize();
+		normalizePaneSizes();
 
 		if (isReady) dispatch("resized", calculateTree());
 	}
