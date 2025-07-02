@@ -145,6 +145,11 @@
 				panelTabs.push(...splicedTabs);
 				$allTabs.set(keyId, [...panelTabs]);
 
+				// This almost works except that currently we are explcitly
+				// using currentLayout[0] instead of finding the index
+				// so that's a problem, as well as a few other minor bugs
+				// Also this code looks like shit and needs a whole refactor
+
 				// Note: Next bit of code is partially written by Co-Pilot for anyone (including myself) wondering
 				// -------------------------------------------------------------------------------------
 				// if a panel has a child subpanel with tabs
@@ -182,6 +187,9 @@
 				const hasChildSubPanel =
 					currentLayout[parentIndex]?.childs?.subPanel && currentLayout[parentIndex].childs.subPanel.length > 0;
 				const childPanel = currentLayout[parentIndex]?.childs?.subPanel?.find((panel) => panel.paneKeyId === nodeParentId);
+				const childPanelIndex = currentLayout[parentIndex]?.childs?.subPanel?.findIndex(
+					(panel) => panel.paneKeyId === nodeParentId
+				);
 
 				if (isMovingBetweenChildSubpanels) {
 					// Remove tab from source child subpanel
@@ -215,9 +223,17 @@
 					// check if current subpanel has a specific tab
 
 					// Promote the child subpanel to the parent level
-					const newParentPanel = { ...childPanel };
+					const currentParentPanel = currentLayout[parentIndex];
+					const newParentPanel = {
+						...currentParentPanel,
+						id: childPanel.id,
+						maxSize: childPanel.maxSize,
+						minSize: childPanel.minSize,
+						paneKeyId: childPanel.paneKeyId,
+						tabs: childPanel.tabs
+					};
 					// Move the parent tab into the new parent's tabs
-					newParentPanel.tabs = [...(newParentPanel.tabs ?? []), state.data];
+					newParentPanel.tabs!.push(state.data);
 
 					// Remove the child from the parent's subPanel array
 					if (currentLayout[parentIndex].childs && currentLayout[parentIndex].childs.subPanel) {
@@ -226,6 +242,7 @@
 						);
 					}
 
+					newParentPanel.childs = currentLayout[parentIndex].childs;
 					// Replace the parent with the promoted child
 					currentLayout.splice(parentIndex, 1, newParentPanel);
 
