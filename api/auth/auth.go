@@ -174,45 +174,49 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 	})
 
 	router.Get("/oauth", func(res http.ResponseWriter, req *http.Request) {
-		authTokenCookie := req.CookiesNamed("imag-auth_token")[0].Value
-		authToken, err := jwt.Parse(authTokenCookie, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecretBytes, nil
-		})
+		authTokenCookie := req.CookiesNamed("imag-auth_token")
 
-		switch {
-		case authToken.Valid:
-			logger.Info("user already authenticated", slog.String("request_id", libhttp.GetRequestID(req)))
-			jsonResponse := map[string]any{"message": "user already authenticated"}
+		if len(authTokenCookie) > 0 {
+			authTokenVal := authTokenCookie[0].Value
+			authToken, err := jwt.Parse(authTokenVal, func(token *jwt.Token) (interface{}, error) {
+				return jwtSecretBytes, nil
+			})
 
-			render.JSON(res, req, jsonResponse)
-			return
-		case errors.Is(err, jwt.ErrTokenMalformed):
-			logger.Info("malformed token", slog.String("request_id", libhttp.GetRequestID(req)))
-			jsonResponse := map[string]any{"error": "malformed token"}
+			switch {
+			case authToken.Valid:
+				logger.Info("user already authenticated", slog.String("request_id", libhttp.GetRequestID(req)))
+				jsonResponse := map[string]any{"message": "user already authenticated"}
 
-			res.WriteHeader(http.StatusBadRequest)
-			render.JSON(res, req, jsonResponse)
-			return
-		case errors.Is(err, jwt.ErrTokenSignatureInvalid):
-			logger.Error("invalid token signature", slog.String("request_id", libhttp.GetRequestID(req)))
-			jsonResponse := map[string]any{"error": "invalid token signature"}
+				render.JSON(res, req, jsonResponse)
+				return
+			case errors.Is(err, jwt.ErrTokenMalformed):
+				logger.Info("malformed token", slog.String("request_id", libhttp.GetRequestID(req)))
+				jsonResponse := map[string]any{"error": "malformed token"}
 
-			res.WriteHeader(http.StatusBadRequest)
-			render.JSON(res, req, jsonResponse)
-			return
-		case errors.Is(err, jwt.ErrTokenExpired):
-			logger.Info("token expired", slog.String("request_id", libhttp.GetRequestID(req)))
-			jsonResponse := map[string]any{"error": "token expired"}
+				res.WriteHeader(http.StatusBadRequest)
+				render.JSON(res, req, jsonResponse)
+				return
+			case errors.Is(err, jwt.ErrTokenSignatureInvalid):
+				logger.Error("invalid token signature", slog.String("request_id", libhttp.GetRequestID(req)))
+				jsonResponse := map[string]any{"error": "invalid token signature"}
 
-			res.WriteHeader(http.StatusForbidden)
-			http.Redirect(res, req, "localhost:7777/", http.StatusTemporaryRedirect)
-			render.JSON(res, req, jsonResponse)
-			return
-		default:
-			libhttp.ServerError(res, req, err, logger, nil,
-				"couldn't handle token error",
-				"Something went wrong on our side, please try again later",
-			)
+				res.WriteHeader(http.StatusBadRequest)
+				render.JSON(res, req, jsonResponse)
+				return
+			case errors.Is(err, jwt.ErrTokenExpired):
+				logger.Info("token expired", slog.String("request_id", libhttp.GetRequestID(req)))
+				jsonResponse := map[string]any{"error": "token expired"}
+
+				res.WriteHeader(http.StatusForbidden)
+				http.Redirect(res, req, "localhost:7777/", http.StatusTemporaryRedirect)
+				render.JSON(res, req, jsonResponse)
+				return
+			default:
+				libhttp.ServerError(res, req, err, logger, nil,
+					"couldn't handle token error",
+					"Something went wrong on our side, please try again later",
+				)
+			}
 		}
 
 		var oauthConfig *oauth2.Config
