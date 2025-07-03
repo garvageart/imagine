@@ -785,7 +785,9 @@
 			if (panel.childs && panel.childs.parentPanel) {
 				updatedPanel.childs = {
 					...updatedPanel.childs,
-					parentPanel: updatePanelSize(panel.childs.parentPanel),
+					parentPanel: (panel.childs.parentPanel && 'paneKeyId' in panel.childs.parentPanel)
+						? updatePanelSize(panel.childs.parentPanel as VizSubPanel)
+						: panel.childs.parentPanel,
 					parentSubPanel: updatedPanel.childs?.parentSubPanel ?? ({} as any),
 					subPanel: updatedPanel.childs?.subPanel ?? []
 				};
@@ -794,7 +796,7 @@
 			if (panel.childs && panel.childs.parentSubPanel) {
 				updatedPanel.childs = {
 					...updatedPanel.childs,
-					parentSubPanel: updatePanelSize(panel.childs.parentSubPanel),
+					parentSubPanel: updatePanelSize(panel.childs.parentSubPanel as VizSubPanel),
 					parentPanel: updatedPanel.childs?.parentPanel ?? ({} as any),
 					subPanel: updatedPanel.childs?.subPanel ?? []
 				};
