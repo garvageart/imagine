@@ -81,7 +81,11 @@ component yet which is a bit of a problem I guess
 				{@const subpanel = panel.childs.parentSubPanel}
 				{@const subPanelKeyId = generateKeyId(16)}
 				{@const internalParentId = panel.id + "-" + panel.paneKeyId}
-				<SubPanel {...subpanel} id={subpanel.id + "-" + subPanelKeyId} paneKeyId={subPanelKeyId} header={false} tabs={[]}>
+				<!-- Setting the `id` for the <SubPanel> component breaks the layout for some reason
+				 I cannot explain or figure out so I will remove it for now
+				 Like, I tried `id={subpanel.id + "-" + subPanelKeyId}` and the layout would snap every time you drag it
+				 -->
+				<SubPanel {...subpanel} paneKeyId={subPanelKeyId} header={false} tabs={[]}>
 					<Panel
 						{...panel.childs.parentPanel}
 						id={internalParentId}
