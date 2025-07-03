@@ -74,16 +74,17 @@ However, those will have to be custom made and typed out manually :)
 We can soooort of generate layouts at the moment (like those stored in localStorage) but those don't contain the
 component yet which is a bit of a problem I guess
 	-->
-		{#each internalLayoutState as panel}
+		{#each internalLayoutState as panel, i}
 			{#if !panel.childs}
 				<SubPanel {...panel}></SubPanel>
 			{:else}
 				{@const subpanel = panel.childs.parentSubPanel}
-				{@const id = panel.id + "-" + panel.paneKeyId}
-				<SubPanel {...subpanel} header={false} tabs={[]}>
+				{@const subPanelKeyId = generateKeyId(16)}
+				{@const internalParentId = panel.id + "-" + panel.paneKeyId}
+				<SubPanel {...subpanel} id={subpanel.id + "-" + subPanelKeyId} paneKeyId={subPanelKeyId} header={false} tabs={[]}>
 					<Panel
 						{...panel.childs.parentPanel}
-						{id}
+						id={internalParentId}
 						on:resized={(event) => {
 							debugEvent(event);
 							$layoutState = event.detail;
