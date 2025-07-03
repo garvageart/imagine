@@ -77,7 +77,7 @@ component yet which is a bit of a problem I guess
 			{:else}
 				{@const subpanel = panel.childs.parentSubPanel}
 				{@const id = panel.id + "-" + panel.paneKeyId}
-				<SubPanel {...subpanel} header={false}>
+				<SubPanel {...subpanel} header={false} tabs={[]}>
 					<Panel
 						{...panel.childs.parentPanel}
 						{id}
