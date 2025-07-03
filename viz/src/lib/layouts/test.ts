@@ -4,6 +4,7 @@ import { DEFAULT_THEME } from "$lib/constants";
 import DifferentContent from "$lib/components/panels/workspace/generic/DifferentContent.svelte";
 import SomeContent from "$lib/components/panels/workspace/generic/SomeContent.svelte";
 import EvenMoreDifferent from "$lib/components/panels/workspace/generic/EvenMoreDifferent.svelte";
+import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
 
 // Only one instance of a view/panel and its component
 // can exist in the layout so we declare all of them here
@@ -25,7 +26,13 @@ export const views: VizTab[] = [
         component: EvenMoreDifferent,
         id: 3,
         opticalCenterFix: 0.2
-    }
+    },
+    {
+        name: "Welcome Text",
+        component: DevWelcomeText,
+        id: 4,
+        opticalCenterFix: 0.2
+    },
 ];
 
 const theme = DEFAULT_THEME;
@@ -71,6 +78,28 @@ export const panels: VizSubPanel[] = [
         header: true,
         maxSize: 100,
         minSize: 10,
-        paneKeyId: generateKeyId()
-    }
+        paneKeyId: generateKeyId(),
+        childs: {
+            parentSubPanel: {
+                id: "viz-test-content-container-2",
+                smoothExpand: false,
+                minSize: 10,
+            },
+            parentPanel: {
+                id: "viz-internal-2",
+                horizontal: true,
+                theme,
+                style: "height: 100%",
+                pushOtherPanes: true,
+            },
+            subPanel: [
+                {
+                    id: "viz-welcome-text-3",
+                    maxSize: 100,
+                    paneKeyId: generateKeyId(),
+                    tabs: views.filter(tab => tab.id === 4)
+                }
+            ]
+        }
+    },
 ];
