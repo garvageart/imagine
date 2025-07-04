@@ -271,7 +271,13 @@
 					}
 
 					if (!srcTabs.length) {
-						promoteChildToParent(layout, srcIdx);
+						// Only promote if there are child subpanels, otherwise just remove the panel
+						const srcPanel = layout[srcIdx];
+						if (srcPanel.childs?.subPanel?.length) {
+							promoteChildToParent(layout, srcIdx);
+						} else {
+							layout.splice(srcIdx, 1);
+						}
 					}
 				}
 			}
@@ -332,7 +338,13 @@
 					}
 
 					if (!srcTabs.length) {
-						promoteChildToParent(layout, srcIdx);
+						// Only promote if there are child subpanels, otherwise just remove the panel
+						const srcPanel = layout[srcIdx];
+						if (srcPanel.childs?.subPanel?.length) {
+							promoteChildToParent(layout, srcIdx);
+						} else {
+							layout.splice(srcIdx, 1);
+						}
 					}
 				}
 			}
