@@ -521,17 +521,18 @@
 					</button>
 				{/if}
 			{/each}
-
-			<button
-				id="viz-debug-button"
-				class="viz-tab-button"
-				aria-label="Reset and Reload"
-				title="Reset and Reload"
-				onclick={() => resetAndReloadLayout()}
-			>
-				<span class="viz-sub_panel-name">Reset Layout</span>
-				<MaterialIcon iconName="refresh" />
-			</button>
+			{#if dev}
+				<button
+					id="viz-debug-button"
+					class="viz-tab-button"
+					aria-label="Reset and Reload"
+					title="Reset and Reload"
+					onclick={() => resetAndReloadLayout()}
+				>
+					<span class="viz-sub_panel-name">Reset Layout</span>
+					<MaterialIcon iconName="refresh" />
+				</button>
+			{/if}
 		</div>
 	{/if}
 	{#if activeTab?.component}
