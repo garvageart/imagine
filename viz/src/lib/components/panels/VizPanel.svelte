@@ -3,13 +3,13 @@
 	import { panels } from "$lib/layouts/test";
 	import { Splitpanes as Panel } from "$lib/third-party/svelte-splitpanes";
 	import { layoutState } from "$lib/third-party/svelte-splitpanes/state";
-	import { arrayHasDuplicates, debugEvent, generateKeyId, VizStoreValue } from "$lib/utils";
+	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { onMount } from "svelte";
 	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
 
 	let { id }: { id: string } = $props();
 	const theme = DEFAULT_THEME;
-	const saveLayout = new VizStoreValue<VizSubPanel[]>("layout");
+	const saveLayout = new VizLocalStorage<VizSubPanel[]>("layout");
 	let storedLayout = saveLayout.get();
 
 	if (storedLayout?.length === 0) {

@@ -99,7 +99,7 @@ export function debounce(func: () => any, wait: number | undefined) {
     };
 };
 
-export class VizStoreValue<V = string> {
+export class VizLocalStorage<V = string> {
     key: string;
     value: V | null = null;
 

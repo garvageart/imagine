@@ -47,7 +47,7 @@
 	} from "./internal/utils/position.js";
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
-	import { generateKeyId, VizStoreValue } from "$lib/utils";
+	import { generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { allSplitpanes, layoutState } from "./state";
 	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
@@ -182,7 +182,7 @@
 	export { clazz as class };
 
 	// FOR VIZ ONLY ----------------
-	const storedLayout = new VizStoreValue<VizSubPanel[]>("layout").get();
+	const storedLayout = new VizLocalStorage<VizSubPanel[]>("layout").get();
 
 	export let id: string;
 	export let keyId: string = "";
