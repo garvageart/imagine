@@ -1,3 +1,4 @@
+import { dev } from "$app/environment";
 import { CLIENT_IS_PRODUCTION, type ServerURLConfig } from "./constants";
 
 /**
@@ -165,7 +166,11 @@ export function swapArrayElements<A>(array: A[], index1: number, index2: number)
 };
 
 export function debugEvent(event: CustomEvent, printAsString: boolean = false) {
-    console.log("Event:", event.type);
+    if (!dev) {
+        return;
+    }
+
+    console.log("Event:", event.type, new Date().toLocaleTimeString());
 
     if (printAsString) {
         console.log("Detail:", JSON.stringify(event.detail, null, 2));
