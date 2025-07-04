@@ -62,8 +62,6 @@
 	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
 
-	id = !panelTabs.length ? id + `-${keyId}` : id;
-
 	// inject parent id into tabs
 	for (const tab of panelTabs) {
 		tab.parent = keyId;
