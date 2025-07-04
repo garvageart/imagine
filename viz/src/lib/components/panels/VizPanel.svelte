@@ -18,6 +18,15 @@
 	// So for now all it does is save the layout every time it is adjusted
 	const internalLayoutState = $derived.by(() => {
 		let result: VizSubPanel[] = $layoutState;
+
+		if (result.length === 1 && result[0].childs) {
+			if (window.debug === true) {
+				console.log("one pane left, setting maximum size to 100");
+			}
+
+			result[0].childs.parentSubPanel.size = 100;
+		}
+
 		saveLayout.set(result);
 
 		return result;
