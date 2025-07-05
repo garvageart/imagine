@@ -48,7 +48,7 @@
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
 	import { generateKeyId, VizLocalStorage } from "$lib/utils";
-	import { allSplitpanes, layoutState } from "./state";
+	import { allSplitpanes, layoutState } from "./state.svelte";
 	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
 	// TYPE DECLARATIONS ----------------
@@ -742,7 +742,7 @@
 
 	function calculateTree() {
 		findPanesChildren();
-		const currentLayout = $layoutState;
+		const currentLayout = layoutState.tree;
 
 		function updatePanelSize(panel: VizSubPanel) {
 			const pane = panes.find((p) => p.keyId === panel.paneKeyId);

@@ -23,13 +23,12 @@
 		};
 </script>
 
-<!-- svelte-ignore non_reactive_update -->
 <script lang="ts">
 	import type { ComponentProps, Snippet } from "svelte";
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
 	import { generateKeyId, resetAndReloadLayout, swapArrayElements } from "$lib/utils";
 	import MaterialIcon from "../MaterialIcon.svelte";
-	import { allTabs, layoutState } from "$lib/third-party/svelte-splitpanes/state";
+	import { getAllSubPanels, layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { views } from "$lib/layouts/test";
 	import { dev } from "$app/environment";
 
@@ -54,13 +53,15 @@
 
 	const allProps: Props & ComponentProps<typeof Pane> = $props();
 
-	let panelTabs = $state(allProps.tabs ?? []);
 	let id = allProps.id;
 	let header = allProps.header ?? true;
 
 	const children = allProps.children;
 	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
+
+	const allTabs = getAllSubPanels().flatMap((subpanel) => subpanel.tabs ?? []);
+	let panelTabs = $state(allProps.tabs);
 
 	// inject parent id into tabs
 	for (const tab of panelTabs) {
@@ -76,18 +77,15 @@
 		throw new Error("Viz: Header is showing, but no tabs are provided for: " + keyId);
 	}
 
-	const storedActiveTab = $allTabs.get(keyId)?.find((tab) => tab.isActive === true);
-	let activeTab = $state.raw(storedActiveTab ?? panelTabs[0]);
-
-	if (panelTabs.length > 0) {
-		$allTabs.set(keyId, panelTabs);
-		panelTabs[0].isActive = true;
-	} else {
-		$allTabs.delete(keyId);
-	}
+	const storedActiveTab = panelTabs?.find((tab) => tab.isActive === true);
+	let activeTab = $state(storedActiveTab ?? panelTabs[0]);
 
 	if (window.debug === true) {
-		$inspect("panel tabs " + keyId, panelTabs);
+		if (panelTabs.length) {
+			$inspect("active tab", keyId, activeTab);
+		}
+
+		$inspect("panel tabs", keyId, panelTabs);
 	}
 
 	function draggable(node: HTMLElement, data: TabData) {
@@ -183,7 +181,7 @@
 		return null;
 	}
 
-	function ondrop(node: HTMLElement, event: DragEvent) {
+	async function ondrop(node: HTMLElement, event: DragEvent) {
 		event.preventDefault();
 
 		if (!event.dataTransfer) {
@@ -194,9 +192,15 @@
 		const state = JSON.parse(data) as TabData;
 		const tabKeyId = node.getAttribute("data-tab-id")!;
 		const nodeParentId = node.parentElement?.getAttribute("data-viz-sp-id");
+		const nodeIsPanelHeader = node.classList.contains("viz-sub_panel-header");
+		const nodeIsTab = node.classList.contains("viz-tab-button") && node.hasAttribute("data-tab-id");
+
+		if (!nodeParentId && nodeIsPanelHeader) {
+			throw new Error("Viz: Node parent ID is missing");
+		}
 
 		if (!nodeParentId) {
-			throw new Error("Viz: Node parent ID is missing");
+			return;
 		}
 
 		if (state.data.id === parseInt(tabKeyId)) {
@@ -208,19 +212,13 @@
 		}
 
 		if (!panelTabs.some((tab) => tab.id === state.data.id)) {
-			const splicedTabs = $allTabs.get(state.data.parent!)?.splice(state.index, 1);
+			const tab = allTabs.find((tab) => tab.id === state.data.id);
 
-			if (!splicedTabs?.length) {
+			if (!tab) {
 				return;
 			}
 
-			state.data.component = splicedTabs[0].component;
-			state.data.isActive = true;
-
-			panelTabs.push(...splicedTabs);
-			$allTabs.set(keyId, [...panelTabs]);
-
-			const layout = $layoutState;
+			const layout = layoutState.tree;
 			const parentIdx = findPanelIndex(layout, state.data.parent);
 			const childs = layout[parentIdx]?.childs;
 
@@ -300,6 +298,16 @@
 							layout.splice(srcIdx, 1);
 						}
 					}
+
+					// explicitly set the size of the one and only subpanel to 100
+					// splitpanes doesn't necessarily understand that to recalculate automatically oops
+					if (layout.length === 1 && layout[0].childs) {
+						if (window.debug === true) {
+							console.log(`one panel ${layout[0].paneKeyId} left, setting maximum size to 100`);
+						}
+
+						layout[0].childs.parentSubPanel.size = 100;
+					}
 				}
 			}
 
@@ -367,6 +375,16 @@
 							layout.splice(srcIdx, 1);
 						}
 					}
+
+					// explicitly set the size of the one and only subpanel to 100
+					// splitpanes doesn't necessarily understand that to recalculate automatically oops
+					if (layout.length === 1 && layout[0].childs) {
+						if (window.debug === true) {
+							console.log(`one panel ${layout[0].paneKeyId} left, setting maximum size to 100`);
+						}
+
+						layout[0].childs.parentSubPanel.size = 100;
+					}
 				}
 			}
 
@@ -420,37 +438,41 @@
 						const dstChildIdx = findChildIndex(layout[dstParentIdx].childs, nodeParentId);
 						if (dstChildIdx !== -1) {
 							layout[dstParentIdx].childs?.subPanel[dstChildIdx].tabs.push(movedTab);
-							movedTab.parent = nodeParentId;
 						}
 					}
 				}
+			} else {
+				console.error(tab);
+				throw new Error("Viz: Invalid tab movement");
 			}
 
-			state.data.parent = nodeParentId;
-			state.index = panelTabs.length - 1;
-			activeTab = state.data;
+			tab.parent = nodeParentId;
+			tab.isActive = true;
+			tab.component = tab.component;
+			activeTab = tab;
 
-			$layoutState = [...layout];
 			return;
 		}
 
+		// No tabs to reconfigure if it's the only one in the subpanel
 		if (panelTabs.length === 1) {
 			return;
 		}
 
-		const originalTab = panelTabs.find((tab) => tab.id === state.data.id);
+		const originalTab = views.find((tab) => tab.id === state.data.id);
 		if (!originalTab) {
 			return;
 		}
 
-		state.data.component = originalTab.component;
 		const tabIndex = panelTabs.findIndex((tab) => tab.id === state.data.id);
 
 		if (tabIndex === panelTabs.length - 1) {
-			activeTab = state.data;
+			activeTab = originalTab;
 			return;
 		}
 
+		// if we're dropping on the header, add it to the end of the header and
+		// remove it from it's old position
 		if (node.classList.contains("viz-sub_panel-header") && tabIndex === state.index) {
 			panelTabs.push(state.data);
 			if (state.index === 0) {
@@ -464,9 +486,11 @@
 				state.index,
 				panelTabs.findIndex((tab) => tab.id === parseInt(node.getAttribute("data-tab-id")!))
 			);
+
+			return;
 		}
 
-		activeTab = state.data;
+		activeTab = originalTab;
 	}
 
 	function tabDrop(node: HTMLElement) {
@@ -516,73 +540,89 @@
 			}
 		};
 	}
+
+	// re-render the component if the amount of subpanels change
+	function key() {
+		return getAllSubPanels().length;
+	}
 </script>
 
-<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
-	{#if header && panelTabs.length > 0}
-		<!--
+<!-- TODO: Explain what the hell is going on -->
+{#key key()}
+	<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
+		{#if header && panelTabs.length > 0}
+			<!--
 	TODO:
 	Make the header draggable too. Use the same drag functions. If we're dragging
 	a header into a different panel, place that panel in place and update the state
 	for Splitpanes
 		-->
-		<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
-			{#each panelTabs as tab, i}
-				{#if tab.name.trim() != ""}
-					{@const tabNameId = tab.name.toLowerCase().replaceAll(" ", "-")}
-					{@const data = { index: i, data: tab }}
-					<button
-						id={tabNameId + "-tab"}
-						class="viz-tab-button {activeTab.id === tab.id ? 'active-tab' : ''}"
-						data-tab-id={tab.id}
-						role="tab"
-						title={tab.name}
-						aria-label={tab.name}
-						onclick={() => {
-							activeTab.isActive = false;
-							tab.isActive = true;
-							activeTab = tab;
-						}}
-						use:draggable={data}
-						use:tabDrop
-						ondragover={(event) => onDropOver(event)}
-					>
-						<span class="viz-sub_panel-name">{tab.name}</span>
-						<!--
+			<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
+				{#each panelTabs as tab, i}
+					{#if tab.name.trim() != ""}
+						{@const tabNameId = tab.name.toLowerCase().replaceAll(" ", "-")}
+						{@const data = { index: i, data: tab }}
+						<button
+							id={tabNameId + "-tab"}
+							class="viz-tab-button {activeTab.id === tab.id ? 'active-tab' : ''}"
+							data-tab-id={tab.id}
+							role="tab"
+							title={tab.name}
+							aria-label={tab.name}
+							onclick={() => {
+								if (tab.id === activeTab.id) {
+									return;
+								}
+
+								activeTab.isActive = false;
+								tab.isActive = true;
+								activeTab = tab;
+							}}
+							use:draggable={data}
+							use:tabDrop
+							ondragover={(event) => onDropOver(event)}
+						>
+							<span class="viz-sub_panel-name">{tab.name}</span>
+							<!--
 						Every tab name needs to manually align itself with the icon
 						Translate is used instead of margin or position is used to avoid
 						shifting the layout  
 						-->
-						<MaterialIcon showHoverBG={true} style={`transform: translateY(${tab.opticalCenterFix ?? 0.5}px);`} iconName="menu" />
+							<MaterialIcon
+								showHoverBG={true}
+								style={`transform: translateY(${tab.opticalCenterFix ?? 0.5}px);`}
+								iconName="menu"
+							/>
+						</button>
+					{/if}
+				{/each}
+				{#if dev}
+					<button
+						id="viz-debug-button"
+						class="viz-tab-button"
+						aria-label="Reset and Reload"
+						title="Reset and Reload"
+						onclick={() => resetAndReloadLayout()}
+					>
+						<span class="viz-sub_panel-name">Reset Layout</span>
+						<MaterialIcon iconName="refresh" />
 					</button>
 				{/if}
-			{/each}
-			{#if dev}
-				<button
-					id="viz-debug-button"
-					class="viz-tab-button"
-					aria-label="Reset and Reload"
-					title="Reset and Reload"
-					onclick={() => resetAndReloadLayout()}
-				>
-					<span class="viz-sub_panel-name">Reset Layout</span>
-					<MaterialIcon iconName="refresh" />
-				</button>
-			{/if}
-		</div>
-	{/if}
-	{#if activeTab?.component}
-		{@const Comp = activeTab.component}
-		<div class="viz-sub_panel-content">
-			<Comp />
-		</div>
-	{/if}
-	{#if children}
-		<div class="viz-sub_panel-content" data-pane-key={keyId}>
-			{@render children?.()}
-		</div>
-	{/if}
-</Pane>
+			</div>
+		{/if}
+		{#if activeTab?.component}
+			{@const Comp = activeTab.component}
+			<div class="viz-sub_panel-content">
+				<Comp />
+			</div>
+		{/if}
+		{#if children}
+			<div class="viz-sub_panel-content" data-pane-key={keyId}>
+				{@render children?.()}
+			</div>
+		{/if}
+	</Pane>
+{/key}
 
 <style lang="scss">
 	#viz-debug-button {

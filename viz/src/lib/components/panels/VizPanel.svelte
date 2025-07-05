@@ -2,7 +2,7 @@
 	import { DEFAULT_THEME } from "$lib/constants";
 	import { panels } from "$lib/layouts/test";
 	import { Splitpanes as Panel } from "$lib/third-party/svelte-splitpanes";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state";
+	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { onMount } from "svelte";
 	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
@@ -33,31 +33,22 @@
 		console.error("The following tabs have duplicate IDs. Please check the panels loaded", duplicateAnswer.duplicates);
 	}
 
-	onMount(() => ($layoutState = storedLayout ?? panels));
+	onMount(() => {
+		layoutState.tree ??= [];
+		layoutState.tree = storedLayout ?? panels;
+	});
 	// This derived value was initially used to do
 	// further layout calculations like checking if a single pane
 	// needs to be used but that seems to have just fixed itself?
 	// So for now all it does is save the layout every time it is adjusted
 	const internalLayoutState = $derived.by(() => {
-		let result: VizSubPanel[] = $layoutState;
-
-		if (result.length === 1 && result[0].childs) {
-			if (window.debug === true) {
-				console.log(`one panel ${result[0].paneKeyId} left, setting maximum size to 100`);
-			}
-
-			result[0].childs.parentSubPanel.size = 100;
-		}
-
-		saveLayout.set(result);
-
-		return result;
+		saveLayout.set(layoutState.tree);
+		return layoutState.tree;
 	});
 
-	if (window.debug === true) {
-		$inspect("global state", $layoutState);
-		$inspect("internal layout state", internalLayoutState);
-	}
+	// if (window.debug === true) {
+	$inspect("global state", layoutState.tree);
+	// }
 </script>
 
 <!-- Without the #key block around the entire panel, the entire panel does not update even if its
@@ -66,19 +57,18 @@
  NB: DO NOT move the #key block to the inside of the <Panel>, it WILL get stuck in an infinite loop
  (unless someone else has experienced something different?)
 -->
-{#key internalLayoutState}
-	<Panel
-		{id}
-		{theme}
-		keyId={generateKeyId(16)}
-		style="height: 100%"
-		pushOtherPanes={false}
-		on:resized={(event) => {
-			debugEvent(event);
-			$layoutState = event.detail;
-		}}
-	>
-		<!--
+<Panel
+	{id}
+	{theme}
+	keyId={generateKeyId(16)}
+	style="height: 100%"
+	pushOtherPanes={false}
+	on:resized={(event) => {
+		debugEvent(event);
+		layoutState.tree = event.detail;
+	}}
+>
+	<!--
 Okay so, here's the problem,
 
 I need a single source of (reactive) truth for the layout.
@@ -104,33 +94,31 @@ However, those will have to be custom made and typed out manually :)
 We can soooort of generate layouts at the moment (like those stored in localStorage) but those don't contain the
 component yet which is a bit of a problem I guess
 	-->
-		{#each internalLayoutState as panel, i}
-			{#if !panel.childs}
-				<SubPanel {...panel}></SubPanel>
-			{:else}
-				{@const subpanel = panel.childs.parentSubPanel}
-				{@const internalParentKeyId = generateKeyId(16)}
-				{@const internalSubPanelKeyId = generateKeyId(16)}
-				<!-- Setting the `id` for the <SubPanel> component breaks the layout for some reason
+	{#each internalLayoutState as panel, i}
+		{#if !panel.childs}
+			<SubPanel {...panel}></SubPanel>
+		{:else}
+			{@const subpanel = panel.childs.parentSubPanel}
+			{@const internalParentKeyId = generateKeyId(16)}
+			{@const internalSubPanelKeyId = generateKeyId(16)}
+			<!-- Setting the `id` for the <SubPanel> component breaks the layout for some reason
 				 I cannot explain or figure out so I will remove it for now
 				 Like, I tried `id={subpanel.id + "-" + subPanelKeyId}` and the layout would snap every time you drag it
 				 -->
-				<SubPanel {...subpanel} paneKeyId={internalSubPanelKeyId} header={false} tabs={[]}>
-					<Panel
-						{...panel.childs.parentPanel}
-						keyId={internalParentKeyId}
-						on:resized={(event) => {
-							debugEvent(event);
-							$layoutState = event.detail;
-						}}
-					>
-						<SubPanel {...panel} />
-						{#each panel.childs.subPanel as subPanel}
-							<SubPanel {...subPanel} />
-						{/each}
-					</Panel>
-				</SubPanel>
-			{/if}
-		{/each}
-	</Panel>
-{/key}
+			<SubPanel {...subpanel} paneKeyId={internalSubPanelKeyId} header={false} tabs={[]}>
+				<Panel
+					{...panel.childs.parentPanel}
+					keyId={internalParentKeyId}
+					on:resized={(event) => {
+						debugEvent(event);
+					}}
+				>
+					<SubPanel {...panel} />
+					{#each panel.childs.subPanel as subPanel}
+						<SubPanel {...subPanel} />
+					{/each}
+				</Panel>
+			</SubPanel>
+		{/if}
+	{/each}
+</Panel>

@@ -8,7 +8,7 @@
 	import { carefullCallbackSource } from "./internal/utils/functions";
 	import { writable, type Writable } from "svelte/store";
 	import { arrayHasDuplicates, generateRandomString } from "$lib/utils";
-	import { allTabs, layoutState } from "./state";
+	import { allTabs, layoutState } from "./state.svelte";
 	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
 	const {
@@ -58,7 +58,7 @@
 		throw new Error("Splitpanes: id is required");
 	}
 
-	let allPanes = $layoutState.flat();
+	let allPanes = layoutState.tree.flat();
 
 	// I hate this so much
 	if (allPanes.flatMap((panel) => panel.childs).length > 0) {
