@@ -16,7 +16,7 @@
 	export type VizSubPanel = Props &
 		ComponentProps<typeof Pane> & {
 			childs?: {
-				parentSubPanel: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "tabs">;
+				parentSubPanel: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">;
 				parentPanel: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">;
 				subPanel: Omit<VizSubPanel, "childs">[];
 			};
@@ -60,7 +60,7 @@
 	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
 
-	const allViews = getAllSubPanels().flatMap((subpanel) => subpanel.views ?? views ?? []);
+	const allViews = getAllSubPanels().flatMap((subpanel) => subpanel.views ?? []);
 	let panelViews = $state(allProps.views);
 
 	// inject parent id into tabs
@@ -77,7 +77,7 @@
 		throw new Error("Viz: Header is showing, but no tabs are provided for: " + keyId);
 	}
 
-	const storedActiveView = panelViews?.find((tab) => tab.isActive === true);
+	const storedActiveView = panelViews?.find((view) => view.isActive === true);
 	let activeView = $state(storedActiveView ?? panelViews[0]);
 
 	if (window.debug === true) {
@@ -246,7 +246,7 @@
 				const dstIdx = childIdx;
 
 				if (srcIdx !== -1 && dstIdx !== -1) {
-					const tabIdx = childs.subPanel[srcIdx].views.findIndex((tab: any) => tab.id === state.data.id);
+					const tabIdx = childs.subPanel[srcIdx].views.findIndex((tab) => tab.id === state.data.id);
 
 					if (tabIdx !== -1) {
 						const movedTab = childs.subPanel[srcIdx].views.splice(tabIdx, 1)[0];
@@ -351,22 +351,22 @@
 				const dstIdx = layout.findIndex((panel) => panel.childs?.subPanel?.some((sub: any) => sub.paneKeyId === nodeParentId));
 
 				if (srcIdx !== -1 && dstIdx !== -1) {
-					const srcTabs = layout[srcIdx].views;
-					const tabIdx = srcTabs.findIndex((tab) => tab.id === state.data.id);
-					let movedTab;
+					const srcViews = layout[srcIdx].views;
+					const viewIdx = srcViews.findIndex((view) => view.id === state.data.id);
+					let movedView;
 
-					if (tabIdx !== -1) {
-						movedTab = srcTabs.splice(tabIdx, 1)[0];
-						movedTab.parent = nodeParentId;
+					if (viewIdx !== -1) {
+						movedView = srcViews.splice(viewIdx, 1)[0];
+						movedView.parent = nodeParentId;
 					}
 
 					const destChildIdx = findChildIndex(layout[dstIdx].childs, nodeParentId);
 
-					if (movedTab && destChildIdx !== -1 && layout[dstIdx].childs?.subPanel) {
-						layout[dstIdx].childs.subPanel[destChildIdx].views.push(movedTab);
+					if (movedView && destChildIdx !== -1 && layout[dstIdx].childs?.subPanel) {
+						layout[dstIdx].childs.subPanel[destChildIdx].views.push(movedView);
 					}
 
-					if (!srcTabs.length) {
+					if (!srcViews.length) {
 						// Only promote if there are child subpanels, otherwise just remove the panel
 						const srcPanel = layout[srcIdx];
 						if (srcPanel.childs?.subPanel?.length) {
@@ -415,12 +415,12 @@
 						throw new Error("Viz: No source child subpanel found");
 					}
 
-					const tabIdx = srcChild.views.findIndex((tab) => tab.id === state.data.id);
-					if (tabIdx === -1) {
+					const viewIdx = srcChild.views.findIndex((view) => view.id === state.data.id);
+					if (viewIdx === -1) {
 						throw new Error("Viz: Tab not found in source child subpanel");
 					}
 
-					const movedTab = srcChild.views.splice(tabIdx, 1)[0];
+					const movedView = srcChild.views.splice(viewIdx, 1)[0];
 
 					// Remove the source child subpanel if it is now empty
 					if (srcChild.views.length === 0) {
@@ -432,12 +432,12 @@
 							layout[dstParentIdx].views = [];
 						}
 
-						layout[dstParentIdx].views.push(movedTab);
-						movedTab.parent = nodeParentId;
+						layout[dstParentIdx].views.push(movedView);
+						movedView.parent = nodeParentId;
 					} else {
 						const dstChildIdx = findChildIndex(layout[dstParentIdx].childs, nodeParentId);
 						if (dstChildIdx !== -1) {
-							layout[dstParentIdx].childs?.subPanel[dstChildIdx].views.push(movedTab);
+							layout[dstParentIdx].childs?.subPanel[dstChildIdx].views.push(movedView);
 						}
 					}
 				}
@@ -459,38 +459,38 @@
 			return;
 		}
 
-		const originalTab = views.find((tab) => tab.id === state.data.id);
-		if (!originalTab) {
+		const originalView = views.find((view) => view.id === state.data.id);
+		if (!originalView) {
 			return;
 		}
 
-		const tabIndex = panelViews.findIndex((tab) => tab.id === state.data.id);
+		const viewIndex = panelViews.findIndex((view) => view.id === state.data.id);
 
-		if (tabIndex === panelViews.length - 1) {
-			activeView = originalTab;
+		if (viewIndex === panelViews.length - 1) {
+			activeView = originalView;
 			return;
 		}
 
 		// if we're dropping on the header, add it to the end of the header and
 		// remove it from it's old position
-		if (node.classList.contains("viz-sub_panel-header") && tabIndex === state.index) {
+		if (node.classList.contains("viz-sub_panel-header") && viewIndex === state.index) {
 			panelViews.push(state.data);
 			if (state.index === 0) {
 				panelViews.splice(state.index, 1);
 			} else {
 				panelViews.splice(state.index - 1, 1);
 			}
-		} else if (tabIndex === state.index) {
+		} else if (viewIndex === state.index) {
 			swapArrayElements(
 				panelViews,
 				state.index,
-				panelViews.findIndex((tab) => tab.id === parseInt(node.getAttribute("data-tab-id")!))
+				panelViews.findIndex((view) => view.id === parseInt(node.getAttribute("data-tab-id")!))
 			);
 
 			return;
 		}
 
-		activeView = originalTab;
+		activeView = originalView;
 	}
 
 	function tabDrop(node: HTMLElement) {
