@@ -1,4 +1,4 @@
-import type { VizSubPanel, VizTab } from "$lib/components/panels/SubPanel.svelte";
+import type { VizSubPanel, VizView } from "$lib/components/panels/SubPanel.svelte";
 import { generateKeyId } from "$lib/utils";
 import { DEFAULT_THEME } from "$lib/constants";
 import DifferentContent from "$lib/components/panels/workspace/generic/DifferentContent.svelte";
@@ -8,7 +8,7 @@ import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
 
 // Only one instance of a view/panel and its component
 // can exist in the layout so we declare all of them here
-export const views: VizTab[] = [
+export const views: VizView[] = [
     {
         name: "View 1",
         component: SomeContent,
@@ -41,7 +41,7 @@ const theme = DEFAULT_THEME;
 export const panels: VizSubPanel[] = [
     {
         id: "viz-test-content",
-        tabs: views.filter(tab => tab.id === 2),
+        views: views.filter(view => view.id === 2),
         header: true,
         maxSize: 100,
         minSize: 10,
@@ -68,14 +68,14 @@ export const panels: VizSubPanel[] = [
                     id: "viz-test-again",
                     maxSize: 100,
                     paneKeyId: generateKeyId(),
-                    tabs: views.filter(tab => tab.id === 3)
+                    views: views.filter(view => view.id === 3)
                 }
             ]
         }
     },
     {
         id: "viz-test-something-else",
-        tabs: views.filter(tab => tab.id === 1),
+        views: views.filter(view => view.id === 1),
         header: true,
         maxSize: 100,
         minSize: 10,
@@ -99,7 +99,7 @@ export const panels: VizSubPanel[] = [
                     id: "viz-welcome-text-3",
                     maxSize: 100,
                     paneKeyId: generateKeyId(),
-                    tabs: views.filter(tab => tab.id === 4)
+                    views: views.filter(view => view.id === 4)
                 }
             ]
         }

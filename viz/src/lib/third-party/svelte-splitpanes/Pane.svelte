@@ -52,7 +52,7 @@
 	let usedKeyId = $state(paneKeyId ?? generateRandomString(10));
 	let usedId = id;
 	let isActive: Writable<boolean> = writable(false);
-	let tabs = $allTabs.get(paneKeyId);
+	let views = $allTabs.get(paneKeyId);
 
 	if (!usedId || usedId.trim() === "") {
 		throw new Error("Splitpanes: id is required");
@@ -168,12 +168,12 @@
 				},
 				isReady: false,
 				isActive,
-				tabs: tabs ?? []
+				views: views ?? []
 			};
 
-			if (!inst.tabs) {
+			if (!inst.views) {
 				// @ts-ignore
-				delete inst.tabs;
+				delete inst.views;
 			}
 
 			clientCallbacks = clientOnlyContext?.onPaneAdd(inst);

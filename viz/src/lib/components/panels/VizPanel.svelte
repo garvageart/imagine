@@ -21,10 +21,10 @@
 
 	const duplicateAnswer = arrayHasDuplicates(
 		panels
-			.flatMap((panel) => panel.tabs.map((tab) => tab.id))
+			.flatMap((panel) => panel.views.map((tab) => tab.id))
 			.concat(
 				panels.flatMap((panel) =>
-					panel.childs?.subPanel ? panel.childs.subPanel.flatMap((subPanel) => subPanel.tabs.map((tab) => tab.id)) : []
+					panel.childs?.subPanel ? panel.childs.subPanel.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
 				)
 			)
 	);
@@ -105,7 +105,7 @@ component yet which is a bit of a problem I guess
 				 I cannot explain or figure out so I will remove it for now
 				 Like, I tried `id={subpanel.id + "-" + subPanelKeyId}` and the layout would snap every time you drag it
 				 -->
-			<SubPanel {...subpanel} paneKeyId={internalSubPanelKeyId} header={false} tabs={[]}>
+			<SubPanel {...subpanel} paneKeyId={internalSubPanelKeyId} header={false} views={[]}>
 				<Panel
 					{...panel.childs.parentPanel}
 					keyId={internalParentKeyId}

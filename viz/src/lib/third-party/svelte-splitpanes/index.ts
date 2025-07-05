@@ -2,7 +2,7 @@ import type { ComponentProps } from "svelte";
 import type { Readable, Writable } from 'svelte/store';
 
 import Splitpanes from './Splitpanes.svelte';
-import type { VizTab } from "$lib/components/panels/SubPanel.svelte";
+import type { VizView } from "$lib/components/panels/SubPanel.svelte";
 export { default as Splitpanes } from './Splitpanes.svelte';
 export { default as Pane } from './Pane.svelte';
 
@@ -79,7 +79,7 @@ export interface IPane {
   isActive: Writable<boolean>;
   parent: string | null;
   childs: string[];
-  tabs: VizTab[]
+  views: VizView[];
 }
 
 interface SerializedElement {
@@ -107,7 +107,7 @@ export interface IPaneSerialized {
   max: number;
   snap: number;
   childs: string[];
-  tabs: VizTab[]
+  views: VizView[];
 }
 
 type ISplitpanes = ComponentProps<typeof Splitpanes> & {

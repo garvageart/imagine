@@ -4,7 +4,7 @@
 	// TODO: Reorganise and clean up component
 	// e.g. move types to seperate file, clean up props etc etc
 
-	export interface VizTab {
+	export interface VizView {
 		name: string;
 		opticalCenterFix?: number;
 		component: Component;
@@ -39,13 +39,13 @@
 	interface Props {
 		id: string;
 		header?: boolean;
-		tabs: VizTab[];
+		views: VizView[];
 		children?: Snippet;
 	}
 
-	interface TabData {
+	interface ViewData {
 		index: number;
-		data: VizTab;
+		data: VizView;
 	}
 
 	const defaultClass = "viz-panel";
@@ -60,35 +60,35 @@
 	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
 
-	const allTabs = getAllSubPanels().flatMap((subpanel) => subpanel.tabs ?? []);
-	let panelTabs = $state(allProps.tabs);
+	const allViews = getAllSubPanels().flatMap((subpanel) => subpanel.views ?? views ?? []);
+	let panelViews = $state(allProps.views);
 
 	// inject parent id into tabs
-	for (const tab of panelTabs) {
-		tab.parent = keyId;
-		tab.component = views.find((view) => view.id === tab.id)?.component!;
+	for (const view of panelViews) {
+		view.parent = keyId;
+		view.component = views.find((view) => view.id === view.id)?.component!;
 	}
 
 	if (allProps.class) {
 		className = allProps.class;
 	}
 
-	if (header === true && panelTabs.length === 0) {
+	if (header === true && panelViews.length === 0) {
 		throw new Error("Viz: Header is showing, but no tabs are provided for: " + keyId);
 	}
 
-	const storedActiveTab = panelTabs?.find((tab) => tab.isActive === true);
-	let activeTab = $state(storedActiveTab ?? panelTabs[0]);
+	const storedActiveView = panelViews?.find((tab) => tab.isActive === true);
+	let activeView = $state(storedActiveView ?? panelViews[0]);
 
 	if (window.debug === true) {
-		if (panelTabs.length) {
-			$inspect("active tab", keyId, activeTab);
+		if (panelViews.length) {
+			$inspect("active view", keyId, activeView);
 		}
 
-		$inspect("panel tabs", keyId, panelTabs);
+		$inspect("panel view", keyId, panelViews);
 	}
 
-	function draggable(node: HTMLElement, data: TabData) {
+	function draggable(node: HTMLElement, data: ViewData) {
 		let state = JSON.stringify(data);
 
 		node.draggable = true;
@@ -98,7 +98,7 @@
 		});
 
 		return {
-			update(data: TabData) {
+			update(data: ViewData) {
 				state = JSON.stringify(data);
 			},
 			destroy() {
@@ -129,7 +129,7 @@
 				maxSize: firstChild.maxSize,
 				minSize: firstChild.minSize,
 				paneKeyId: firstChild.paneKeyId,
-				tabs: firstChild.tabs,
+				views: firstChild.views,
 				childs: {
 					...parentPanel.childs,
 					subPanel: parentPanel.childs.subPanel.slice(1)
@@ -151,7 +151,7 @@
 	function findChildIndex(
 		childs:
 			| {
-					parentSubPanel: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "tabs">;
+					parentSubPanel: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">;
 					parentPanel: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">;
 					subPanel: Omit<VizSubPanel, "childs">[];
 			  }
@@ -189,7 +189,7 @@
 		}
 
 		const data = event.dataTransfer.getData("text/json");
-		const state = JSON.parse(data) as TabData;
+		const state = JSON.parse(data) as ViewData;
 		const tabKeyId = node.getAttribute("data-tab-id")!;
 		const nodeParentId = node.parentElement?.getAttribute("data-viz-sp-id");
 		const nodeIsPanelHeader = node.classList.contains("viz-sub_panel-header");
@@ -211,8 +211,8 @@
 			console.log(`Attempting to move ${state.data.name} to ${nodeParentId}`);
 		}
 
-		if (!panelTabs.some((tab) => tab.id === state.data.id)) {
-			const tab = allTabs.find((tab) => tab.id === state.data.id);
+		if (!panelViews.some((view) => view.id === state.data.id)) {
+			const tab = allViews.find((view) => view.id === state.data.id);
 
 			if (!tab) {
 				return;
@@ -246,15 +246,15 @@
 				const dstIdx = childIdx;
 
 				if (srcIdx !== -1 && dstIdx !== -1) {
-					const tabIdx = childs.subPanel[srcIdx].tabs.findIndex((tab: any) => tab.id === state.data.id);
+					const tabIdx = childs.subPanel[srcIdx].views.findIndex((tab: any) => tab.id === state.data.id);
 
 					if (tabIdx !== -1) {
-						const movedTab = childs.subPanel[srcIdx].tabs.splice(tabIdx, 1)[0];
-						childs.subPanel[dstIdx].tabs.push(movedTab);
+						const movedTab = childs.subPanel[srcIdx].views.splice(tabIdx, 1)[0];
+						childs.subPanel[dstIdx].views.push(movedTab);
 						movedTab.parent = nodeParentId;
 
 						// Remove the source child subpanel if it is now empty
-						if (!childs.subPanel[srcIdx].tabs.length) {
+						if (!childs.subPanel[srcIdx].views.length) {
 							childs.subPanel.splice(srcIdx, 1);
 							layout[parentIdx].childs = childs;
 						}
@@ -272,7 +272,7 @@
 				const dstIdx = findPanelIndex(layout, nodeParentId);
 
 				if (srcIdx !== -1 && dstIdx !== -1) {
-					const srcTabs = layout[srcIdx].tabs;
+					const srcTabs = layout[srcIdx].views;
 					const tabIdx = srcTabs.findIndex((tab) => tab.id === state.data.id);
 					let movedTab;
 
@@ -282,11 +282,11 @@
 					}
 
 					if (movedTab) {
-						if (!layout[dstIdx].tabs) {
-							layout[dstIdx].tabs = [];
+						if (!layout[dstIdx].views) {
+							layout[dstIdx].views = [];
 						}
 
-						layout[dstIdx].tabs.push(movedTab);
+						layout[dstIdx].views.push(movedTab);
 					}
 
 					if (!srcTabs.length) {
@@ -324,10 +324,10 @@
 					maxSize: childPanel.maxSize,
 					minSize: childPanel.minSize,
 					paneKeyId: childPanel.paneKeyId,
-					tabs: childPanel.tabs
+					views: childPanel.views
 				};
 
-				newParent.tabs!.push(state.data);
+				newParent.views!.push(state.data);
 
 				if (childs && childs.subPanel) {
 					childs.subPanel = childs.subPanel.filter((panel: any) => panel.paneKeyId !== nodeParentId);
@@ -351,7 +351,7 @@
 				const dstIdx = layout.findIndex((panel) => panel.childs?.subPanel?.some((sub: any) => sub.paneKeyId === nodeParentId));
 
 				if (srcIdx !== -1 && dstIdx !== -1) {
-					const srcTabs = layout[srcIdx].tabs;
+					const srcTabs = layout[srcIdx].views;
 					const tabIdx = srcTabs.findIndex((tab) => tab.id === state.data.id);
 					let movedTab;
 
@@ -363,7 +363,7 @@
 					const destChildIdx = findChildIndex(layout[dstIdx].childs, nodeParentId);
 
 					if (movedTab && destChildIdx !== -1 && layout[dstIdx].childs?.subPanel) {
-						layout[dstIdx].childs.subPanel[destChildIdx].tabs.push(movedTab);
+						layout[dstIdx].childs.subPanel[destChildIdx].views.push(movedTab);
 					}
 
 					if (!srcTabs.length) {
@@ -415,29 +415,29 @@
 						throw new Error("Viz: No source child subpanel found");
 					}
 
-					const tabIdx = srcChild.tabs.findIndex((tab) => tab.id === state.data.id);
+					const tabIdx = srcChild.views.findIndex((tab) => tab.id === state.data.id);
 					if (tabIdx === -1) {
 						throw new Error("Viz: Tab not found in source child subpanel");
 					}
 
-					const movedTab = srcChild.tabs.splice(tabIdx, 1)[0];
+					const movedTab = srcChild.views.splice(tabIdx, 1)[0];
 
 					// Remove the source child subpanel if it is now empty
-					if (srcChild.tabs.length === 0) {
+					if (srcChild.views.length === 0) {
 						layout[srcParentIdx].childs?.subPanel.splice(srcChildIdx, 1);
 					}
 
 					if (layout[dstParentIdx].paneKeyId === nodeParentId) {
-						if (!layout[dstParentIdx].tabs) {
-							layout[dstParentIdx].tabs = [];
+						if (!layout[dstParentIdx].views) {
+							layout[dstParentIdx].views = [];
 						}
 
-						layout[dstParentIdx].tabs.push(movedTab);
+						layout[dstParentIdx].views.push(movedTab);
 						movedTab.parent = nodeParentId;
 					} else {
 						const dstChildIdx = findChildIndex(layout[dstParentIdx].childs, nodeParentId);
 						if (dstChildIdx !== -1) {
-							layout[dstParentIdx].childs?.subPanel[dstChildIdx].tabs.push(movedTab);
+							layout[dstParentIdx].childs?.subPanel[dstChildIdx].views.push(movedTab);
 						}
 					}
 				}
@@ -449,13 +449,13 @@
 			tab.parent = nodeParentId;
 			tab.isActive = true;
 			tab.component = tab.component;
-			activeTab = tab;
+			activeView = tab;
 
 			return;
 		}
 
 		// No tabs to reconfigure if it's the only one in the subpanel
-		if (panelTabs.length === 1) {
+		if (panelViews.length === 1) {
 			return;
 		}
 
@@ -464,33 +464,33 @@
 			return;
 		}
 
-		const tabIndex = panelTabs.findIndex((tab) => tab.id === state.data.id);
+		const tabIndex = panelViews.findIndex((tab) => tab.id === state.data.id);
 
-		if (tabIndex === panelTabs.length - 1) {
-			activeTab = originalTab;
+		if (tabIndex === panelViews.length - 1) {
+			activeView = originalTab;
 			return;
 		}
 
 		// if we're dropping on the header, add it to the end of the header and
 		// remove it from it's old position
 		if (node.classList.contains("viz-sub_panel-header") && tabIndex === state.index) {
-			panelTabs.push(state.data);
+			panelViews.push(state.data);
 			if (state.index === 0) {
-				panelTabs.splice(state.index, 1);
+				panelViews.splice(state.index, 1);
 			} else {
-				panelTabs.splice(state.index - 1, 1);
+				panelViews.splice(state.index - 1, 1);
 			}
 		} else if (tabIndex === state.index) {
 			swapArrayElements(
-				panelTabs,
+				panelViews,
 				state.index,
-				panelTabs.findIndex((tab) => tab.id === parseInt(node.getAttribute("data-tab-id")!))
+				panelViews.findIndex((tab) => tab.id === parseInt(node.getAttribute("data-tab-id")!))
 			);
 
 			return;
 		}
 
-		activeTab = originalTab;
+		activeView = originalTab;
 	}
 
 	function tabDrop(node: HTMLElement) {
@@ -550,7 +550,7 @@
 <!-- TODO: Explain what the hell is going on -->
 {#key key()}
 	<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
-		{#if header && panelTabs.length > 0}
+		{#if header && panelViews.length > 0}
 			<!--
 	TODO:
 	Make the header draggable too. Use the same drag functions. If we're dragging
@@ -558,31 +558,31 @@
 	for Splitpanes
 		-->
 			<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
-				{#each panelTabs as tab, i}
-					{#if tab.name.trim() != ""}
-						{@const tabNameId = tab.name.toLowerCase().replaceAll(" ", "-")}
-						{@const data = { index: i, data: tab }}
+				{#each panelViews as view, i}
+					{#if view.name.trim() != ""}
+						{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
+						{@const data = { index: i, data: view }}
 						<button
 							id={tabNameId + "-tab"}
-							class="viz-tab-button {activeTab.id === tab.id ? 'active-tab' : ''}"
-							data-tab-id={tab.id}
+							class="viz-tab-button {activeView.id === view.id ? 'active-tab' : ''}"
+							data-tab-id={view.id}
 							role="tab"
-							title={tab.name}
-							aria-label={tab.name}
+							title={view.name}
+							aria-label={view.name}
 							onclick={() => {
-								if (tab.id === activeTab.id) {
+								if (view.id === activeView.id) {
 									return;
 								}
 
-								activeTab.isActive = false;
-								tab.isActive = true;
-								activeTab = tab;
+								activeView.isActive = false;
+								view.isActive = true;
+								activeView = view;
 							}}
 							use:draggable={data}
 							use:tabDrop
 							ondragover={(event) => onDropOver(event)}
 						>
-							<span class="viz-sub_panel-name">{tab.name}</span>
+							<span class="viz-sub_panel-name">{view.name}</span>
 							<!--
 						Every tab name needs to manually align itself with the icon
 						Translate is used instead of margin or position is used to avoid
@@ -590,7 +590,7 @@
 						-->
 							<MaterialIcon
 								showHoverBG={true}
-								style={`transform: translateY(${tab.opticalCenterFix ?? 0.5}px);`}
+								style={`transform: translateY(${view.opticalCenterFix ?? 0.5}px);`}
 								iconName="menu"
 							/>
 						</button>
@@ -610,8 +610,8 @@
 				{/if}
 			</div>
 		{/if}
-		{#if activeTab?.component}
-			{@const Comp = activeTab.component}
+		{#if activeView?.component}
+			{@const Comp = activeView.component}
 			<div class="viz-sub_panel-content">
 				<Comp />
 			</div>
