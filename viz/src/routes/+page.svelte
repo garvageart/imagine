@@ -1,39 +1,9 @@
-<script module lang="ts">
-	declare global {
-		interface Window {
-			debug?: boolean;
-			___vizConfig?: VizConfig;
-			resetAndReloadLayout?: () => void;
-		}
-	}
-</script>
-
 <script lang="ts">
-	import { building, dev } from "$app/environment";
-	import { onMount } from "svelte";
-
 	import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
 	import LoginButtons from "$lib/components/LoginButtons.svelte";
 	import VizPanel from "$lib/components/panels/VizPanel.svelte";
 	import { login } from "$lib/states/index.svelte";
-	import type { VizConfig } from "$lib/types/config.types";
-	import { DEFAULT_THEME } from "$lib/constants";
-
-	let version = "";
-	if (building) {
-		onMount(async () => {
-			const pkg = await import("../../package.json");
-			version = pkg.version ?? "";
-		});
-	}
-
-	window.___vizConfig = {
-		environment: dev ? "dev" : "prod",
-		version,
-		debug: window.debug ?? false,
-		theme: DEFAULT_THEME
-	};
-
+	
 	let vizContentContainer: HTMLDivElement | undefined = $state();
 	const loginState = login.state;
 </script>
