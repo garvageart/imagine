@@ -64,9 +64,9 @@
 	let panelViews = $state(allProps.views);
 
 	// inject parent id into tabs
-	for (const view of panelViews) {
-		view.parent = keyId;
-		view.component = views.find((view) => view.id === view.id)?.component!;
+	for (const v of panelViews) {
+		v.parent = keyId;
+		v.component = views.find((view) => view.id === v.id)?.component!;
 	}
 
 	if (allProps.class) {
