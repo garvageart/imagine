@@ -1,3 +1,3 @@
 <div id="viz-test_container">
-	The current timezone is {Intl.DateTimeFormat().resolvedOptions().timeZone}
+	The current timezone is <strong>{Intl.DateTimeFormat().resolvedOptions().timeZone}</strong>
 </div>

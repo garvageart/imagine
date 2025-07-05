@@ -3,5 +3,5 @@
 </script>
 
 <div id="viz-test_container">
-	The day today is {DateTime.now().toFormat("EEEE")}
+	The day today is <strong>{DateTime.now().toFormat("EEEE")}</strong>
 </div>

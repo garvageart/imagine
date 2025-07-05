@@ -10,5 +10,5 @@
 </script>
 
 <div id="viz-test_container">
-	Loaded at {new Date().toLocaleTimeString()} | Current time right now is {currentTimeString}
+	<strong>Loaded at {new Date().toLocaleTimeString()}</strong> | Current time right now is {currentTimeString}
 </div>
