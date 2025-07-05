@@ -61,7 +61,7 @@
 	const minSize = allProps.minSize ?? 10;
 
 	const allViews = getAllSubPanels().flatMap((subpanel) => subpanel.views ?? []);
-	let panelViews = $state(allProps.views);
+	let panelViews = $state(allProps.views ?? []);
 
 	// inject parent id into tabs
 	for (const v of panelViews) {
@@ -85,7 +85,7 @@
 			$inspect("active view", keyId, activeView);
 		}
 
-		$inspect("panel view", keyId, panelViews);
+		$inspect("panel views", keyId, panelViews);
 	}
 
 	function draggable(node: HTMLElement, data: TabData) {
@@ -341,7 +341,7 @@
 			else if (
 				parentIdx !== -1 &&
 				state.view.parent !== nodeParentId &&
-				layout.some((panel) => panel.childs?.subPanel?.some((sub: any) => sub.paneKeyId === nodeParentId))
+				layout.some((panel) => panel.childs?.subPanel?.some((sub) => sub.paneKeyId === nodeParentId))
 			) {
 				if (window.debug === true) {
 					console.log("Move tab from parent to a child subpanel of a different parent");
@@ -404,8 +404,7 @@
 				}
 
 				let dstParentIdx = layout.findIndex(
-					(panel) =>
-						panel.paneKeyId === nodeParentId || panel.childs?.subPanel?.some((sub: any) => sub.paneKeyId === nodeParentId)
+					(panel) => panel.paneKeyId === nodeParentId || panel.childs?.subPanel?.some((sub) => sub.paneKeyId === nodeParentId)
 				);
 
 				// FIX: Only check that both indices are valid
@@ -540,89 +539,81 @@
 			}
 		};
 	}
-
-	// re-render the component if the amount of subpanels change
-	function key() {
-		return getAllSubPanels().length;
-	}
 </script>
 
-<!-- TODO: Explain what the hell is going on -->
-{#key key()}
-	<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
-		{#if header && panelViews.length > 0}
-			<!--
-	TODO:
-	Make the header draggable too. Use the same drag functions. If we're dragging
-	a header into a different panel, place that panel in place and update the state
-	for Splitpanes
-		-->
-			<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
-				{#each panelViews as view, i}
-					{#if view.name.trim() != ""}
-						{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
-						{@const data = { index: i, view: view }}
-						<button
-							id={tabNameId + "-tab"}
-							class="viz-tab-button {activeView.id === view.id ? 'active-tab' : ''}"
-							data-tab-id={view.id}
-							role="tab"
-							title={view.name}
-							aria-label={view.name}
-							onclick={() => {
-								if (view.id === activeView.id) {
-									return;
-								}
+<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
+	<!--
+TODO:
+Make the header draggable too. Use the same drag functions. If we're dragging
+a header into a different panel, place that panel in place and update the state
+for Splitpanes
+	-->
+	{#if header && panelViews.length > 0}
+		<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
+			{#each panelViews as view, i}
+				{#if view.name.trim() != ""}
+					{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
+					{@const data = { index: i, view: view }}
+					<button
+						id={tabNameId + "-tab"}
+						class="viz-tab-button {activeView.id === view.id ? 'active-tab' : ''}"
+						data-tab-id={view.id}
+						role="tab"
+						title={view.name}
+						aria-label={view.name}
+						onclick={() => {
+							if (view.id === activeView.id) {
+								return;
+							}
 
-								activeView.isActive = false;
-								view.isActive = true;
-								activeView = view;
-							}}
-							use:draggable={data}
-							use:tabDrop
-							ondragover={(event) => onDropOver(event)}
-						>
-							<span class="viz-sub_panel-name">{view.name}</span>
-							<!--
+							activeView.isActive = false;
+							view.isActive = true;
+							activeView = view;
+						}}
+						use:draggable={data}
+						use:tabDrop
+						ondragover={(event) => onDropOver(event)}
+					>
+						<span class="viz-sub_panel-name">{view.name}</span>
+						<!--
 						Every tab name needs to manually align itself with the icon
 						Translate is used instead of margin or position is used to avoid
 						shifting the layout  
 						-->
-							<MaterialIcon
-								showHoverBG={true}
-								style={`transform: translateY(${view.opticalCenterFix ?? 0.5}px);`}
-								iconName="menu"
-							/>
-						</button>
-					{/if}
-				{/each}
-				{#if dev}
-					<button
-						id="viz-debug-button"
-						class="viz-tab-button"
-						aria-label="Reset and Reload"
-						title="Reset and Reload"
-						onclick={() => resetAndReloadLayout()}
-					>
-						<span class="viz-sub_panel-name">Reset Layout</span>
-						<MaterialIcon iconName="refresh" />
+						<MaterialIcon
+							showHoverBG={true}
+							style={`transform: translateY(${view.opticalCenterFix ?? 0.5}px);`}
+							iconName="menu"
+						/>
 					</button>
 				{/if}
-			</div>
-		{/if}
-		{#if activeView?.component}
-			{@const Comp = activeView.component}
-			<div class="viz-sub_panel-content">
-				<Comp />
-			</div>
-		{/if}
-		{#if children}
-			<div class="viz-sub_panel-content" data-pane-key={keyId}>
-				{@render children?.()}
-			</div>
-		{/if}
-	</Pane>
-{/key}
+			{/each}
+			{#if dev}
+				<button
+					id="viz-debug-button"
+					class="viz-tab-button"
+					aria-label="Reset and Reload"
+					title="Reset and Reload"
+					onclick={() => resetAndReloadLayout()}
+				>
+					<span class="viz-sub_panel-name">Reset Layout</span>
+					<MaterialIcon iconName="refresh" />
+				</button>
+			{/if}
+		</div>
+	{/if}
+	{#if activeView?.component}
+		{@const Comp = activeView.component}
+		<div class="viz-sub_panel-content">
+			<Comp />
+		</div>
+	{/if}
+	{#if children}
+		<div class="viz-sub_panel-content" data-pane-key={keyId}>
+			{@render children()}
+		</div>
+	{/if}
+</Pane>
 
 <style lang="scss">
 	#viz-debug-button {

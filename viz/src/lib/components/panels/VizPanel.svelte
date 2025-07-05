@@ -101,10 +101,6 @@ component yet which is a bit of a problem I guess
 			{@const subpanel = panel.childs.parentSubPanel}
 			{@const internalParentKeyId = generateKeyId(16)}
 			{@const internalSubPanelKeyId = generateKeyId(16)}
-			<!-- Setting the `id` for the <SubPanel> component breaks the layout for some reason
-				 I cannot explain or figure out so I will remove it for now
-				 Like, I tried `id={subpanel.id + "-" + subPanelKeyId}` and the layout would snap every time you drag it
-				 -->
 			<SubPanel {...subpanel} paneKeyId={internalSubPanelKeyId} header={false} views={[]}>
 				<Panel
 					{...panel.childs.parentPanel}
@@ -113,10 +109,16 @@ component yet which is a bit of a problem I guess
 						debugEvent(event);
 					}}
 				>
-					<SubPanel {...panel} />
-					{#each panel.childs.subPanel as subPanel}
-						<SubPanel {...subPanel} />
-					{/each}
+					<!-- TODO: Document and explain what the hell is going on -->
+					<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->
+					<!-- MOVING THIS ANYWHERE ELSE FURTHER UP THE LAYOUT HIERACHY, USING ANY OTHER VALUE, RE-RENDERS EVERYTHING WHICH IS UNNCESSARILY EXPENSIVE OR IT DOESN'T RENDER THE TABS/HEADER OF SOME SUBPANELS AT ALL -->
+					<!-- ONLY, AND ONLY CHANGE THIS IF YOU CAN PROVE IT IS BETTER TO DO SO THAN THIS, THIS TOOK ME AGES AND DROVE ME CRAZY FOR 2 DAYS STRAIGHT -->
+					{#key panel.childs.subPanel.length}
+						<SubPanel {...panel} />
+						{#each panel.childs.subPanel as subPanel}
+							<SubPanel {...subPanel} />
+						{/each}
+					{/key}
 				</Panel>
 			</SubPanel>
 		{/if}
