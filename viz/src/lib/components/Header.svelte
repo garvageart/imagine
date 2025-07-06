@@ -9,7 +9,7 @@
 	header {
 		background-color: var(--imag-blue-100);
 		height: 1.5em;
-		padding: 0.5em 1.5em;
+		padding: 0.3em 1em;
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--imag-blue-60);
@@ -19,6 +19,6 @@
 	#viz-title {
 		font-family: var(--imag-code-font);
 		font-weight: 700;
-		font-size: 1.5em;
+		font-size: 1.2em;
 	}
 </style>
