@@ -12,11 +12,14 @@
 	const saveLayout = new VizLocalStorage<VizSubPanel[]>("layout");
 	let storedLayout = saveLayout.get();
 
-	if (storedLayout?.length === 0) {
-		console.warn("No layout found in localStorage, using default layout");
-
+	function resetLayoutToDefault() {
 		saveLayout.set(panels);
 		storedLayout = panels;
+	}
+
+	if (storedLayout && storedLayout?.length === 0) {
+		console.warn("No layout found in localStorage, using default layout");
+		resetLayoutToDefault();
 	}
 
 	const duplicateAnswer = arrayHasDuplicates(
@@ -51,12 +54,6 @@
 	}
 </script>
 
-<!-- Without the #key block around the entire panel, the entire panel does not update even if its
- children are updated. svelte-splitpanes needs to recalculate its children based on the 
- 
- NB: DO NOT move the #key block to the inside of the <Panel>, it WILL get stuck in an infinite loop
- (unless someone else has experienced something different?)
--->
 <Panel
 	{id}
 	{theme}
