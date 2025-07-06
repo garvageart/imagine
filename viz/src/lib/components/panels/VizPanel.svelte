@@ -46,9 +46,9 @@
 		return layoutState.tree;
 	});
 
-	// if (window.debug === true) {
-	$inspect("global state", layoutState.tree);
-	// }
+	if (window.debug === true) {
+		$inspect("global state", layoutState.tree);
+	}
 </script>
 
 <!-- Without the #key block around the entire panel, the entire panel does not update even if its
