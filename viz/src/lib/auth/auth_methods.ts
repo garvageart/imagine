@@ -51,6 +51,15 @@ export async function sendOAuthParams(provider: string | null): Promise<boolean>
         mode: "cors",
         credentials: "include"
     }).then(async (res) => {
+        if (res.status !== 200) {
+            console.error(res.statusText);
+            // random temp error code, these will be defined
+            // later in the future
+            // these will be used to show a notification with the error code and message
+            goto("/?error=40");
+            return null;
+        }
+
         return await res.json();
     }).catch((err) => {
         console.error(err);
