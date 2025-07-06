@@ -243,7 +243,8 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			}
 		}
 
-		state, err := gonanoid.New(24)
+		// idk just seems better to use 48
+		state, err := gonanoid.New(48)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
 				"error generating oauth state",
@@ -251,6 +252,19 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			)
 			return
 		}
+
+		stateHash := crypto.CreateHash([]byte(state))
+		encryptedStateB64 := base64.URLEncoding.EncodeToString(stateHash)
+
+		// 5 minute max window to login using the generated state
+		http.SetCookie(res, &http.Cookie{
+			Name:     "imag-redirect-state",
+			Value:    encryptedStateB64,
+			Expires:  carbon.Now().AddMinutes(5).StdTime(),
+			Path:     "/",
+			Secure:   true,
+			SameSite: http.SameSiteNoneMode,
+		})
 
 		oauthUrl, err := oauth.SetupOAuthURL(res, req, oauthConfig, provider, state)
 		if err != nil {
@@ -339,18 +353,26 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			return
 		}
 
-		stateHash := crypto.CreateHash([]byte(state))
-		encryptedStateB64 := base64.URLEncoding.EncodeToString(stateHash)
-
+		// at this point, the state has been validated to be correct
+		// and unmodified to use that
 		http.SetCookie(res, &http.Cookie{
 			Name:     "imag-state",
-			Value:    encryptedStateB64,
+			Value:    state,
 			Expires:  carbon.Now().AddYear().StdTime(),
 			Path:     "/",
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
 		})
-		
+
+		// delete the temporary redirect state from the browser
+		http.SetCookie(res, &http.Cookie{
+			Name:     "imag-redirect-state",
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			HttpOnly: true,
+		})
+
 		http.SetCookie(res, &http.Cookie{
 			Name:     "imag-auth_token",
 			Value:    tokenString,

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -90,6 +91,7 @@ func GithubClient(token *oauth2.Token) *githubapi.Client {
 func GithubOAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger) (*githubapi.User, error) {
 	token, err := GithubOAuth.OAuthHandler(res, req, logger)
 	if err != nil {
+		fmt.Println(token, err)
 		return nil, err
 	}
 	user, _, err := GithubClient(token).Users.Get(context.Background(), "")

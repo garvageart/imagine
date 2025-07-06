@@ -23,7 +23,7 @@ type ImagineOAuth struct {
 
 func (oauth ImagineOAuth) OAuthHandler(res http.ResponseWriter, req *http.Request, logger *slog.Logger) (*oauth2.Token, error) {
 	redirectState := req.FormValue("state")
-	cookieState, err := req.Cookie("imag-state")
+	cookieState, err := req.Cookie("imag-redirect-state")
 	redirectedStateHash := crypto.CreateHash([]byte(redirectState))
 	redirectStateHashString := base64.URLEncoding.EncodeToString(redirectedStateHash)
 
