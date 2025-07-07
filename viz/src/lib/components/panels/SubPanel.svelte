@@ -28,7 +28,6 @@
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
 	import { generateKeyId, resetAndReloadLayout } from "$lib/utils";
 	import MaterialIcon from "../MaterialIcon.svelte";
-	import { getAllSubPanels } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { views } from "$lib/layouts/test";
 	import { dev } from "$app/environment";
 	import type { TabData } from "$lib/TabDrop.svelte";
