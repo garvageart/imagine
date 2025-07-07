@@ -48,7 +48,7 @@
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
 	import { generateKeyId, VizLocalStorage } from "$lib/utils";
-	import { allSplitpanes, layoutState } from "./state.svelte";
+	import { allSplitpanes, layoutState, layoutTree } from "./state.svelte";
 	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
 	// TYPE DECLARATIONS ----------------
@@ -208,7 +208,6 @@
 	let currentFocusedPane: HTMLElement;
 	let splitpanesKeyId = storedLayout?.flat().find((sp) => sp.id === id)?.paneKeyId;
 	const usedKeyId = splitpanesKeyId?.trim() ?? keyId ?? generateKeyId(16);
-	id += `-${usedKeyId}`;
 
 	// VARIABLES ----------------
 
@@ -266,6 +265,10 @@
 	// Determines if this is the very first splitpanes element in the DOM,
 	// the root element in the tree. Anything else is nested
 	function isSplitpanesRoot(element: Element): boolean {
+		if (element.id === "viz-content") {
+			return true;
+		}
+
 		const parent = element.parentElement;
 		if (!parent) {
 			return true;
@@ -434,6 +437,26 @@
 			pane.parent = usedKeyId;
 
 			panes[i] = pane;
+		}
+
+		if (!isSplitpanesRoot(container!)) {
+			id += `-${usedKeyId}`;
+		}
+
+		if (id.startsWith("viz-content")) {
+			// there needs to be a better way to do this lmao
+			layoutTree.class = clazz;
+			layoutTree.style = style;
+			layoutTree.theme = theme;
+			layoutTree.rtl = rtl;
+			layoutTree.element = container!;
+			layoutTree.childs = layoutState.tree;
+			layoutTree.keyId = usedKeyId;
+			layoutTree.id = id;
+			layoutTree.dblClickSplitter = dblClickSplitter;
+			layoutTree.pushOtherPanes = pushOtherPanes;
+			layoutTree.horizontal = horizontal;
+			layoutTree.firstSplitter = firstSplitter;
 		}
 
 		isReady = true;

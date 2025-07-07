@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { DEFAULT_THEME } from "$lib/constants";
 	import { panels } from "$lib/layouts/test";
-	import { Splitpanes as Panel } from "$lib/third-party/svelte-splitpanes";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import { Splitpanes as Panel, type ITree } from "$lib/third-party/svelte-splitpanes";
+	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { onMount } from "svelte";
 	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
@@ -10,6 +10,7 @@
 	let { id }: { id: string } = $props();
 	const theme = DEFAULT_THEME;
 	const saveLayout = new VizLocalStorage<VizSubPanel[]>("layout");
+	const treeLayout = new VizLocalStorage<ITree>("tree");
 	let storedLayout = saveLayout.get();
 
 	function resetLayoutToDefault() {
@@ -39,19 +40,41 @@
 	onMount(() => {
 		layoutState.tree ??= [];
 		layoutState.tree = storedLayout ?? panels;
+		layoutTree.childs = layoutState.tree;
+		const storedTree = treeLayout.get();
+
+		if (!storedTree) {
+			return;
+		}
+
+		layoutTree.class = storedTree.class;
+		layoutTree.style = storedTree.style;
+		layoutTree.theme = storedTree.theme;
+		layoutTree.rtl = storedTree.rtl;
+		layoutTree.keyId = storedTree.keyId;
+		layoutTree.id = storedTree.id;
+		layoutTree.dblClickSplitter = storedTree.dblClickSplitter;
+		layoutTree.pushOtherPanes = storedTree.pushOtherPanes;
+		layoutTree.horizontal = storedTree.horizontal;
+		layoutTree.firstSplitter = storedTree.firstSplitter;
 	});
 	// This derived value was initially used to do
 	// further layout calculations like checking if a single pane
 	// needs to be used but that seems to have just fixed itself?
 	// So for now all it does is save the layout every time it is adjusted
 	const internalLayoutState = $derived.by(() => {
-		saveLayout.set(layoutState.tree);
 		return layoutState.tree;
 	});
 
 	if (window.debug === true) {
 		$inspect("global state", layoutState.tree);
 	}
+
+	$effect(() => {
+		saveLayout.set(layoutState.tree);
+		layoutTree.childs = layoutState.tree;
+		treeLayout.set(layoutTree);
+	});
 </script>
 
 <Panel

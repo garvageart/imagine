@@ -2,7 +2,7 @@ import type { ComponentProps } from "svelte";
 import type { Readable, Writable } from 'svelte/store';
 
 import Splitpanes from './Splitpanes.svelte';
-import type { VizView } from "$lib/components/panels/SubPanel.svelte";
+import type { VizSubPanel, VizView } from "$lib/components/panels/SubPanel.svelte";
 export { default as Splitpanes } from './Splitpanes.svelte';
 export { default as Pane } from './Pane.svelte';
 
@@ -82,7 +82,7 @@ export interface IPane {
   views: VizView[];
 }
 
-interface SerializedElement {
+export interface HTMLSerializedElement {
   svelte_meta?: {
     loc: {
       file: string,
@@ -101,7 +101,7 @@ export interface IPaneSerialized {
   index: number;
   givenSize: number;
   parent: string;
-  element: SerializedElement;
+  element: HTMLSerializedElement;
   size: number;
   min: number;
   max: number;
@@ -111,11 +111,10 @@ export interface IPaneSerialized {
 }
 
 type ISplitpanes = ComponentProps<typeof Splitpanes> & {
-  keyId?: string;
-  panes?: IPane[];
-  isRoot?: boolean;
-  element?: HTMLElement;
-  childs?: string[];
+  id: string;
+  keyId: string;
+  element: HTMLElement;
+  childs: VizSubPanel[];
 };
 
 export type ITree = ISplitpanes;

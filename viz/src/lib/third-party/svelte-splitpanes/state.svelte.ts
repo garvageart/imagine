@@ -1,6 +1,6 @@
 import { SvelteMap } from "svelte/reactivity";
-import type { IPaneSerialized } from ".";
-import { writable, type Writable } from "svelte/store";
+import type { IPaneSerialized, ITree } from ".";
+import { writable } from "svelte/store";
 import type { VizSubPanel, VizView } from "$lib/components/panels/SubPanel.svelte";
 
 // this might cause bugs idk
@@ -9,6 +9,7 @@ export const layoutState: { tree: VizSubPanel[]; } = $state({
     tree: []
 });
 export const allTabs = writable(new SvelteMap<string, VizView[]>());
+export const layoutTree = $state({}) as ITree
 
 export const getAllSubPanels = () => {
     let subPanels = layoutState.tree.flat();
