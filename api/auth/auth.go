@@ -269,6 +269,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			Expires:  carbon.Now().AddMinutes(5).StdTime(),
 			Path:     "/",
 			Secure:   true,
+			HttpOnly: true, // client doesn't use this value, make HttpOnly
 			SameSite: http.SameSiteNoneMode,
 		})
 
