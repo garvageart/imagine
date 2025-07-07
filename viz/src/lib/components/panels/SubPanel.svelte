@@ -1,9 +1,9 @@
 <script module lang="ts">
 	import { type Component } from "svelte";
 	import Splitpanes from "$lib/third-party/svelte-splitpanes/Splitpanes.svelte";
+	
 	// TODO: Reorganise and clean up component
 	// e.g. move types to seperate file, clean up props etc etc
-
 	export interface VizView {
 		name: string;
 		opticalCenterFix?: number;
@@ -87,6 +87,7 @@
 
 	$effect(() => {
 		if (tabDropper.activeView) {
+			activeView.isActive = false;
 			tabDropper.activeView.isActive = true;
 			activeView = tabDropper.activeView;
 		}
