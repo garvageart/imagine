@@ -46,6 +46,10 @@ class TabDropper {
             currentLayout.splice(parentIndex, 1);
         }
 
+        if (parentPanel.childs?.subPanel?.length === 0) {
+            delete parentPanel.childs;
+        }
+
         if (window.debug === true) {
             console.log(`Promoting child ${$state.snapshot(parentPanel.paneKeyId)}`, $state.snapshot(parentPanel));
         }
@@ -369,6 +373,10 @@ class TabDropper {
                         if (dstChildIdx !== -1) {
                             layout[dstParentIdx].childs?.subPanel[dstChildIdx].views.push(movedView);
                         }
+                    }
+
+                    if (!layout[srcChildIdx].childs?.subPanel.length) {
+                        delete layout[srcChildIdx].childs;
                     }
                 }
             } else {
