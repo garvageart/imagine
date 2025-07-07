@@ -140,7 +140,7 @@
 		}
 
 		if (window.debug === true) {
-			console.log(`Promoting child ${parentPanel.paneKeyId}`, parentPanel);
+			console.log(`Promoting child ${$state.snapshot(parentPanel.paneKeyId)}`, $state.snapshot(parentPanel));
 		}
 	}
 
