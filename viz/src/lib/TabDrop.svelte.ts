@@ -51,10 +51,24 @@ class TabDropper {
         }
     }
 
-    findPanelIndex(layout: VizSubPanel[], paneKeyId: string | undefined) {
+    /**
+     * Finds the index of a panel in the given layout by its pane key ID.
+     *
+     * @param {VizSubPanel[]} layout The layout to search in.
+     * @param {string|undefined} paneKeyId The pane key ID to search for.
+     * @returns {number} The index of the panel in the layout, or -1 if not found.
+     */
+    findPanelIndex(layout: VizSubPanel[], paneKeyId: string | undefined): number {
         return layout.findIndex((panel) => panel.paneKeyId === paneKeyId);
     }
 
+    /**
+     * Finds the index of a child subpanel in the given child structure by its pane key ID.
+     *
+     * @param {{internalSubPanelContainer: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">; internalPanelContainer: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">; subPanel: Omit<VizSubPanel, "childs">[]} | undefined} childs The child structure to search in.
+     * @param {string|undefined} paneKeyId The pane key ID to search for.
+     * @returns {number} The index of the child subpanel in the child structure, or -1 if not found.
+     */
     findChildIndex(
         childs:
             | {
@@ -64,11 +78,19 @@ class TabDropper {
             }
             | undefined,
         paneKeyId: string | undefined
-    ) {
+    ): number {
         return childs?.subPanel?.findIndex((sub) => sub.paneKeyId === paneKeyId) ?? -1;
     }
 
-    getSubPanelParent(layout: VizSubPanel[], paneKeyId: string | undefined) {
+
+    /**
+     * Retrieves the pane key ID of the parent panel for a given subpanel identified by its pane key ID.
+     *
+     * @param {VizSubPanel[]} layout - The layout containing panels and their subpanels.
+     * @param {string | undefined} paneKeyId - The pane key ID of the subpanel to find the parent for.
+     * @returns {string | null} The pane key ID of the parent panel, or null if not found.
+     */
+    getSubPanelParent(layout: VizSubPanel[], paneKeyId: string | undefined): string | null {
         if (!paneKeyId) {
             return null;
         }
@@ -80,7 +102,7 @@ class TabDropper {
 
             for (const sub of panel.childs.subPanel) {
                 if (sub.paneKeyId === paneKeyId) {
-                    return panel.paneKeyId;
+                    return panel.paneKeyId ?? null;;
                 }
             }
         }
@@ -88,6 +110,10 @@ class TabDropper {
         return null;
     }
 
+    /**
+     * Handles the drop event of a draggable element.
+     * @param {DragEvent} event The drop event.
+     */
     async ondrop(node: HTMLElement, event: DragEvent) {
         event.preventDefault();
 
@@ -397,6 +423,10 @@ class TabDropper {
         this.activeView = originalView;
     }
 
+    /**
+     * Handles the dragover event of a draggable element.
+     * @param {DragEvent} event The dragover event.
+     */
     onDropOver(event: DragEvent) {
         event.preventDefault();
         if (event.dataTransfer) {
@@ -404,6 +434,8 @@ class TabDropper {
         }
     }
 
+    /**
+     * Makes an element draggable. */
     draggable(node: HTMLElement, data: TabData) {
         let state = JSON.stringify(data);
 
@@ -425,7 +457,21 @@ class TabDropper {
         };
     }
 
-    tabDrop(node: HTMLElement) {
+    /**
+     * Attaches drag-and-drop event listeners to an HTML element to handle
+     * visual feedback and drop actions for draggable elements.
+     * 
+     * The function adds event listeners for "drop", "dragenter", "dragleave",
+     * and "dragend" events. It applies a CSS class for visual feedback
+     * when a draggable element is dragged over the target element and
+     * invokes the `ondrop` handler when a drop occurs. The `destroy` 
+     * method is provided to clean up the event listeners.
+     * @param {HTMLElement} node The HTML element to which drag-and-drop
+     *                           event listeners are attached.
+     * @returns {Object} An object containing a `destroy` method to
+     *                   remove the event listeners when no longer needed.
+     */
+    tabDrop(node: HTMLElement): object {
         node.addEventListener("drop", (e) => {
             this.ondrop(node, e);
         });
