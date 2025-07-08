@@ -1,7 +1,7 @@
 <script module lang="ts">
 	import { type Component } from "svelte";
 	import Splitpanes from "$lib/third-party/svelte-splitpanes/Splitpanes.svelte";
-	
+
 	// TODO: Reorganise and clean up component
 	// e.g. move types to seperate file, clean up props etc etc
 	export interface VizView {
@@ -93,7 +93,7 @@
 		}
 	});
 
-	function draggable(node: HTMLElement, data: TabData) {
+	function tabDragable(node: HTMLElement, data: TabData) {
 		return tabDropper.draggable(node, data);
 	}
 
@@ -103,6 +103,22 @@
 
 	function tabDrop(node: HTMLElement) {
 		return tabDropper.tabDrop(node);
+	}
+
+	function headerDraggable(node: HTMLElement) {}
+
+	function subPanelDrop(node: HTMLElement) {
+		return tabDropper.subPanelDropInside(node);
+	}
+
+	function makeViewActive(view: VizView) {
+		if (view.id === activeView.id) {
+			return;
+		}
+
+		activeView.isActive = false;
+		view.isActive = true;
+		activeView = view;
 	}
 </script>
 
@@ -114,7 +130,14 @@ a header into a different panel, place that panel in place and update the state
 for Splitpanes
 	-->
 	{#if header && panelViews.length > 0}
-		<div class="viz-sub_panel-header" role="tablist" tabindex="0" use:tabDrop ondragover={(event) => onDropOver(event)}>
+		<div
+			class="viz-sub_panel-header"
+			role="tablist"
+			tabindex="0"
+			use:headerDraggable
+			use:tabDrop
+			ondragover={(event) => onDropOver(event)}
+		>
 			{#each panelViews as view, i}
 				{#if view.name.trim() != ""}
 					{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
@@ -126,16 +149,8 @@ for Splitpanes
 						role="tab"
 						title={view.name}
 						aria-label={view.name}
-						onclick={() => {
-							if (view.id === activeView.id) {
-								return;
-							}
-
-							activeView.isActive = false;
-							view.isActive = true;
-							activeView = view;
-						}}
-						use:draggable={data}
+						onclick={() => makeViewActive(view)}
+						use:tabDragable={data}
 						use:tabDrop
 						ondragover={(event) => onDropOver(event)}
 					>
@@ -169,7 +184,7 @@ for Splitpanes
 	{/if}
 	{#if activeView?.component}
 		{@const Comp = activeView.component}
-		<div class="viz-sub_panel-content">
+		<div class="viz-sub_panel-content" use:subPanelDrop>
 			<Comp />
 		</div>
 	{/if}
@@ -200,6 +215,7 @@ for Splitpanes
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: clip;
+		position: relative;
 	}
 
 	.viz-tab-button {
@@ -217,7 +233,7 @@ for Splitpanes
 
 	:global(
 			.splitpanes__pane > *:last-child,
-			.viz-sub_panel-content > :first-child:not(.splitpanes--horizontal, .splitpanes--vertical)
+			.viz-sub_panel-content > :last-child:not(.splitpanes--horizontal, .splitpanes--vertical)
 		) {
 		padding: 0.5em;
 	}
