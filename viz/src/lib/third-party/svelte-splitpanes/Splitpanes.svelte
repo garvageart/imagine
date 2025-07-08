@@ -414,10 +414,9 @@
 
 		if (!element.classList.contains("splitpanes__pane__active")) {
 			element.classList.add("splitpanes__pane__active");
-		} else {
-			element.classList.remove("splitpanes__pane__active");
 		}
 
+		// TODO: this is wrong, pls fix
 		pane.isActive.set(!get(pane.isActive));
 		dispatch("pane-click", pane);
 	}
