@@ -32,13 +32,13 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<header role="button" tabindex="0" ontouchstart={() => devEnableClickCounter++} onclick={() => devEnableClickCounter++}>
+<header role="none" ontouchstart={() => devEnableClickCounter++} onclick={() => devEnableClickCounter++}>
 	<a id="viz-title" href="/">viz</a>
 </header>
 
 <style>
 	header {
-		background-color: var(--imag-blue-100);
+		background-color: var(--imag-bg-color);
 		height: 1.5em;
 		padding: 0.3em 1em;
 		display: flex;
