@@ -1,98 +1,42 @@
-import { prepareMetadata } from '#/logger/util';
 import { DateTime } from "luxon";
 
-export type Metadata = {
-    /**
-     * Reserved for appending `LogContext` in logging payloads
-     */
-    __context__?: undefined;
-
-    /**
-     * Applied as Sentry breadcrumb types. Defaults to `default`.
-     *
-     * @see https://develop.sentry.dev/sdk/event-payloads/breadcrumbs/#breadcrumb-types
-     */
-    type?:
-    | 'default'
-    | 'debug'
-    | 'error'
-    | 'navigation'
-    | 'http'
-    | 'info'
-    | 'query'
-    | 'transaction'
-    | 'ui'
-    | 'user';
-
-    /**
-     * Passed through to `Sentry.captureException`
-     *
-     * @see https://github.com/getsentry/sentry-javascript/blob/903addf9a1a1534a6cb2ba3143654b918a86f6dd/packages/types/src/misc.ts#L65
-     */
-    tags?: {
-        [key: string]: number | string | boolean | null | undefined;
-    };
-
-    /**
-     * Any additional data, passed through to Sentry as `extra` param on
-     * exceptions, or the `data` param on breadcrumbs.
-     */
-    [key: string]: Error | unknown;
-};
-
-export type Transport = (
-    level: LogLevel,
-    message: string | Error,
-    metadata: Metadata,
-    timestamp: number,
-) => void;
-
 export enum LogLevel {
-    Debug = 'debug',
-    Info = 'info',
-    Log = 'log',
-    Warn = 'warn',
-    Error = 'error',
+    DEBUG = 'DEBUG',
+    INFO = 'INFO',
+    LOG = 'LOG',
+    WARN = 'WARN',
+    ERROR = 'ERROR',
 }
 
 /**
  * Used in dev mode to nicely log to the console
  */
-export const consoleTransport: Transport = (
+export const logger = (
     level: LogLevel,
     message: string | Error,
-    metadata: Metadata,
-    timestamp: number,
+    ...args: any
 ) => {
-    const hasMetadata = Object.keys(metadata).length;
     const colorize = withColor(
         {
-            [LogLevel.Debug]: colors.magenta,
-            [LogLevel.Info]: colors.blue,
-            [LogLevel.Log]: colors.green,
-            [LogLevel.Warn]: colors.yellow,
-            [LogLevel.Error]: colors.red,
+            [LogLevel.DEBUG]: colors.magenta,
+            [LogLevel.INFO]: colors.blue,
+            [LogLevel.LOG]: colors.green,
+            [LogLevel.WARN]: colors.yellow,
+            [LogLevel.ERROR]: colors.red,
         }[level],
     );
 
-    let msg = `${colorize(DateTime.fromMillis(timestamp).toFormat("HH:mm:ss"))}`;
+    let msg = `${colorize(DateTime.now().toFormat("dd-MM-yyyy HH:mm:ss"))}`;
     if (message) {
         msg += ` ${message.toString()}`;
     }
 
-
-    if (hasMetadata) {
-        console.groupCollapsed(msg);
-        console.log(metadata);
-        console.groupEnd();
-    } else {
-        console.log(msg);
-    }
     if (message instanceof Error) {
         // for stacktrace
         console.error(message);
+    } else {
+        console.log(msg, ...args);
     }
-
 };
 
 /**
