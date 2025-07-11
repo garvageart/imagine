@@ -68,6 +68,7 @@
 
 	if (window.debug === true) {
 		$inspect("global state", layoutState.tree);
+		$inspect("global tree", layoutTree);
 	}
 
 	$effect(() => {
@@ -81,7 +82,7 @@
 	{id}
 	{theme}
 	keyId={generateKeyId(16)}
-	style="height: 100%"
+	style="max-height: 100%;"
 	pushOtherPanes={false}
 	on:resized={(event) => {
 		debugEvent(event);
@@ -124,6 +125,7 @@ component yet which is a bit of a problem I guess
 			<!-- empty array for views to supress typescript errors about required views -->
 			<SubPanel
 				{...subpanel}
+				class="viz-internal-subpanel-{internalSubPanelKeyId}"
 				paneKeyId={internalSubPanelKeyId}
 				header={false}
 				maxSize={100}
@@ -131,12 +133,14 @@ component yet which is a bit of a problem I guess
 			>
 				<Panel
 					{...panel.childs.internalPanelContainer}
+					class="viz-internal-panel-{internalParentKeyId}"
 					keyId={internalParentKeyId}
 					on:resized={(event) => {
 						debugEvent(event);
 					}}
 				>
 					<!-- TODO: Document and explain what the hell is going on -->
+					<!-- ---------------------------------------------------- -->
 					<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->
 					<!-- MOVING THIS ANYWHERE ELSE FURTHER UP THE LAYOUT HIERACHY, USING ANY OTHER VALUE, RE-RENDERS EVERYTHING WHICH IS UNNCESSARILY EXPENSIVE OR IT DOESN'T RENDER THE TABS/HEADER OF SOME SUBPANELS AT ALL -->
 					<!-- ONLY, AND ONLY CHANGE THIS IF YOU CAN PROVE IT IS BETTER TO DO SO THAN THIS, THIS TOOK ME AGES AND DROVE ME CRAZY FOR 2 DAYS STRAIGHT -->
