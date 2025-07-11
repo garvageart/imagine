@@ -28,7 +28,7 @@ type ImagineMediaServer struct {
 
 func (server ImagineMediaServer) setupImageRouter() *chi.Mux {
 	imageRouter := chi.NewRouter()
-	
+
 	logger := server.Logger
 
 	gcsContext, gcsContextCancel := context.WithCancel(context.Background())
@@ -54,6 +54,13 @@ func (server ImagineMediaServer) setupImageRouter() *chi.Mux {
 	return imageRouter
 }
 
+// TODO: This will be the main API server and therefore will have a lot of routes.
+// This file and directory will be renamed to "api" and the parent directory to "servers" :)
+// Split the different routes into their own files depending on what they server
+// For example, a /user* route for the user data etc.
+
+// TODO TODO: Create a `createServer/Router` function that returns a router
+// with common defaults for each server type
 func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	imageRouter := server.setupImageRouter()
 	logger := server.Logger
@@ -87,7 +94,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 
 	go func() {
 		logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", serverKey, address))
-		
+
 		err := http.ListenAndServe(address, router)
 		if err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
