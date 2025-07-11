@@ -1,8 +1,3 @@
-<script lang="ts">
-	import { CLIENT_IS_PRODUCTION } from "$lib/constants";
-</script>
-
-<!-- {#if CLIENT_IS_PRODUCTION} -->
 <div id="welcome-text">
 	<h1>Welcome to <code>viz</code></h1>
 	<p>
@@ -12,9 +7,6 @@
 	</p>
 	<p>The repo for this project can be found on <strong><a href="https://github.com/garvageart/imagine">GitHub</a></strong></p>
 </div>
-
-<!-- {/if} -->
-
 <style>
 	#welcome-text {
 		display: flex;
