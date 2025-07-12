@@ -11,12 +11,10 @@ export interface TabData {
 }
 
 class TabOps {
-    private panelViews: VizView[];
-    private keyId: string;
+    private panelViews: VizView[] = $state([]);
     public activeView: VizView | null = $state(null);
 
-    constructor(keyId: string, panelViews: VizView[]) {
-        this.keyId = keyId;
+    constructor(panelViews: VizView[]) {
         this.panelViews = panelViews;
     }
 

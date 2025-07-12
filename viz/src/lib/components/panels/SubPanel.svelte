@@ -105,7 +105,7 @@
 	let tabDropper: TabOps;
 
 	if (panelViews.length) {
-		tabDropper = new TabOps(keyId, panelViews);
+		tabDropper = new TabOps(panelViews);
 		$effect(() => {
 			const element = subPanelContentElement;
 			if (!element) {
