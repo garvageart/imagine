@@ -391,10 +391,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		})
 
 		logger.Info("User logged in with OAuth", slog.String("provider", provider))
-
-		res.Header().Add("Content-Type", "application/json")
-		res.WriteHeader(http.StatusOK)
-		res.Write(jsonBytes)
+		render.JSON(res, req, jsonBytes)
 	})
 
 	router.Put("/user/create", func(res http.ResponseWriter, req *http.Request) {
