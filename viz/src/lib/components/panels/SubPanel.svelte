@@ -25,7 +25,6 @@
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
 	import { generateKeyId, isElementScrollable } from "$lib/utils";
 	import MaterialIcon from "../MaterialIcon.svelte";
-	import { views } from "$lib/layouts/test";
 	import { dev } from "$app/environment";
 	import type { TabData } from "$lib/views/tabs.svelte";
 	import TabOps from "$lib/views/tabs.svelte";
@@ -33,6 +32,7 @@
 	import { findSubPanel } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import LoadingSpinner from "../LoadingSpinner.svelte";
 	import { measureComponentRenderTimes, resetAndReloadLayout } from "$lib/dev/components.svelte";
+	import { views } from "$lib/layouts/views";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;
