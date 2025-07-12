@@ -28,7 +28,7 @@
 			.flatMap((panel) => panel.views.map((tab) => tab.id))
 			.concat(
 				panels.flatMap((panel) =>
-					panel.childs?.subPanel ? panel.childs.subPanel.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
+					panel.childs?.subPanels ? panel.childs.subPanels.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
 				)
 			)
 	);
@@ -144,9 +144,9 @@ component yet which is a bit of a problem I guess
 					<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->
 					<!-- MOVING THIS ANYWHERE ELSE FURTHER UP THE LAYOUT HIERACHY, USING ANY OTHER VALUE, RE-RENDERS EVERYTHING WHICH IS UNNCESSARILY EXPENSIVE OR IT DOESN'T RENDER THE TABS/HEADER OF SOME SUBPANELS AT ALL -->
 					<!-- ONLY, AND ONLY CHANGE THIS IF YOU CAN PROVE IT IS BETTER TO DO SO THAN THIS, THIS TOOK ME AGES AND DROVE ME CRAZY FOR 2 DAYS STRAIGHT -->
-					{#key panel.childs.subPanel.length}
+					{#key panel.childs.subPanels.length}
 						<SubPanel {...panel} />
-						{#each panel.childs.subPanel as subPanel}
+						{#each panel.childs.subPanels as subPanel}
 							<SubPanel {...subPanel} />
 						{/each}
 					{/key}

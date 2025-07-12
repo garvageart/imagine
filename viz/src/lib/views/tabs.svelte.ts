@@ -29,8 +29,8 @@ class TabOps {
      */
     promoteChildToParent(currentLayout: VizSubPanel[], parentIndex: number) {
         const parentPanel = currentLayout[parentIndex];
-        if (parentPanel.childs?.subPanel?.length) {
-            const firstChild = parentPanel.childs.subPanel[0];
+        if (parentPanel.childs?.subPanels?.length) {
+            const firstChild = parentPanel.childs.subPanels[0];
             Object.assign(parentPanel, {
                 id: firstChild.id,
                 maxSize: firstChild.maxSize,
@@ -39,14 +39,14 @@ class TabOps {
                 views: firstChild.views,
                 childs: {
                     ...parentPanel.childs,
-                    subPanel: parentPanel.childs.subPanel.slice(1)
+                    subPanel: parentPanel.childs.subPanels.slice(1)
                 }
             });
         } else {
             currentLayout.splice(parentIndex, 1);
         }
 
-        if (parentPanel.childs?.subPanel?.length === 0) {
+        if (parentPanel.childs?.subPanels?.length === 0) {
             parentPanel.size = parentPanel.childs.internalSubPanelContainer.size;
             parentPanel.minSize = parentPanel.childs.internalSubPanelContainer.minSize;
             parentPanel.maxSize = parentPanel.childs.internalSubPanelContainer.maxSize;
@@ -82,12 +82,12 @@ class TabOps {
             | {
                 internalSubPanelContainer: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">;
                 internalPanelContainer: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">;
-                subPanel: Omit<VizSubPanel, "childs">[];
+                subPanels: Omit<VizSubPanel, "childs">[];
             }
             | undefined,
         paneKeyId: string | undefined
     ): number {
-        return childs?.subPanel?.findIndex((sub) => sub.paneKeyId === paneKeyId) ?? -1;
+        return childs?.subPanels?.findIndex((sub) => sub.paneKeyId === paneKeyId) ?? -1;
     }
 
 
@@ -104,11 +104,11 @@ class TabOps {
         }
 
         for (const panel of layout) {
-            if (!panel.childs?.subPanel) {
+            if (!panel.childs?.subPanels) {
                 continue;
             }
 
-            for (const sub of panel.childs.subPanel) {
+            for (const sub of panel.childs.subPanels) {
                 if (sub.paneKeyId === paneKeyId) {
                     return panel.paneKeyId ?? null;;
                 }
@@ -150,7 +150,7 @@ class TabOps {
             if (!srcTabs.length) {
                 // Only promote if there are child subpanels, otherwise just remove the panel
                 const srcPanel = layout[srcIdx];
-                if (srcPanel.childs?.subPanel?.length) {
+                if (srcPanel.childs?.subPanels?.length) {
                     this.promoteChildToParent(layout, srcIdx);
                 } else {
                     layout.splice(srcIdx, 1);
@@ -184,16 +184,16 @@ class TabOps {
         const dstIdx = childIdx;
 
         if (childs && srcIdx !== -1 && dstIdx !== -1) {
-            const tabIdx = childs.subPanel[srcIdx].views.findIndex((tab) => tab.id === state.view.id);
+            const tabIdx = childs.subPanels[srcIdx].views.findIndex((tab) => tab.id === state.view.id);
 
             if (tabIdx !== -1) {
-                const movedTab = childs.subPanel[srcIdx].views.splice(tabIdx, 1)[0];
-                childs.subPanel[dstIdx].views.push(movedTab);
+                const movedTab = childs.subPanels[srcIdx].views.splice(tabIdx, 1)[0];
+                childs.subPanels[dstIdx].views.push(movedTab);
                 movedTab.parent = nodeParentId;
 
                 // Remove the source child subpanel if it is now empty
-                if (!childs.subPanel[srcIdx].views.length) {
-                    childs.subPanel.splice(srcIdx, 1);
+                if (!childs.subPanels[srcIdx].views.length) {
+                    childs.subPanels.splice(srcIdx, 1);
                     layout[parentIdx].childs = childs;
                 }
             }
@@ -213,7 +213,7 @@ class TabOps {
         const parentPanel = layout[parentIdx];
         const tabIndex = parentPanel.views.findIndex((view) => view.id === state.view.id);
         const childs = parentPanel?.childs;
-        const childPanel = childs?.subPanel?.[childIdx];
+        const childPanel = childs?.subPanels?.[childIdx];
 
         if (childPanel && tabIndex !== -1) {
             const movedTab = parentPanel.views.splice(tabIndex, 1)[0];
@@ -238,7 +238,7 @@ class TabOps {
      */
     private moveTabToSameParent(layout: VizSubPanel[], state: TabData, nodeParentId: string) {
         const srcIdx = this.findPanelIndex(layout, state.view.parent);
-        const dstIdx = layout.findIndex((panel) => panel.childs?.subPanel?.some((sub: any) => sub.paneKeyId === nodeParentId));
+        const dstIdx = layout.findIndex((panel) => panel.childs?.subPanels?.some((sub: any) => sub.paneKeyId === nodeParentId));
 
         if (srcIdx !== -1 && dstIdx !== -1) {
             const srcViews = layout[srcIdx].views;
@@ -252,14 +252,14 @@ class TabOps {
 
             const destChildIdx = this.findChildIndex(layout[dstIdx].childs, nodeParentId);
 
-            if (movedView && destChildIdx !== -1 && layout[dstIdx].childs?.subPanel) {
-                layout[dstIdx].childs.subPanel[destChildIdx].views.push(movedView);
+            if (movedView && destChildIdx !== -1 && layout[dstIdx].childs?.subPanels) {
+                layout[dstIdx].childs.subPanels[destChildIdx].views.push(movedView);
             }
 
             if (!srcViews.length) {
                 // Only promote if there are child subpanels, otherwise just remove the panel
                 const srcPanel = layout[srcIdx];
-                if (srcPanel.childs?.subPanel?.length) {
+                if (srcPanel.childs?.subPanels?.length) {
                     this.promoteChildToParent(layout, srcIdx);
                 } else {
                     layout.splice(srcIdx, 1);
@@ -286,7 +286,7 @@ class TabOps {
      */
     private moveTabToNewChild(layout: VizSubPanel[], state: TabData, nodeParentId: string) {
         let srcParentIdx = layout.findIndex((panel) =>
-            panel.childs?.subPanel?.some((sub) => sub.paneKeyId === state.view.parent)
+            panel.childs?.subPanels?.some((sub) => sub.paneKeyId === state.view.parent)
         );
         let srcChildIdx = -1;
 
@@ -295,12 +295,12 @@ class TabOps {
         }
 
         let dstParentIdx = layout.findIndex(
-            (panel) => panel.paneKeyId === nodeParentId || panel.childs?.subPanel?.some((sub) => sub.paneKeyId === nodeParentId)
+            (panel) => panel.paneKeyId === nodeParentId || panel.childs?.subPanels?.some((sub) => sub.paneKeyId === nodeParentId)
         );
 
         // FIX: Only check that both indices are valid
         if (srcParentIdx !== -1 && dstParentIdx !== -1) {
-            const srcChild = layout[srcParentIdx].childs?.subPanel[srcChildIdx];
+            const srcChild = layout[srcParentIdx].childs?.subPanels[srcChildIdx];
             if (!srcChild) {
                 throw new Error("Viz: No source child subpanel found");
             }
@@ -314,7 +314,7 @@ class TabOps {
 
             // Remove the source child subpanel if it is now empty
             if (srcChild.views.length === 0) {
-                layout[srcParentIdx].childs?.subPanel.splice(srcChildIdx, 1);
+                layout[srcParentIdx].childs?.subPanels.splice(srcChildIdx, 1);
             }
 
             if (layout[dstParentIdx].paneKeyId === nodeParentId) {
@@ -327,11 +327,11 @@ class TabOps {
             } else {
                 const dstChildIdx = this.findChildIndex(layout[dstParentIdx].childs, nodeParentId);
                 if (dstChildIdx !== -1) {
-                    layout[dstParentIdx].childs?.subPanel[dstChildIdx].views.push(movedView);
+                    layout[dstParentIdx].childs?.subPanels[dstChildIdx].views.push(movedView);
                 }
             }
 
-            if (!layout[srcChildIdx].childs?.subPanel.length) {
+            if (!layout[srcChildIdx].childs?.subPanels.length) {
                 layout[srcParentIdx].size = layout[srcParentIdx].childs?.internalSubPanelContainer.size;
                 layout[srcParentIdx].minSize = layout[srcParentIdx].childs?.internalSubPanelContainer.minSize;
                 layout[srcParentIdx].maxSize = layout[srcParentIdx].childs?.internalSubPanelContainer.maxSize;
@@ -387,7 +387,7 @@ class TabOps {
             const childs = layout[parentIdx]?.childs;
 
             const childIdx = this.findChildIndex(childs, nodeParentId);
-            const childPanel = childs?.subPanel?.[childIdx];
+            const childPanel = childs?.subPanels?.[childIdx];
 
             const srcParent = this.getSubPanelParent(layout, state.view.parent);
             const dstParent = this.getSubPanelParent(layout, nodeParentId);
@@ -400,7 +400,7 @@ class TabOps {
                 srcParent === dstParent &&
                 state.view.parent !== nodeParentId &&
                 childs &&
-                Array.isArray(childs.subPanel)
+                Array.isArray(childs.subPanels)
             ) {
                 if (window.debug === true) {
                     console.log("Move tab between child subpanels of the same parent");
@@ -431,7 +431,7 @@ class TabOps {
             else if (
                 parentIdx !== -1 &&
                 state.view.parent !== nodeParentId &&
-                layout.some((panel) => panel.childs?.subPanel?.some((sub) => sub.paneKeyId === nodeParentId))
+                layout.some((panel) => panel.childs?.subPanels?.some((sub) => sub.paneKeyId === nodeParentId))
             ) {
                 if (window.debug === true) {
                     console.log("Move tab from parent to a child subpanel of a different parent");

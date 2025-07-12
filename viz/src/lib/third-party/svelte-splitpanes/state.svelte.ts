@@ -17,7 +17,7 @@ export const getAllSubPanels = () => {
 
     // I hate this so much
     if (subPanels.flatMap((panel) => panel.childs).length > 0) {
-        subPanels = subPanels?.concat(subPanels.flatMap((panel) => panel.childs?.subPanel ?? []));
+        subPanels = subPanels?.concat(subPanels.flatMap((panel) => panel.childs?.subPanels ?? []));
 
         if (subPanels.flatMap((panel) => panel.childs?.internalSubPanelContainer).length > 0) {
             subPanels = subPanels.concat(
@@ -58,12 +58,12 @@ export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof Vi
     if (!subPanel) {
         for (let i = 0; i < layoutState.tree.length; i++) {
             const panel = layoutState.tree[i];
-            if (!panel.childs?.subPanel) {
+            if (!panel.childs?.subPanels) {
                 continue;
             }
 
-            for (let j = 0; j < panel.childs.subPanel.length; j++) {
-                const sub = panel.childs.subPanel[j];
+            for (let j = 0; j < panel.childs.subPanels.length; j++) {
+                const sub = panel.childs.subPanels[j];
                 if (sub[key as keyof Omit<VizSubPanel, "childs">] === value) {
                     subPanel = sub;
                     isChild = true;

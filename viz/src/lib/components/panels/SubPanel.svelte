@@ -7,7 +7,7 @@
 	export type SubPanelChilds = {
 		internalSubPanelContainer: InternalSubPanelContainer;
 		internalPanelContainer: InternalPanelContainer;
-		subPanel: SubPanel[];
+		subPanels: SubPanel[];
 	};
 
 	/**

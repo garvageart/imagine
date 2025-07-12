@@ -763,10 +763,10 @@
 				updatedPanel.snapSize = pane.snap();
 			}
 
-			if (panel.childs && panel.childs.subPanel && Array.isArray(panel.childs.subPanel)) {
+			if (panel.childs && panel.childs.subPanels && Array.isArray(panel.childs.subPanels)) {
 				updatedPanel.childs = {
 					...panel.childs,
-					subPanel: panel.childs.subPanel.map(updatePanelSize)
+					subPanels: panel.childs.subPanels.map(updatePanelSize)
 				};
 			}
 
@@ -778,7 +778,7 @@
 							? updatePanelSize(panel.childs.internalPanelContainer as VizSubPanel)
 							: panel.childs.internalPanelContainer,
 					internalSubPanelContainer: updatedPanel.childs?.internalSubPanelContainer ?? ({} as any),
-					subPanel: updatedPanel.childs?.subPanel ?? []
+					subPanels: updatedPanel.childs?.subPanels ?? []
 				};
 			}
 
@@ -787,7 +787,7 @@
 					...updatedPanel.childs,
 					internalSubPanelContainer: updatePanelSize(panel.childs.internalSubPanelContainer as VizSubPanel),
 					internalPanelContainer: updatedPanel.childs?.internalPanelContainer ?? ({} as any),
-					subPanel: updatedPanel.childs?.subPanel ?? []
+					subPanels: updatedPanel.childs?.subPanels ?? []
 				};
 			}
 			return updatedPanel;

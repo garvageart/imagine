@@ -60,7 +60,7 @@
 
 	// I hate this so much
 	if (allPanes.flatMap((panel) => panel.childs).length > 0) {
-		allPanes = allPanes?.concat(allPanes.flatMap((panel) => panel.childs?.subPanel ?? []));
+		allPanes = allPanes?.concat(allPanes.flatMap((panel) => panel.childs?.subPanels ?? []));
 
 		if (allPanes.flatMap((panel) => panel.childs?.internalSubPanelContainer).length > 0) {
 			allPanes = allPanes.concat(
