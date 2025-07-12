@@ -7,8 +7,8 @@
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import { carefullCallbackSource } from "./internal/utils/functions";
 	import { arrayHasDuplicates, generateRandomString } from "$lib/utils";
-	import { layoutState } from "./state.svelte";
-	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+	import { getAllSubPanels, layoutState } from "./state.svelte";
+	import type { SubPanel, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
 	const {
 		ssrRegisterPaneSize,
@@ -56,12 +56,10 @@
 		throw new Error("Splitpanes: id is required");
 	}
 
-	let allPanes = layoutState.tree.flat();
+	let allPanes: Array<VizSubPanel & SubPanel> = getAllSubPanels();
 
 	// I hate this so much
 	if (allPanes.flatMap((panel) => panel.childs).length > 0) {
-		allPanes = allPanes?.concat(allPanes.flatMap((panel) => panel.childs?.subPanels ?? []));
-
 		if (allPanes.flatMap((panel) => panel.childs?.internalSubPanelContainer).length > 0) {
 			allPanes = allPanes.concat(
 				allPanes

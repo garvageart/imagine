@@ -1,7 +1,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import type { IPaneSerialized, ITree } from ".";
 import { writable } from "svelte/store";
-import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+import type { SubPanel, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 import type VizView from "$lib/views/views.svelte";
 
 // this might cause bugs idk
@@ -13,23 +13,8 @@ export const allTabs = writable(new SvelteMap<string, VizView[]>());
 export const layoutTree = $state({}) as ITree;
 
 export const getAllSubPanels = () => {
-    let subPanels = layoutState.tree.flat();
-
-    // I hate this so much
-    if (subPanels.flatMap((panel) => panel.childs).length > 0) {
-        subPanels = subPanels?.concat(subPanels.flatMap((panel) => panel.childs?.subPanels ?? []));
-
-        if (subPanels.flatMap((panel) => panel.childs?.internalSubPanelContainer).length > 0) {
-            subPanels = subPanels.concat(
-                subPanels
-                    .flatMap((panel) => panel.childs?.internalSubPanelContainer ?? [])
-                    .filter((pane): pane is VizSubPanel => !!pane && typeof pane === "object" && "id" in pane)
-            );
-        }
-    }
-
+    const subPanels = layoutState.tree.flat();
     return subPanels;
-
 };
 
 // TODO: Move to a seperate file
@@ -45,7 +30,7 @@ export const getAllSubPanels = () => {
  */
 export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof VizSubPanel]) {
     let parentIndex = layoutState.tree.findIndex((panel) => panel[key as keyof VizSubPanel] === value);
-    let subPanel: VizSubPanel | undefined;
+    let subPanel: VizSubPanel | SubPanel | undefined;
     let childIndex = -1;
     let isChild = false;
 
@@ -64,7 +49,7 @@ export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof Vi
 
             for (let j = 0; j < panel.childs.subPanels.length; j++) {
                 const sub = panel.childs.subPanels[j];
-                if (sub[key as keyof Omit<VizSubPanel, "childs">] === value) {
+                if (sub[key as keyof SubPanel] === value) {
                     subPanel = sub;
                     isChild = true;
                     parentIndex = i;

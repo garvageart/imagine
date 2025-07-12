@@ -766,6 +766,7 @@
 			if (panel.childs && panel.childs.subPanels && Array.isArray(panel.childs.subPanels)) {
 				updatedPanel.childs = {
 					...panel.childs,
+					// @ts-ignore I'm lazy but it's fine
 					subPanels: panel.childs.subPanels.map(updatePanelSize)
 				};
 			}

@@ -3,7 +3,7 @@
 
 	export type InternalSubPanelContainer = Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">;
 	export type InternalPanelContainer = Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">;
-	export type SubPanel = Omit<VizSubPanel, "childs">;
+	export type SubPanel = Omit<VizSubPanel, "childs"> & { views: VizView[] };
 	export type SubPanelChilds = {
 		internalSubPanelContainer: InternalSubPanelContainer;
 		internalPanelContainer: InternalPanelContainer;
@@ -16,7 +16,7 @@
 	 */
 	export type VizSubPanel = Props &
 		ComponentProps<typeof Pane> & {
-			childs?: SubPanelChilds;
+			childs: SubPanelChilds;
 		};
 </script>
 
@@ -58,7 +58,7 @@
 	const allProps: Props & ComponentProps<typeof Pane> = $props();
 
 	let id = allProps.id;
-	let header = allProps.header ?? true;
+	let header = allProps.header ?? false;
 
 	const children = allProps.children;
 	const keyId = allProps.paneKeyId ?? generateKeyId();
@@ -81,6 +81,10 @@
 
 	if (allProps.class) {
 		className = allProps.class;
+	}
+
+	if (panelViews.length > 0) {
+		header = true;
 	}
 
 	if (header === true && panelViews.length === 0) {
@@ -122,10 +126,11 @@
 			}
 		});
 	}
+
 	$effect(() => {
 		if (tabDropper?.activeView) {
 			activeView = tabDropper?.activeView;
-			updateSubPanelActiveView(tabDropper?.activeView);
+			// updateSubPanelActiveView(tabDropper?.activeView);
 		}
 	});
 
@@ -180,7 +185,7 @@
 	 * @param view - The view to be set as the active view.
 	 */
 	function updateSubPanelActiveView(view: VizView) {
-		let subPanel = findSubPanel("paneKeyId", keyId)?.subPanel;
+		const subPanel = findSubPanel("paneKeyId", keyId)?.subPanel;
 
 		if (!subPanel) {
 			if (dev) {
@@ -221,7 +226,7 @@ Make the header draggable too. Use the same drag functions. If we're dragging
 a header into a different panel, place that panel in place and update the state
 for Splitpanes
 	-->
-	{#if header && panelViews.length > 0}
+	{#if panelViews.length > 0}
 		<div
 			class="viz-sub_panel-header"
 			role="tablist"
@@ -279,7 +284,7 @@ for Splitpanes
 		<div
 			role="none"
 			class="viz-sub_panel-content"
-			style="height: calc(100% - {mainHeaderHeight + -4 - 1}px); width: 100%;"
+			style="height: calc(100% - {mainHeaderHeight - 4 - 2}px); width: 100%;"
 			onclick={() => (subPanelContentFocused = true)}
 			onkeydown={() => (subPanelContentFocused = true)}
 			bind:this={subPanelContentElement}

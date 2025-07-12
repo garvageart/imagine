@@ -41,11 +41,10 @@ const theme = DEFAULT_THEME;
 export const panels: VizSubPanel[] = [
     {
         id: "viz-test-content",
-        views: views.filter(view => view.id === 2),
-        header: true,
         maxSize: 100,
         minSize: 10,
         paneKeyId: generateKeyId(),
+        views: [],
         childs: {
             internalSubPanelContainer: {
                 id: "viz-internal-subpanel-sp-xBdVNtbU5nx60sZ1",
@@ -63,10 +62,18 @@ export const panels: VizSubPanel[] = [
                 style: "height: 100%",
                 pushOtherPanes: true,
             },
-            subPanel: [
+            subPanels: [
+                {
+                    id: "viz-test-4365763",
+                    maxSize: 100,
+                    minSize: 10,
+                    paneKeyId: generateKeyId(),
+                    views: views.filter(view => view.id === 2),
+                },
                 {
                     id: "viz-test-again",
                     maxSize: 100,
+                    minSize: 10,
                     paneKeyId: generateKeyId(),
                     views: views.filter(view => view.id === 3)
                 }
@@ -75,10 +82,9 @@ export const panels: VizSubPanel[] = [
     },
     {
         id: "viz-test-something-else",
-        views: views.filter(view => view.id === 1),
-        header: true,
         maxSize: 100,
         minSize: 10,
+        views: [],
         paneKeyId: generateKeyId(),
         childs: {
             internalSubPanelContainer: {
@@ -94,7 +100,13 @@ export const panels: VizSubPanel[] = [
                 style: "height: 100%",
                 pushOtherPanes: true,
             },
-            subPanel: [
+            subPanels: [
+                {
+                    id: "viz-clock",
+                    maxSize: 100,
+                    paneKeyId: generateKeyId(),
+                    views: views.filter(view => view.id === 1),
+                },
                 {
                     id: "viz-collections",
                     maxSize: 100,
