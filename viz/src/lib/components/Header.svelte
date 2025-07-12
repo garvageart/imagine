@@ -43,7 +43,7 @@
 		padding: 0.3em 1em;
 		display: flex;
 		align-items: center;
-		border-bottom: 1px solid var(--imag-blue-60);
+		border-bottom: 1px solid var(--imag-60);
 		position: relative;
 	}
 

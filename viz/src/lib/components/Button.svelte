@@ -16,7 +16,7 @@
 		font-size: 1em;
 		letter-spacing: 0.02em;
 		height: max-content;
-		background-color: var(--imag-blue-90);
+		background-color: var(--imag-90);
 		border: none;
 		margin: 0.5em 1em;
 		padding: 0.8em 1em;
@@ -27,7 +27,7 @@
 		border-radius: 100px;
 
 		&:hover {
-			background-color: var(--imag-blue-100);
+			background-color: var(--imag-100);
 		}
 	}
 </style>

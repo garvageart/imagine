@@ -7,13 +7,13 @@
 :root {
     --imag-bg-color: #0F1726;
     --imag-text-color: #F7F9F9;
-    --imag-blue-100: #27334A;
-    --imag-blue-90: #3C475C;
-    --imag-blue-80: #525C6E;
-    --imag-blue-70: #687080;
-    --imag-blue-60: #7D8592;
-    --imag-blue-40: #A9ADB7;
-    --imag-blue-20: #D4D6DB;
+    --imag-100: #27334A;
+    --imag-90: #3C475C;
+    --imag-80: #525C6E;
+    --imag-70: #687080;
+    --imag-60: #7D8592;
+    --imag-40: #A9ADB7;
+    --imag-20: #D4D6DB;
     --imag-outline-colour: #1885df;
 }
 
@@ -21,12 +21,6 @@
 :root {
     --imag-display-font: 'Manrope Variable', sans-serif;
     --imag-code-font: "Roboto Mono", monospace;
-}
-
-@property --imag-bg-color {
-    syntax: "<color>";
-    inherits: false;
-    initial-value: #0F1726;
 }
 
 html {
@@ -103,27 +97,27 @@ body {
 
 ::-webkit-scrollbar-corner,
 ::-webkit-scrollbar-track {
-    background-color: var(--imag-blue-100);
+    background-color: var(--imag-100);
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: var(--imag-blue-60);
+    background-color: var(--imag-60);
     background-clip: padding-box;
     border: 3px solid transparent;
     border-radius: 7px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--imag-blue-80)
+    background-color: var(--imag-80)
 }
 
 ::-webkit-scrollbar-thumb:active {
-    background-color: var(--imag-blue-90)
+    background-color: var(--imag-90)
 }
 
 /* Buttons */
 ::-webkit-scrollbar-button:single-button {
-    background-color: var(--imag-blue-100);
+    background-color: var(--imag-100);
     display: block;
     background-size: 9px;
     background-repeat: no-repeat;
@@ -134,15 +128,15 @@ body {
     height: 12px;
     width: 16px;
     background-position: center 4px;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-20)'><polygon points='50,00 0,50 100,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-20)'><polygon points='50,00 0,50 100,50'/></svg>");
 }
 
 ::-webkit-scrollbar-button:single-button:vertical:decrement:hover {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-90)'><polygon points='50,00 0,50 100,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-90)'><polygon points='50,00 0,50 100,50'/></svg>");
 }
 
 ::-webkit-scrollbar-button:single-button:vertical:decrement:active {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-100)'><polygon points='50,00 0,50 100,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-100)'><polygon points='50,00 0,50 100,50'/></svg>");
 }
 
 /* Down */
@@ -150,13 +144,13 @@ body {
     height: 12px;
     width: 16px;
     background-position: center 2px;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-20)'><polygon points='0,0 100,0 50,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-20)'><polygon points='0,0 100,0 50,50'/></svg>");
 }
 
 ::-webkit-scrollbar-button:single-button:vertical:increment:hover {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-90)'><polygon points='0,0 100,0 50,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-90)'><polygon points='0,0 100,0 50,50'/></svg>");
 }
 
 ::-webkit-scrollbar-button:single-button:vertical:increment:active {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-blue-100)'><polygon points='0,0 100,0 50,50'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-100)'><polygon points='0,0 100,0 50,50'/></svg>");
 }

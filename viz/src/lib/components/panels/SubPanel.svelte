@@ -317,7 +317,7 @@ for Splitpanes
 
 	.viz-sub_panel-header {
 		min-height: 1em;
-		background-color: var(--imag-blue-100);
+		background-color: var(--imag-100);
 		font-size: 13px;
 		display: flex;
 		align-items: center;
@@ -361,7 +361,7 @@ for Splitpanes
 	}
 
 	.active-tab {
-		box-shadow: 0 -1.5px 0 0 var(--imag-blue-40) inset;
+		box-shadow: 0 -1.5px 0 0 var(--imag-40) inset;
 	}
 
 	:global(.drop-hover-above) {

@@ -18,8 +18,8 @@
 
 <style lang="scss">
 	#viz-sidebar {
-		background-color: var(--imag-blue-100);
-		border-right: 1px solid var(--imag-blue-20);
+		background-color: var(--imag-100);
+		border-right: 1px solid var(--imag-20);
 		height: 100%;
 		min-width: 15%;
 		display: flex;

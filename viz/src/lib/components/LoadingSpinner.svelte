@@ -11,7 +11,7 @@
 			stroke-dasharray="164.93361431346415 56.97787143782138"
 			r="35"
 			stroke-width="6"
-			stroke="var(--imag-blue-40)"
+			stroke="var(--imag-40)"
 			fill="none"
 			cy="50"
 			cx="50"

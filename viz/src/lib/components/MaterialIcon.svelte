@@ -27,11 +27,11 @@
 		border-radius: 100%;
 
 		&:active {
-			background-color: var(--imag-blue-80);
+			background-color: var(--imag-80);
 		}
 	}
 
 	.hover {
-		background-color: var(--imag-blue-90);
+		background-color: var(--imag-90);
 	}
 </style>
