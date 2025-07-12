@@ -2,7 +2,7 @@ import type { ComponentProps } from "svelte";
 import type { Readable } from 'svelte/store';
 
 import Splitpanes from './Splitpanes.svelte';
-import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+import type VizSubPanelData from "$lib/layouts/subpanel.svelte";
 export { default as Splitpanes } from './Splitpanes.svelte';
 export { default as Pane } from './Pane.svelte';
 
@@ -112,7 +112,7 @@ type ISplitpanes = ComponentProps<typeof Splitpanes> & {
   id: string;
   keyId: string;
   element: HTMLElement;
-  childs: VizSubPanel[];
+  childs: VizSubPanelData[];
 };
 
 export type ITree = ISplitpanes;

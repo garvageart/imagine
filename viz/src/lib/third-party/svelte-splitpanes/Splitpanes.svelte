@@ -33,8 +33,8 @@
 
 <script lang="ts">
 	import { onMount, onDestroy, setContext, createEventDispatcher, tick } from "svelte";
-	import { get, writable } from "svelte/store";
-	import type { IPane, IPaneSizingEvent, SplitContext, PaneInitFunction, ClientCallbacks, ITree } from "./index.js";
+	import { writable } from "svelte/store";
+	import type { IPane, IPaneSizingEvent, SplitContext, PaneInitFunction, ClientCallbacks } from "./index.js";
 	import GatheringRound from "./internal/GatheringRound.svelte";
 	import { browser } from "./internal/env.js";
 	import { getDimensionName } from "./internal/utils/sizing.js";
@@ -49,7 +49,7 @@
 	import { calcComputedStyle } from "./internal/utils/styling.js";
 	import { generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { allSplitpanes, layoutState, layoutTree } from "./state.svelte";
-	import type { VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
 
 	// TYPE DECLARATIONS ----------------
 
@@ -101,7 +101,7 @@
 		/**
 		 * Fires when splitpanes is ready.
 		 */
-		ready: CustomEvent<VizSubPanel[]>;
+		ready: CustomEvent<VizSubPanelData[]>;
 
 		/**
 		 * Fires while resizing (on mousemove/touchmove).
@@ -115,7 +115,7 @@
 		 *
 		 * Returns the clicked pane object with its dimensions.
 		 */
-		resized: CustomEvent<VizSubPanel[]>;
+		resized: CustomEvent<VizSubPanelData[]>;
 
 		/**
 		 * Fires when a pane is added.
@@ -159,7 +159,7 @@
 	// css class
 
 	// FOR VIZ ONLY ----------------
-	const storedLayout = new VizLocalStorage<VizSubPanel[]>("layout").get();
+	const storedLayout = new VizLocalStorage<VizSubPanelData[]>("layout").get();
 
 	interface Props {
 		// horiz or verti?
@@ -248,8 +248,6 @@
 
 	$effect(() => {
 		$isHorizontal = horizontal;
-	});
-	$effect(() => {
 		$showFirstSplitter = firstSplitter;
 	});
 
@@ -752,7 +750,7 @@
 		findPanesChildren();
 		const currentLayout = layoutState.tree;
 
-		function updatePanelSize(panel: VizSubPanel) {
+		function updatePanelSize(panel: VizSubPanelData) {
 			const pane = panes.find((p) => p.keyId === panel.paneKeyId);
 			let updatedPanel = { ...panel };
 
@@ -760,13 +758,12 @@
 				updatedPanel.size = pane.sz();
 				updatedPanel.minSize = pane.min();
 				updatedPanel.maxSize = pane.max();
-				updatedPanel.snapSize = pane.snap();
 			}
 
 			if (panel.childs && panel.childs.content && Array.isArray(panel.childs.content)) {
 				updatedPanel.childs = {
 					...panel.childs,
-					// @ts-ignore I'm lazy but it's fine
+					// @ts-ignore I'm lazy to fix and understand this but it's fine and it works
 					content: panel.childs.content.map(updatePanelSize)
 				};
 			}
@@ -776,7 +773,7 @@
 					...updatedPanel.childs,
 					internalPanelContainer:
 						panel.childs.internalPanelContainer && "paneKeyId" in panel.childs.internalPanelContainer
-							? updatePanelSize(panel.childs.internalPanelContainer as VizSubPanel)
+							? updatePanelSize(panel.childs.internalPanelContainer as VizSubPanelData)
 							: panel.childs.internalPanelContainer,
 					internalSubPanelContainer: updatedPanel.childs?.internalSubPanelContainer ?? ({} as any),
 					content: updatedPanel.childs?.content ?? []
@@ -786,7 +783,7 @@
 			if (panel.childs && panel.childs.internalSubPanelContainer) {
 				updatedPanel.childs = {
 					...updatedPanel.childs,
-					internalSubPanelContainer: updatePanelSize(panel.childs.internalSubPanelContainer as VizSubPanel),
+					internalSubPanelContainer: updatePanelSize(panel.childs.internalSubPanelContainer as VizSubPanelData),
 					internalPanelContainer: updatedPanel.childs?.internalPanelContainer ?? ({} as any),
 					content: updatedPanel.childs?.content ?? []
 				};

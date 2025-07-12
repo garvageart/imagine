@@ -1,51 +1,57 @@
 import type { InternalPanelContainer, InternalSubPanelContainer, Content, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
 import { DEFAULT_THEME } from "$lib/constants";
+import type { Pane } from "$lib/third-party/svelte-splitpanes";
 import { generateKeyId } from "$lib/utils";
 import type VizView from "$lib/views/views.svelte";
+import type { ComponentProps } from "svelte";
 
-interface IVizSubPanelDataOptions {
+interface VizSubPanelDataOptions {
     id?: string;
     subPanels: Content[];
     size?: number;
     minSize?: number;
     maxSize?: number;
+    class?: string;
 }
 
 const theme = DEFAULT_THEME;
-class VizSubPanelData {
+class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | "snapSize"> {
     id: string;
     paneKeyId: string;
-    childs: SubPanelChilds;
-    views: VizView[];
-    subPanels: Content[];
-    internalSubPanelContainer: InternalSubPanelContainer;
-    internalPanelContainer: InternalPanelContainer;
+    // @ts-ignore
+    childs: SubPanelChilds = $state();
+    views: VizView[] = $state([]);
+    size: number | undefined;
+    minSize: number;
+    maxSize: number;
+    class?: string | undefined;
 
-    constructor(opts: IVizSubPanelDataOptions) {
+    constructor(opts: VizSubPanelDataOptions) {
         this.paneKeyId = generateKeyId(16);
         this.id = opts.id ?? this.paneKeyId;
+        this.size = opts.size;
+        this.minSize = opts.minSize ?? 10;
+        this.maxSize = opts.maxSize ?? 100;
+        this.class = opts.class;
 
-        this.internalSubPanelContainer = {
-            id: "viz-internal-subpanel-" + this.paneKeyId,
-            paneKeyId: this.paneKeyId,
-            smoothExpand: false,
-            minSize: opts.minSize ?? 10,
-            size: opts.size,
-            maxSize: opts.maxSize ?? 100
-        };
-        this.internalPanelContainer = {
-            id: "viz-internal-panel-" + this.paneKeyId,
-            horizontal: true,
-            keyId: generateKeyId(16),
-            theme,
-            style: "height: 100%",
-            pushOtherPanes: true,
-        };
-        this.subPanels = opts.subPanels;
         this.childs = {
-            internalSubPanelContainer: this.internalSubPanelContainer,
-            internalPanelContainer: this.internalPanelContainer,
-            content: this.subPanels.map((sub) => {
+            internalSubPanelContainer: {
+                id: "viz-internal-subpanel-" + this.paneKeyId,
+                paneKeyId: this.paneKeyId,
+                smoothExpand: false,
+                minSize: opts.minSize ?? 10,
+                size: opts.size,
+                maxSize: opts.maxSize ?? 100
+            },
+            internalPanelContainer: {
+                id: "viz-internal-panel-" + this.paneKeyId,
+                horizontal: true,
+                keyId: generateKeyId(16),
+                theme,
+                style: "height: 100%",
+                pushOtherPanes: true,
+            },
+            content: opts.subPanels.map((sub) => {
                 const paneKeyId = generateKeyId(10);
                 const id = sub.id ?? `viz-subpanel-${paneKeyId}`;
                 return {
@@ -59,9 +65,9 @@ class VizSubPanelData {
             }),
         };
 
+        this.views = this.childs.content.flatMap((sub) => sub.views);
 
-        this.views = this.subPanels.flatMap((sub) => sub.views);
-        if (!this.views) {
+        if (!this.views.length) {
             throw new Error("Viz: No views provided in subpanel. Please provide at least one view");
         }
     }

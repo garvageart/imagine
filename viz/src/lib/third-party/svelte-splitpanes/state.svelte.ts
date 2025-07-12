@@ -1,12 +1,13 @@
 import { SvelteMap } from "svelte/reactivity";
 import type { IPaneSerialized, ITree } from ".";
 import { writable } from "svelte/store";
-import type { Content, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+import type { Content } from "$lib/components/panels/SubPanel.svelte";
 import type VizView from "$lib/views/views.svelte";
+import type VizSubPanelData from "$lib/layouts/subpanel.svelte";
 
 // this might cause bugs idk
 export const allSplitpanes = writable(new SvelteMap<string, IPaneSerialized[]>());
-export const layoutState: { tree: VizSubPanel[]; } = $state({
+export const layoutState: { tree: VizSubPanelData[]; } = $state({
     tree: []
 });
 export const allTabs = writable(new SvelteMap<string, VizView[]>());
@@ -28,9 +29,9 @@ export const getAllSubPanels = () => {
  * - `isChild`: Whether the subpanel is a child of another subpanel.
  * - `subPanel`: The subpanel found.
  */
-export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof VizSubPanel]) {
-    let parentIndex = layoutState.tree.findIndex((panel) => panel[key as keyof VizSubPanel] === value);
-    let subPanel: VizSubPanel | Content | undefined;
+export function findSubPanel(key: keyof VizSubPanelData, value: VizSubPanelData[keyof VizSubPanelData]) {
+    let parentIndex = layoutState.tree.findIndex((panel) => panel[key as keyof VizSubPanelData] === value);
+    let subPanel: VizSubPanelData | Content | undefined;
     let childIndex = -1;
     let isChild = false;
 

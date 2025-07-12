@@ -6,10 +6,11 @@
 	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
 	import { onMount } from "svelte";
 	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
+	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
 
 	let { id }: { id: string } = $props();
 	const theme = DEFAULT_THEME;
-	const saveLayout = new VizLocalStorage<VizSubPanel[]>("layout");
+	const saveLayout = new VizLocalStorage<VizSubPanelData[]>("layout");
 	const treeLayout = new VizLocalStorage<ITree>("tree");
 	let storedLayout = saveLayout.get();
 
@@ -68,7 +69,7 @@
 
 	if (window.debug === true) {
 		$inspect("global state", layoutState.tree);
-		$inspect("global tree", layoutTree);
+		// $inspect("global tree", layoutTree);
 	}
 
 	$effect(() => {
