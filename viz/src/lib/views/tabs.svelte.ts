@@ -116,6 +116,11 @@ class TabOps {
                 layout[srcParentIdx].childs.content.splice(srcChildIdx, 1);
             }
 
+            const dstChildIdx = this.findChildIndex(layout[dstParentIdx].childs, nodeParentId);
+            if (dstChildIdx !== -1) {
+                layout[dstParentIdx].childs.content[dstChildIdx].views.push(movedView);
+            }
+
             if (layout[srcParentIdx].childs.content.length === 0) {
                 layout.splice(srcParentIdx, 1);
 
@@ -124,20 +129,6 @@ class TabOps {
                 }
 
                 layout[0].childs.internalSubPanelContainer.size = 100;
-            }
-
-            if (layout[dstParentIdx].paneKeyId === nodeParentId) {
-                if (!layout[dstParentIdx].views) {
-                    layout[dstParentIdx].views = [];
-                }
-
-                layout[dstParentIdx].views.push(movedView);
-                movedView.parent = nodeParentId;
-            } else {
-                const dstChildIdx = this.findChildIndex(layout[dstParentIdx].childs, nodeParentId);
-                if (dstChildIdx !== -1) {
-                    layout[dstParentIdx].childs.content[dstChildIdx].views.push(movedView);
-                }
             }
         }
     }
