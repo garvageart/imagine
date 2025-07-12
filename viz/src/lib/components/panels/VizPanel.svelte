@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DEFAULT_THEME } from "$lib/constants";
-	import { panels } from "$lib/layouts/test";
+	import { testLayout } from "$lib/layouts/test";
 	import { Splitpanes as Panel, type ITree } from "$lib/third-party/svelte-splitpanes";
 	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
@@ -14,8 +14,8 @@
 	let storedLayout = saveLayout.get();
 
 	function resetLayoutToDefault() {
-		saveLayout.set(panels);
-		storedLayout = panels;
+		saveLayout.set(testLayout);
+		storedLayout = testLayout;
 	}
 
 	if (storedLayout && storedLayout?.length === 0) {
@@ -23,26 +23,12 @@
 		resetLayoutToDefault();
 	}
 
-	const duplicateAnswer = arrayHasDuplicates(
-		panels
-			.flatMap((panel) => panel.views.map((tab) => tab.id))
-			.concat(
-				panels.flatMap((panel) =>
-					panel.childs?.subPanels ? panel.childs.subPanels.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
-				)
-			)
-	);
-
-	if (duplicateAnswer.hasDuplicates) {
-		console.error("The following tabs have duplicate IDs. Please check the panels loaded", duplicateAnswer.duplicates);
-	}
-
 	onMount(() => {
 		layoutState.tree ??= [];
-		layoutState.tree = storedLayout ?? panels;
+		layoutState.tree = storedLayout ?? testLayout;
 		layoutTree.childs = layoutState.tree;
-		const storedTree = treeLayout.get();
 
+		const storedTree = treeLayout.get();
 		if (!storedTree) {
 			return;
 		}
@@ -65,6 +51,20 @@
 	const internalLayoutState = $derived.by(() => {
 		return layoutState.tree;
 	});
+
+	const duplicateAnswer = arrayHasDuplicates(
+		layoutState.tree
+			.flatMap((panel) => panel.views.map((tab) => tab.id))
+			.concat(
+				testLayout.flatMap((panel) =>
+					panel.childs?.content ? panel.childs.content.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
+				)
+			)
+	);
+
+	if (duplicateAnswer.hasDuplicates) {
+		console.error("The following tabs have duplicate IDs. Please check the panels loaded", duplicateAnswer.duplicates);
+	}
 
 	if (window.debug === true) {
 		$inspect("global state", layoutState.tree);
@@ -142,8 +142,8 @@ component yet which is a bit of a problem I guess
 				<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->
 				<!-- MOVING THIS ANYWHERE ELSE FURTHER UP THE LAYOUT HIERACHY, USING ANY OTHER VALUE, RE-RENDERS EVERYTHING WHICH IS UNNCESSARILY EXPENSIVE OR IT DOESN'T RENDER THE TABS/HEADER OF SOME SUBPANELS AT ALL -->
 				<!-- ONLY, AND ONLY CHANGE THIS IF YOU CAN PROVE IT IS BETTER TO DO SO THAN THIS, THIS TOOK ME AGES AND DROVE ME CRAZY FOR 2 DAYS STRAIGHT -->
-				{#key panel.childs.subPanels.length}
-					{#each panel.childs.subPanels as subPanel}
+				{#key panel.childs.content.length}
+					{#each panel.childs.content as subPanel}
 						<SubPanel {...subPanel} />
 					{/each}
 				{/key}

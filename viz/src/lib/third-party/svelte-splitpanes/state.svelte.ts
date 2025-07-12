@@ -1,7 +1,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import type { IPaneSerialized, ITree } from ".";
 import { writable } from "svelte/store";
-import type { SubPanel, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+import type { Content, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 import type VizView from "$lib/views/views.svelte";
 
 // this might cause bugs idk
@@ -30,7 +30,7 @@ export const getAllSubPanels = () => {
  */
 export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof VizSubPanel]) {
     let parentIndex = layoutState.tree.findIndex((panel) => panel[key as keyof VizSubPanel] === value);
-    let subPanel: VizSubPanel | SubPanel | undefined;
+    let subPanel: VizSubPanel | Content | undefined;
     let childIndex = -1;
     let isChild = false;
 
@@ -43,13 +43,13 @@ export function findSubPanel(key: keyof VizSubPanel, value: VizSubPanel[keyof Vi
     if (!subPanel) {
         for (let i = 0; i < layoutState.tree.length; i++) {
             const panel = layoutState.tree[i];
-            if (!panel.childs?.subPanels) {
+            if (!panel.childs?.content) {
                 continue;
             }
 
-            for (let j = 0; j < panel.childs.subPanels.length; j++) {
-                const sub = panel.childs.subPanels[j];
-                if (sub[key as keyof SubPanel] === value) {
+            for (let j = 0; j < panel.childs.content.length; j++) {
+                const sub = panel.childs.content[j];
+                if (sub[key as keyof Content] === value) {
                     subPanel = sub;
                     isChild = true;
                     parentIndex = i;

@@ -763,11 +763,11 @@
 				updatedPanel.snapSize = pane.snap();
 			}
 
-			if (panel.childs && panel.childs.subPanels && Array.isArray(panel.childs.subPanels)) {
+			if (panel.childs && panel.childs.content && Array.isArray(panel.childs.content)) {
 				updatedPanel.childs = {
 					...panel.childs,
 					// @ts-ignore I'm lazy but it's fine
-					subPanels: panel.childs.subPanels.map(updatePanelSize)
+					content: panel.childs.content.map(updatePanelSize)
 				};
 			}
 
@@ -779,7 +779,7 @@
 							? updatePanelSize(panel.childs.internalPanelContainer as VizSubPanel)
 							: panel.childs.internalPanelContainer,
 					internalSubPanelContainer: updatedPanel.childs?.internalSubPanelContainer ?? ({} as any),
-					subPanels: updatedPanel.childs?.subPanels ?? []
+					content: updatedPanel.childs?.content ?? []
 				};
 			}
 
@@ -788,7 +788,7 @@
 					...updatedPanel.childs,
 					internalSubPanelContainer: updatePanelSize(panel.childs.internalSubPanelContainer as VizSubPanel),
 					internalPanelContainer: updatedPanel.childs?.internalPanelContainer ?? ({} as any),
-					subPanels: updatedPanel.childs?.subPanels ?? []
+					content: updatedPanel.childs?.content ?? []
 				};
 			}
 			return updatedPanel;

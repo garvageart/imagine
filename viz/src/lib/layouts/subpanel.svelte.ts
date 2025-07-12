@@ -1,11 +1,11 @@
-import type { InternalPanelContainer, InternalSubPanelContainer, SubPanel, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
+import type { InternalPanelContainer, InternalSubPanelContainer, Content, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
 import { DEFAULT_THEME } from "$lib/constants";
 import { generateKeyId } from "$lib/utils";
 import type VizView from "$lib/views/views.svelte";
 
 interface IVizSubPanelDataOptions {
     id?: string;
-    subPanels: SubPanel[];
+    subPanels: Content[];
     size?: number;
     minSize?: number;
     maxSize?: number;
@@ -17,7 +17,7 @@ class VizSubPanelData {
     paneKeyId: string;
     childs: SubPanelChilds;
     views: VizView[];
-    subPanels: SubPanel[];
+    subPanels: Content[];
     internalSubPanelContainer: InternalSubPanelContainer;
     internalPanelContainer: InternalPanelContainer;
 
@@ -45,7 +45,7 @@ class VizSubPanelData {
         this.childs = {
             internalSubPanelContainer: this.internalSubPanelContainer,
             internalPanelContainer: this.internalPanelContainer,
-            subPanels: this.subPanels.map((sub) => {
+            content: this.subPanels.map((sub) => {
                 const paneKeyId = generateKeyId(10);
                 const id = sub.id ?? `viz-subpanel-${paneKeyId}`;
                 return {

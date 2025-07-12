@@ -1,6 +1,4 @@
-import type { ComponentProps } from "svelte";
-import type { VizSubPanel } from "../components/panels/SubPanel.svelte";
-import type { Splitpanes } from "../third-party/svelte-splitpanes";
+import type { SubPanelChilds, VizSubPanel } from "../components/panels/SubPanel.svelte";
 import { layoutState } from "../third-party/svelte-splitpanes/state.svelte";
 import { swapArrayElements } from "../utils";
 import VizView from "./views.svelte";
@@ -41,16 +39,10 @@ class TabOps {
      * @returns {number} The index of the child subpanel in the child structure, or -1 if not found.
      */
     findChildIndex(
-        childs:
-            | {
-                internalSubPanelContainer: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">;
-                internalPanelContainer: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">;
-                subPanels: Omit<VizSubPanel, "childs">[];
-            }
-            | undefined,
+        childs: SubPanelChilds,
         paneKeyId: string | undefined
     ): number {
-        return childs?.subPanels?.findIndex((sub) => sub.paneKeyId === paneKeyId) ?? -1;
+        return childs.content.findIndex((sub) => sub.paneKeyId === paneKeyId) ?? -1;
     }
 
 
@@ -67,11 +59,11 @@ class TabOps {
         }
 
         for (const panel of layout) {
-            if (!panel.childs?.subPanels) {
+            if (!panel.childs.content) {
                 continue;
             }
 
-            for (const sub of panel.childs.subPanels) {
+            for (const sub of panel.childs.content) {
                 if (sub.paneKeyId === paneKeyId) {
                     return panel.paneKeyId ?? null;;
                 }
@@ -89,7 +81,7 @@ class TabOps {
      */
     private moveTabToNewChild(layout: VizSubPanel[], state: TabData, nodeParentId: string) {
         let srcParentIdx = layout.findIndex((panel) =>
-            panel.childs?.subPanels?.some((sub) => sub.paneKeyId === state.view.parent)
+            panel.childs.content?.some((sub) => sub.paneKeyId === state.view.parent)
         );
         let srcChildIdx = -1;
 
@@ -98,12 +90,12 @@ class TabOps {
         }
 
         let dstParentIdx = layout.findIndex(
-            (panel) => panel.paneKeyId === nodeParentId || panel.childs?.subPanels?.some((sub) => sub.paneKeyId === nodeParentId)
+            (panel) => panel.paneKeyId === nodeParentId || panel.childs.content?.some((sub) => sub.paneKeyId === nodeParentId)
         );
 
         // FIX: Only check that both indices are valid
         if (srcParentIdx !== -1 && dstParentIdx !== -1) {
-            const srcChild = layout[srcParentIdx].childs?.subPanels[srcChildIdx];
+            const srcChild = layout[srcParentIdx].childs.content[srcChildIdx];
             if (!srcChild) {
                 throw new Error("Viz: No source child subpanel found");
             }
@@ -121,10 +113,10 @@ class TabOps {
                     console.log(`empty subpanel ${srcChild.paneKeyId}. removing it`);
                 }
 
-                layout[srcParentIdx].childs?.subPanels.splice(srcChildIdx, 1);
+                layout[srcParentIdx].childs.content.splice(srcChildIdx, 1);
             }
 
-            if (layout[srcParentIdx].childs.subPanels.length === 0) {
+            if (layout[srcParentIdx].childs.content.length === 0) {
                 layout.splice(srcParentIdx, 1);
 
                 if (window.debug === true) {
@@ -144,7 +136,7 @@ class TabOps {
             } else {
                 const dstChildIdx = this.findChildIndex(layout[dstParentIdx].childs, nodeParentId);
                 if (dstChildIdx !== -1) {
-                    layout[dstParentIdx].childs?.subPanels[dstChildIdx].views.push(movedView);
+                    layout[dstParentIdx].childs.content[dstChildIdx].views.push(movedView);
                 }
             }
         }
@@ -193,7 +185,7 @@ class TabOps {
             const parentIdx = this.findPanelIndex(layout, srcParent!);
             const childs = layout[parentIdx]?.childs;
 
-            const tab = childs.subPanels.find(panel => panel.views.find(view => view.id === state.view.id))?.views.find(view => view.id === state.view.id);
+            const tab = childs.content.find(panel => panel.views.find(view => view.id === state.view.id))?.views.find(view => view.id === state.view.id);
 
             if (!tab) {
                 return;
@@ -208,7 +200,7 @@ class TabOps {
                 srcParent === dstParent &&
                 state.view.parent !== nodeParentId &&
                 childs &&
-                Array.isArray(childs.subPanels)
+                Array.isArray(childs.content)
             ) {
                 if (window.debug === true) {
                     console.log("Move tab between child subpanels of the same parent");
@@ -220,7 +212,7 @@ class TabOps {
             else if (
                 parentIdx !== -1 &&
                 state.view.parent !== nodeParentId &&
-                layout.some((panel) => panel.childs?.subPanels?.some((sub) => sub.paneKeyId === nodeParentId))
+                layout.some((panel) => panel.childs.content?.some((sub) => sub.paneKeyId === nodeParentId))
             ) {
                 if (window.debug === true) {
                     console.log("Move tab from parent to a child subpanel of a different parent");

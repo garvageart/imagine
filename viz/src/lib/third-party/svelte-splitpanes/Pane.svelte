@@ -8,7 +8,7 @@
 	import { carefullCallbackSource } from "./internal/utils/functions";
 	import { arrayHasDuplicates, generateRandomString } from "$lib/utils";
 	import { getAllSubPanels, layoutState } from "./state.svelte";
-	import type { SubPanel, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
+	import type { Content, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 
 	const {
 		ssrRegisterPaneSize,
@@ -56,7 +56,7 @@
 		throw new Error("Splitpanes: id is required");
 	}
 
-	let allPanes: Array<VizSubPanel & SubPanel> = getAllSubPanels();
+	let allPanes: Array<VizSubPanel & Content> = getAllSubPanels();
 
 	// I hate this so much
 	if (allPanes.flatMap((panel) => panel.childs).length > 0) {
