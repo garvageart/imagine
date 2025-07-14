@@ -4,6 +4,7 @@ import { swapArrayElements } from "../utils";
 import VizView from "./views.svelte";
 import { dev } from "$app/environment";
 import { views } from "$lib/layouts/views";
+import type { M } from "vitest/dist/chunks/environment.d.Dmw5ulng.js";
 
 export interface TabData {
     index: number;
@@ -374,8 +375,21 @@ class TabOps {
         };
     }
 
+    private calculateDropZone(node: HTMLElement, event: DragEvent) {
+        if (node !== event.target) {
+            return;
+        }
+
+        const dropzoneMargin = 30;
+        const target = event.target as HTMLElement;
+        const rect = target.getBoundingClientRect();
+
+        const x = event.clientX - rect.left; //x position within the element.
+        const y = event.clientY - rect.top;  //y position within the element.
+        console.log(target, "Left: " + x + "; Top: " + y);
+    }
+
     private handleDropInsideEnter(node: HTMLElement) {
-        // console.log(Array.from(node.children)?.length > 1, node !== e.target);
         if (Array.from(node.children)?.length > 1) {
             return;
         }
@@ -383,17 +397,26 @@ class TabOps {
         const elChildren = Array.from(node.children) as HTMLElement[];
         elChildren.forEach((el) => el.style.pointerEvents = "none");
 
-        node.setAttribute("style", "height: calc(100% - 1.8em);");
-        node.classList.add("viz-sub_panel-dropzone_overlay");
+        const overlayDiv = document.createElement("div");
+
+        overlayDiv.style.pointerEvents = "none";
+        overlayDiv.setAttribute("style", `height: ${node.clientHeight}px; width: ${node.clientWidth}px;`);
+        overlayDiv.classList.add("viz-sub_panel-dropzone_overlay");
+        node.insertBefore(overlayDiv, node.firstElementChild);
     }
 
-    private handleDropInsideLeave(node: HTMLElement, event: DragEvent) {
-        if (node !== event.target) {
+    private handleDropInside(node: HTMLElement, event: MouseEvent) {
+        const overlayDiv = node.querySelector(".viz-sub_panel-dropzone_overlay");
+
+        if (!overlayDiv) {
             return;
         }
 
-        node.removeAttribute("style");
-        node.classList.remove("viz-sub_panel-dropzone_overlay");
+        if (overlayDiv !== event.target) {
+            return;
+        }
+
+        node.removeChild(overlayDiv);
         const elChildren = Array.from(node.children) as HTMLElement[];
         elChildren.forEach((el) => el.style.pointerEvents = "auto");
     }
@@ -402,12 +425,21 @@ class TabOps {
     // in the subpanel we're hovering a create the dropzone within those bounds, usually half
     // note: probably debounce it a lil to avoid sudden layout shifts
     subPanelDropInside(node: HTMLElement) {
-        node.addEventListener("dragenter", () => {
+        node.addEventListener("dragenter", (e) => {
             this.handleDropInsideEnter(node);
         });
 
-        node.addEventListener("dragleave", (e) => {
-            this.handleDropInsideLeave(node, e);
+        node.addEventListener("drop", (e) => {
+            e.preventDefault();
+            this.handleDropInside(node, e);
+        });
+
+        node.addEventListener("dragover", (event) => {
+            event.preventDefault();
+        });
+
+        node.addEventListener("dragover", (e) => {
+            this.calculateDropZone(node, e);
         });
 
         return {
@@ -416,8 +448,17 @@ class TabOps {
                     this.handleDropInsideEnter(node);
                 });
 
-                node.removeEventListener("dragleave", (e) => {
-                    this.handleDropInsideLeave(node, e);
+                node.removeEventListener("drop", (e) => {
+                    e.preventDefault();
+                    this.handleDropInside(node, e);
+                });
+
+                node.removeEventListener("dragover", (event) => {
+                    event.preventDefault();
+                });
+
+                node.removeEventListener("dragover", (e) => {
+                    this.calculateDropZone(node, e);
                 });
             }
         };
