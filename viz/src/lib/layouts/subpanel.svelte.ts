@@ -7,7 +7,7 @@ import type { ComponentProps } from "svelte";
 
 interface VizSubPanelDataOptions {
     id?: string;
-    subPanels: Content[];
+    content: Content[];
     size?: number;
     minSize?: number;
     maxSize?: number;
@@ -53,7 +53,7 @@ class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | 
                 style: "height: 100%",
                 pushOtherPanes: true,
             },
-            content: opts.subPanels.map((sub) => {
+            content: opts.content.map((sub) => {
                 const paneKeyId = generateKeyId(10);
                 const id = sub.id ?? `viz-subpanel-${paneKeyId}`;
                 return {

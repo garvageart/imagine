@@ -7,7 +7,7 @@ export const testLayout: VizSubPanelData[] = [
         size: 30,
         minSize: 10,
         maxSize: 100,
-        subPanels: [
+        content: [
             {
                 id: "viz-test-4365763",
                 views: views.filter(view => view.id === 2),
@@ -20,7 +20,7 @@ export const testLayout: VizSubPanelData[] = [
     }),
     new VizSubPanelData({
         id: "viz-test-2",
-        subPanels: [
+        content: [
             {
                 id: "viz-clock",
                 views: views.filter(view => view.id === 1),
