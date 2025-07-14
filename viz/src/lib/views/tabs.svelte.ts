@@ -284,23 +284,21 @@ class TabOps {
      * Makes an element draggable. */
     draggable(node: HTMLElement, data: TabData) {
         let state = JSON.stringify(data);
-
         node.draggable = true;
-
         node.addEventListener("dragstart", (e) => {
             e.dataTransfer?.setData("text/json", state);
         });
 
-        return {
-            update(data: TabData) {
-                state = JSON.stringify(data);
-            },
-            destroy() {
+        $effect(() => {
+            state = JSON.stringify(data);
+            return () => {
+                node.draggable = false;
                 node.removeEventListener("dragstart", (e) => {
                     e.dataTransfer?.setData("text/json", state);
                 });
-            }
-        };
+            };
+
+        });
     }
 
     /**
@@ -314,42 +312,14 @@ class TabOps {
      * method is provided to clean up the event listeners.
      * @param {HTMLElement} node The HTML element to which drag-and-drop
      *                           event listeners are attached.
-     * @returns {Object} An object containing a `destroy` method to
-     *                   remove the event listeners when no longer needed.
      */
-    tabDrop(node: HTMLElement): object {
-        node.addEventListener("drop", (e) => {
-            this.ondrop(node, e);
-        });
-
-        node.addEventListener("dragenter", (e) => {
-            e.preventDefault();
-            if (node === e.target) {
-                return;
-            }
-
-            node.classList.add("drop-hover-above");
-        });
-
-        node.addEventListener("dragleave", (e) => {
-            const target = e.target as HTMLElement;
-            if (node === target) {
-                return;
-            }
-
-            node.classList.remove("drop-hover-above");
-        });
-
-        node.addEventListener("dragend", (e) => {
-            node.classList.remove("drop-hover-above");
-        });
-
-        return () => {
-            node.removeEventListener("drop", (e) => {
+    tabDrop(node: HTMLElement) {
+        $effect(() => {
+            node.addEventListener("drop", (e) => {
                 this.ondrop(node, e);
             });
 
-            node.removeEventListener("dragenter", (e) => {
+            node.addEventListener("dragenter", (e) => {
                 e.preventDefault();
                 if (node === e.target) {
                     return;
@@ -358,7 +328,7 @@ class TabOps {
                 node.classList.add("drop-hover-above");
             });
 
-            node.removeEventListener("dragleave", (e) => {
+            node.addEventListener("dragleave", (e) => {
                 const target = e.target as HTMLElement;
                 if (node === target) {
                     return;
@@ -367,11 +337,38 @@ class TabOps {
                 node.classList.remove("drop-hover-above");
             });
 
-            node.removeEventListener("dragend", (e) => {
+            node.addEventListener("dragend", (e) => {
                 node.classList.remove("drop-hover-above");
             });
-        };
 
+            return () => {
+                node.removeEventListener("drop", (e) => {
+                    this.ondrop(node, e);
+                });
+
+                node.removeEventListener("dragenter", (e) => {
+                    e.preventDefault();
+                    if (node === e.target) {
+                        return;
+                    }
+
+                    node.classList.add("drop-hover-above");
+                });
+
+                node.removeEventListener("dragleave", (e) => {
+                    const target = e.target as HTMLElement;
+                    if (node === target) {
+                        return;
+                    }
+
+                    node.classList.remove("drop-hover-above");
+                });
+
+                node.removeEventListener("dragend", (e) => {
+                    node.classList.remove("drop-hover-above");
+                });
+            };
+        });
     }
 
     private calculateDropZone(node: HTMLElement, event: DragEvent) {
@@ -424,42 +421,44 @@ class TabOps {
     // in the subpanel we're hovering a create the dropzone within those bounds, usually half
     // note: probably debounce it a lil to avoid sudden layout shifts
     subPanelDropInside(node: HTMLElement) {
-        node.addEventListener("dragenter", (e) => {
-            this.handleDropInsideEnter(node);
-        });
-
-        node.addEventListener("drop", (e) => {
-            e.preventDefault();
-            this.handleDropInside(node, e);
-        });
-
-        node.addEventListener("dragover", (event) => {
-            event.preventDefault();
-        });
-
-        node.addEventListener("dragover", (e) => {
-            this.calculateDropZone(node, e);
-        });
-
-
-        return () => {
-            node.removeEventListener("dragenter", () => {
+        $effect(() => {
+            node.addEventListener("dragenter", (e) => {
                 this.handleDropInsideEnter(node);
             });
 
-            node.removeEventListener("drop", (e) => {
+            node.addEventListener("drop", (e) => {
                 e.preventDefault();
                 this.handleDropInside(node, e);
             });
 
-            node.removeEventListener("dragover", (event) => {
+            node.addEventListener("dragover", (event) => {
                 event.preventDefault();
             });
 
-            node.removeEventListener("dragover", (e) => {
+            node.addEventListener("dragover", (e) => {
                 this.calculateDropZone(node, e);
             });
-        };
+
+
+            return () => {
+                node.removeEventListener("dragenter", () => {
+                    this.handleDropInsideEnter(node);
+                });
+
+                node.removeEventListener("drop", (e) => {
+                    e.preventDefault();
+                    this.handleDropInside(node, e);
+                });
+
+                node.removeEventListener("dragover", (event) => {
+                    event.preventDefault();
+                });
+
+                node.removeEventListener("dragover", (e) => {
+                    this.calculateDropZone(node, e);
+                });
+            };
+        });
 
     }
 }
