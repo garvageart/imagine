@@ -344,35 +344,34 @@ class TabOps {
             node.classList.remove("drop-hover-above");
         });
 
-        return {
-            destroy: () => {
-                node.removeEventListener("drop", (e) => {
-                    this.ondrop(node, e);
-                });
+        return () => {
+            node.removeEventListener("drop", (e) => {
+                this.ondrop(node, e);
+            });
 
-                node.removeEventListener("dragenter", (e) => {
-                    e.preventDefault();
-                    if (node === e.target) {
-                        return;
-                    }
+            node.removeEventListener("dragenter", (e) => {
+                e.preventDefault();
+                if (node === e.target) {
+                    return;
+                }
 
-                    node.classList.add("drop-hover-above");
-                });
+                node.classList.add("drop-hover-above");
+            });
 
-                node.removeEventListener("dragleave", (e) => {
-                    const target = e.target as HTMLElement;
-                    if (node === target) {
-                        return;
-                    }
+            node.removeEventListener("dragleave", (e) => {
+                const target = e.target as HTMLElement;
+                if (node === target) {
+                    return;
+                }
 
-                    node.classList.remove("drop-hover-above");
-                });
+                node.classList.remove("drop-hover-above");
+            });
 
-                node.removeEventListener("dragend", (e) => {
-                    node.classList.remove("drop-hover-above");
-                });
-            }
+            node.removeEventListener("dragend", (e) => {
+                node.classList.remove("drop-hover-above");
+            });
         };
+
     }
 
     private calculateDropZone(node: HTMLElement, event: DragEvent) {
@@ -382,7 +381,7 @@ class TabOps {
 
         const dropzoneMargin = 30;
         const target = event.target as HTMLElement;
-        const rect = target.getBoundingClientRect();
+        const rect = node.getBoundingClientRect();
 
         const x = event.clientX - rect.left; //x position within the element.
         const y = event.clientY - rect.top;  //y position within the element.
@@ -418,7 +417,7 @@ class TabOps {
 
         node.removeChild(overlayDiv);
         const elChildren = Array.from(node.children) as HTMLElement[];
-        elChildren.forEach((el) => el.style.pointerEvents = "auto");
+        elChildren.forEach((el) => el.style.removeProperty("pointer-events"));
     }
 
     // TODO: When dragging over the subpanel, determine the coordinates of where
@@ -442,26 +441,26 @@ class TabOps {
             this.calculateDropZone(node, e);
         });
 
-        return {
-            destroy: () => {
-                node.removeEventListener("dragenter", () => {
-                    this.handleDropInsideEnter(node);
-                });
 
-                node.removeEventListener("drop", (e) => {
-                    e.preventDefault();
-                    this.handleDropInside(node, e);
-                });
+        return () => {
+            node.removeEventListener("dragenter", () => {
+                this.handleDropInsideEnter(node);
+            });
 
-                node.removeEventListener("dragover", (event) => {
-                    event.preventDefault();
-                });
+            node.removeEventListener("drop", (e) => {
+                e.preventDefault();
+                this.handleDropInside(node, e);
+            });
 
-                node.removeEventListener("dragover", (e) => {
-                    this.calculateDropZone(node, e);
-                });
-            }
+            node.removeEventListener("dragover", (event) => {
+                event.preventDefault();
+            });
+
+            node.removeEventListener("dragover", (e) => {
+                this.calculateDropZone(node, e);
+            });
         };
+
     }
 }
 
