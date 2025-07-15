@@ -5,32 +5,36 @@
 	import MaterialIcon from "./MaterialIcon.svelte";
 
 	// eventually this will move to a different page with a different way of enabling, this is just temporary
-	let devEnabled = $state(false);
 	const storeDebug = new VizLocalStorage<boolean>("debugMode");
+	let devEnabled = $state(storeDebug.get() === null ? false : storeDebug.get());
 
 	// i'd probably forget to remove this in prod setting so just check lmao
 	if (dev || !CLIENT_IS_PRODUCTION) {
 		$effect(() => {
-			if (devEnabled) {
-				storeDebug.set(true);
-				console.log("debug mode enabled");
-			} else {
-				storeDebug.set(false);
-				console.log("debug mode disabled");
-			}
+			console.log("Debug mode is", devEnabled ? "enabled" : "disabled");
+			storeDebug.set(devEnabled!);
 		});
 	}
 
 	let searchValue = $state("");
+	let searchInputHasFocus = $state(false);
 </script>
 
 <header>
 	<a id="viz-title" href="/">viz</a>
-	<div class="search-container">
+	<div class="search-container{searchInputHasFocus ? ' has-focus' : ''}">
 		<button id="search-button" type="button" class="material-icon-button" aria-label="Search">
 			<MaterialIcon iconName="search" />
 		</button>
-		<input type="search" class="search-input" placeholder="Search..." aria-label="Search" bind:value={searchValue} />
+		<input
+			type="search"
+			class="search-input"
+			placeholder="Search..."
+			aria-label="Search"
+			onfocus={() => (searchInputHasFocus = true)}
+			onblur={() => (searchInputHasFocus = false)}
+			bind:value={searchValue}
+		/>
 		{#if searchValue}
 			<button
 				id="clear-search-button"
@@ -104,7 +108,6 @@
 		width: 30%;
 		height: 2em;
 		border: 1px solid var(--imag-60);
-		border-radius: 4px;
 		border-color: var(--imag-100);
 		border-radius: 2em;
 		overflow: hidden;
@@ -121,7 +124,11 @@
 		outline: none;
 		border: none;
 		width: 100%;
-		margin: 0 0.7em;
+		height: 100%;
+		border-radius: 2em;
+		border-top-left-radius: 0%;
+		border-bottom-left-radius: 0%;
+		padding: 0 0.7em;
 		font-family: var(--imag-font-family);
 
 		&::placeholder {
@@ -134,6 +141,10 @@
 		}
 	}
 
+	.search-container.has-focus {
+		border: 1.5px solid var(--imag-primary);
+	}
+
 	#clear-search-button {
 		border: none;
 		outline: none;
@@ -143,15 +154,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--imag-100);
+		color: var(--imag-80);
 		cursor: pointer;
 
 		&:hover {
-			color: var(--imag-80);
+			color: var(--imag-70);
 		}
 
 		&:active {
-			color: var(--imag-70);
+			color: var(--imag-60);
 		}
 	}
 
