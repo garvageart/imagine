@@ -4,6 +4,7 @@ references
 logs
 var
 resources/test
+resources/internal
 auth
 
 # Misc files
