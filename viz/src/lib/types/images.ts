@@ -1,3 +1,5 @@
+import type { User } from "./users";
+
 export type SupportedImageTypes = "jpeg" | "jpg" | "png" | "tiff";
 export const SUPPORTED_IMAGE_TYPES: SupportedImageTypes[] = [
     "jpeg",
@@ -59,12 +61,12 @@ export interface ImageObjectData {
     id: string;
     name: string;
     uploaded_on: Date;
-    uploaded_by: string;
+    uploaded_by: User;
     updated_on: Date;
     image_data: ImageData;
     collection_id: string;
     private?: boolean;
-    dupes: ImageDupes[];
+    dupes?: ImageDupes[];
 }
 
 export interface ImageData {
@@ -85,8 +87,10 @@ export interface Collection {
     images: ImageObjectData[];
     created_on: Date;
     updated_on: Date;
-    created_by: string;
+    created_by: User;
     description: string;
+    owner: User;
+    thumbnail?: ImageObjectData;
 };
 
 export interface ImageDupes {

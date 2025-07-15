@@ -26,9 +26,9 @@
 	import TabOps from "$lib/views/tabs.svelte";
 	import VizView from "$lib/views/views.svelte";
 	import { findSubPanel } from "$lib/third-party/svelte-splitpanes/state.svelte";
-	import LoadingSpinner from "../LoadingSpinner.svelte";
 	import { measureComponentRenderTimes, resetAndReloadLayout } from "$lib/dev/components.svelte";
 	import { views } from "$lib/layouts/views";
+	import LoadingContainer from "../LoadingContainer.svelte";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;
@@ -293,18 +293,14 @@ for Splitpanes
 		<div
 			role="none"
 			class="viz-sub_panel-content"
-			style="height: calc(100% - {mainHeaderHeight - 4 - 2}px); width: 100%;"
+			style="height: calc(100% - {mainHeaderHeight - (4 * 5 - 3)}px); width: 100%;"
 			onclick={() => (subPanelContentFocused = true)}
 			onkeydown={() => (subPanelContentFocused = true)}
 			bind:this={subPanelContentElement}
 			use:subPanelDrop={data}
 		>
 			{#await panelData}
-				<div style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center;">
-					<div style="height: 2em; width: 2em">
-						<LoadingSpinner />
-					</div>
-				</div>
+				<LoadingContainer />
 			{:then panelData}
 				{#if panelData}
 					<Comp data={panelData.data} />

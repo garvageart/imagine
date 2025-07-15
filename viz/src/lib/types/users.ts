@@ -1,4 +1,6 @@
-export interface Users {
+export type UserRole = "user" | "admin" | "superadmin" | "guest";
+
+export interface User {
     id: string;
     first_name: string;
     last_name: string;
@@ -6,5 +8,5 @@ export interface Users {
     email: string;
     created_on: Date;
     updated_on: Date;
-    role: string;
+    role: UserRole;
 }
