@@ -130,6 +130,14 @@ export class VizLocalStorage<V = string> {
             return JSON.parse(item) as V;
         }
 
+        if (item === "true" || item === "false") {
+            if (item === "true") {
+                return true as V;
+            } else {
+                return false as V;
+            }
+        }
+
         return item !== null ? item as V : null;
     };
 
