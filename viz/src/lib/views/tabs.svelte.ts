@@ -99,6 +99,14 @@ class TabOps {
                 layout[dstParentIdx].childs.content[dstChildIdx].views.push(movedView);
             }
 
+            const parentContent = layout[dstParentIdx].childs.content;
+            if (Array.isArray(parentContent) && parentContent.length > 0) {
+                const subSize = 100 / parentContent.length;
+                parentContent.forEach(sub => {
+                    sub.size = subSize;
+                });
+            }
+
             if (layout[srcParentIdx].childs.content.length === 0) {
                 layout.splice(srcParentIdx, 1);
 
@@ -294,26 +302,43 @@ class TabOps {
         const viewToMove = views.findIndex((view) => view.id === state.view.id);
         const dropZone = this.calculateDropZone(node, event);
 
+        // Do some basic cleaning up and size normalization after moving the view
+        // before the `svelte-splitpanes` handles the actual sizing after resize
         const cleanUpSubPanels = () => {
             views.splice(viewToMove!, 1);
             if (views.length === 0) {
                 if (window.debug === true) {
                     console.log(`empty subpanel ${srcSubPanel.paneKeyId}. removing it`);
                 }
-
                 layoutState.tree.find(p => p.paneKeyId === srcParentKeyId)?.childs.content.splice(srcSubPanelIdx, 1);
             }
 
-            if (layout.find(p => p.paneKeyId === srcParentKeyId)!.childs.content.length === 0) {
-                layout.splice(layout.findIndex(p => p.paneKeyId === srcParentKeyId), 1);
-
-                if (layout.length === 1) {
-                    if (window.debug === true) {
-                        console.log(`one panel ${layout[0].paneKeyId} left, setting maximum size to 100`);
-                    }
-
-                    layout[0].childs.internalSubPanelContainer.size = 100;
+            // Normalize sizes for all subpanels in every panel's childs.content
+            layout.forEach(panel => {
+                if (panel.childs && Array.isArray(panel.childs.content) && panel.childs.content.length > 0) {
+                    const subSize = 100 / panel.childs.content.length;
+                    panel.childs.content.forEach(sub => {
+                        sub.size = subSize;
+                    });
                 }
+            });
+
+            const srcPanelIdx = layout.findIndex(p => p.paneKeyId === srcParentKeyId);
+            if (srcPanelIdx !== -1 && layout[srcPanelIdx].childs.content.length === 0) {
+                layout.splice(srcPanelIdx, 1);
+            }
+
+            // Normalize sizes if more than one panel remains
+            if (layout.length > 1) {
+                const sizePerPanel = 100 / layout.length;
+                layout.forEach(panel => {
+                    panel.childs.internalSubPanelContainer.size = sizePerPanel;
+                });
+            } else if (layout.length === 1) {
+                if (window.debug === true) {
+                    console.log(`one panel ${layout[0].paneKeyId} left, setting maximum size to 100`);
+                }
+                layout[0].childs.internalSubPanelContainer.size = 100;
             }
         };
 
@@ -519,7 +544,7 @@ class TabOps {
     }
 
     private removeDropzoneOverlay(node: HTMLElement, event: MouseEvent) {
-        const overlayDiv = node.querySelector(".viz-sub_panel-dropzone_overlay");
+        const overlayDiv = node.querySelector(".viz-sub_panel-dropzone_overlay") as HTMLElement;
         if (!overlayDiv) {
             return;
         }
@@ -527,6 +552,15 @@ class TabOps {
         if (overlayDiv !== event.target) {
             return;
         }
+
+        // TODO: adjust timings of the transition to stop flickering
+        overlayDiv.style.transition = "width 0.2s ease-in-out, height 0.2s ease-in-out, left 0.2s ease-in-out, top 0.2s ease-in-out, display 0.2s ease-in-out";
+
+        overlayDiv.style.width = "0px";
+        overlayDiv.style.height = "0px";
+        overlayDiv.style.left = "0px";
+        overlayDiv.style.top = "0px";
+        overlayDiv.style.display = "none";
 
         node.removeChild(overlayDiv);
         const elChildren = Array.from(node.children) as HTMLElement[];
@@ -544,7 +578,6 @@ class TabOps {
 
             node.addEventListener("drop", (e) => {
                 e.preventDefault();
-                console.log();
 
                 this.handleTabDropInside(node, e, data);
                 this.removeDropzoneOverlay(node, e);
@@ -555,22 +588,10 @@ class TabOps {
                 this.drawDropzone(node, e);
             });
 
-            node.addEventListener("dragleave", (e) => {
+            node.addEventListener("dragleave", async (e) => {
                 e.preventDefault();
-                const overlayDiv = node.querySelector(".viz-sub_panel-dropzone_overlay") as HTMLElement;
-                if (overlayDiv !== e.target) {
-                    return;
-                }
 
-                overlayDiv.style.width = "0px";
-                overlayDiv.style.height = "0px";
-                overlayDiv.style.left = "0px";
-                overlayDiv.style.top = "0px";
-
-                // TODO: adjust timings of the transition to stop flickering
-                overlayDiv.style.transition = "width 0.2s ease-in-out, height 0.2s ease-in-out, left 0.2s ease-in-out, top 0.2s ease-in-out";
-
-                sleep(250).then(() => {
+                await sleep(250).then(() => {
                     this.removeDropzoneOverlay(node, e);
                 });
             });
