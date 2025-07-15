@@ -201,12 +201,12 @@
 		children
 	}: Props = $props();
 
-	if (!id || id.trim() === "") {
-		throw new Error("Splitpanes: id is required");
-	}
-
 	let splitpanesKeyId = storedLayout?.flat().find((sp) => sp.id === id)?.paneKeyId;
 	const usedKeyId = splitpanesKeyId?.trim() ?? keyId ?? generateKeyId(16);
+	if (!id || id.trim() === "") {
+		console.warn("Splitpanes: id is empty, using a generated key instead");
+		id = `viz-splitpanes-${usedKeyId}`;
+	}
 
 	// VARIABLES ----------------
 
