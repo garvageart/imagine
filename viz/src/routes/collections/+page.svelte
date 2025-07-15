@@ -11,7 +11,7 @@
 
 <VizViewContainer name="Collections">
 	<div id="viz-card-container">
-		{#each data.response as collection}
+		{#each data?.response as collection}
 			<button type="button" class="coll-card" onclick={() => openModal(collection.id)} data-collection-id={collection.id}>
 				<div class="image-container"></div>
 				<div class="metadata">
