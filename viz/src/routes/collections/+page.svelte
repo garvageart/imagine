@@ -5,7 +5,6 @@
 
 	let { data }: PageProps = $props();
 	function openModal(collectionId: string) {
-		// window.location.href = `/collections/${collectionId}`;
 		console.log("Opening modal for collection ID:", collectionId);
 	}
 </script>
