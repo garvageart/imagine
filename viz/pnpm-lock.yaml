@@ -24,6 +24,9 @@ importers:
         specifier: ^0.31.9
         version: 0.31.9
     devDependencies:
+      '@faker-js/faker':
+        specifier: ^9.9.0
+        version: 9.9.0
       '@playwright/test':
         specifier: ^1.54.1
         version: 1.54.1
@@ -280,6 +283,10 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@faker-js/faker@9.9.0':
+    resolution: {integrity: sha512-OEl393iCOoo/z8bMezRlJu+GlRGlsKbUAN7jKB6LhnKoqKve5DXRpalbItIIcwnCjs1k/FOPjFzcA6Qn+H+YbA==}
+    engines: {node: '>=18.0.0', npm: '>=9.0.0'}
 
   '@fontsource-variable/manrope@5.2.6':
     resolution: {integrity: sha512-8a0INmmJfrcOO+MDThDefifCqreErfhNX1qy9l9VMc0FNCUTJtJi8Lclk8H5RqsDmR5PBYfTot1iUZFZ7qX57A==}
@@ -1403,6 +1410,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.6':
     optional: true
+
+  '@faker-js/faker@9.9.0': {}
 
   '@fontsource-variable/manrope@5.2.6': {}
 
