@@ -13,6 +13,9 @@
 		$effect(() => {
 			console.log("Debug mode is", devEnabled ? "enabled" : "disabled");
 			storeDebug.set(devEnabled!);
+			if (window.debug !== devEnabled) {
+				window.debug === devEnabled;
+			}
 		});
 	}
 
@@ -29,7 +32,7 @@
 		<input
 			type="search"
 			class="search-input"
-			placeholder="Search..."
+			placeholder="Search"
 			aria-label="Search"
 			onfocus={() => (searchInputHasFocus = true)}
 			onblur={() => (searchInputHasFocus = false)}
