@@ -1,4 +1,4 @@
-import type { Content, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
+import type { Content as IContent, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
 import { DEFAULT_THEME } from "$lib/constants";
 import type { Pane } from "$lib/third-party/svelte-splitpanes";
 import { generateKeyId } from "$lib/utils";
@@ -12,6 +12,40 @@ interface VizSubPanelDataOptions {
     minSize?: number;
     maxSize?: number;
     class?: string;
+}
+
+interface ContentOptions {
+    id?: string;
+    views: VizView[];
+    paneKeyId?: string;
+    size?: number;
+    minSize?: number;
+    maxSize?: number;
+}
+
+class Content implements IContent {
+    id?: string;
+    views: VizView[];
+    paneKeyId?: string;
+    size?: number;
+    minSize?: number;
+    maxSize?: number;
+
+    constructor(opts: ContentOptions) {
+        this.id = opts.id;
+        this.views = opts.views;
+        this.paneKeyId = opts.paneKeyId ?? generateKeyId(10);
+        if (!this.id) {
+            this.id = `viz-content-${this.paneKeyId}`;
+        }
+        this.size = opts.size;
+        this.minSize = opts.minSize ?? 10;
+        this.maxSize = opts.maxSize ?? 100;
+
+        if (!this.views.length) {
+            throw new Error("Viz: No views provided in subpanel content. Please provide at least one view");
+        }
+    }
 }
 
 const theme = DEFAULT_THEME;
@@ -75,4 +109,5 @@ class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | 
     }
 }
 
+export { Content };
 export default VizSubPanelData;
