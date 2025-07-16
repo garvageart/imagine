@@ -112,8 +112,8 @@
 		align-items: center;
 		width: 30%;
 		height: 2em;
-		border: 1px solid var(--imag-60);
-		border-color: var(--imag-100);
+		border: 1px solid;
+		border-color: var(--imag-90);
 		border-radius: 2em;
 		overflow: hidden;
 		&:focus {
