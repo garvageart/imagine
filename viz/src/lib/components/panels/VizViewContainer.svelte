@@ -9,7 +9,7 @@
 	const pageData = $derived.by(() => {
 		if (dev) {
 			const randomLatency = dev ? Math.floor(Math.random() * 2000) + 500 : 0; // Random latency between 1 and 3 seconds in dev mode
-			new Promise((resolve) => {
+			return new Promise((resolve) => {
 				setTimeout(() => {
 					isLoading = false;
 					if (dev) {
