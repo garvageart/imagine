@@ -1,8 +1,8 @@
-import { browser, dev } from "$app/environment";
+import { dev } from "$app/environment";
 
 const IS_BROWSER_ENV = {
-    production: (location.port === '') || (location.hostname === '127.0.0.1' || location.hostname === 'localhost') || !dev,
-    development: (location.port !== '') || (location.hostname === 'localhost') || dev || (location.hostname === '127.0.0.1'),
+    production: dev === false || (location.port === '') || (location.hostname !== 'localhost'),
+    development: dev === true || (location.port !== '') || (location.hostname === 'localhost'),
 };
 
 export const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || screen.orientation.type === 'portrait-primary';
@@ -22,7 +22,7 @@ export class ServerURLConfig {
         this.port = port;
         this.subdomain = subdomain;
 
-        if (browser && IS_BROWSER_ENV.production) {
+        if (CLIENT_IS_PRODUCTION) {
             this.host = `https://${subdomain}.imagine.${BROWSER_BASE_URL}`;
         } else {
             this.host = `http://localhost:${port}`;
