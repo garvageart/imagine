@@ -7,10 +7,14 @@
 		value: "on" | "off";
 	}
 
-	let { label, value = $bindable("off"), ...props }: Props & SvelteHTMLElements["div"] = $props();
+	let { label, value = $bindable(), ...props }: Props & SvelteHTMLElements["div"] = $props();
 
 	let checked = $state(true);
 	const uniqueID = Math.floor(Math.random() * 100);
+
+	$effect(() => {
+		checked = value === "on" ? true : false;
+	});
 
 	function handleClick(event: MouseEvent) {
 		const target = event.target as HTMLButtonElement;
