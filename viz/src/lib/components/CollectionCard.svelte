@@ -30,7 +30,6 @@
 		<span class="coll-name" title={collection.name}>{collection.name}</span>
 		<span class="coll-created_on">{DateTime.fromJSDate(collection.created_on).toFormat("dd.MM.yyyy")}</span>
 		<span class="coll-image_count">{collection.image_count} {collection.image_count === 1 ? "image" : "images"}</span>
-		<span class="coll-description">{collection.description}</span>
 	</div>
 </button>
 
@@ -50,15 +49,6 @@
 
 	.coll-image_count {
 		margin-bottom: 0.5em;
-	}
-
-	.coll-description {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 
 	.coll-card {
@@ -97,7 +87,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 1em;
-		height: 10em;
 		max-height: 10em;
 		overflow: hidden;
 	}
