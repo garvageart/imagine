@@ -1,5 +1,5 @@
 import { MEDIA_SERVER } from "$lib/constants";
-import { createServerURL } from "$lib/utils";
+import { createServerURL } from "./url";
 
 export async function sendAPIRequest<T>(path: string, options?: RequestInit, form: boolean = false) {
     if (path.startsWith("/")) {

@@ -2,7 +2,7 @@
 	import { dev } from "$app/environment";
 	import { CLIENT_IS_PRODUCTION } from "$lib/constants";
 	import { search } from "$lib/states/index.svelte";
-	import { VizLocalStorage } from "$lib/utils";
+	import { VizLocalStorage } from "$lib/utils/misc";
 	import { onMount } from "svelte";
 	import { performSearch } from "$lib/search/execute";
 	import MaterialIcon from "./MaterialIcon.svelte";

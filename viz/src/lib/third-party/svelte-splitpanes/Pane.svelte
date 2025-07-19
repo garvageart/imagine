@@ -6,7 +6,7 @@
 	import { gatheringKey } from "./internal/GatheringRound.svelte";
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import { carefullCallbackSource } from "./internal/utils/functions";
-	import { arrayHasDuplicates, generateRandomString } from "$lib/utils";
+	import { arrayHasDuplicates, generateRandomString } from "$lib/utils/misc";
 	import { getAllSubPanels, layoutState } from "./state.svelte";
 	import type { Content, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 

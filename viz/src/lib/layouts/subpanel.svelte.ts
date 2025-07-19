@@ -1,7 +1,7 @@
 import type { Content as IContent, SubPanelChilds } from "$lib/components/panels/SubPanel.svelte";
 import { DEFAULT_THEME } from "$lib/constants";
 import type { Pane } from "$lib/third-party/svelte-splitpanes";
-import { generateKeyId } from "$lib/utils";
+import { generateKeyId } from "$lib/utils/layout";
 import type VizView from "$lib/views/views.svelte";
 import type { ComponentProps } from "svelte";
 

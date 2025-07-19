@@ -5,7 +5,7 @@ import { createTestUser } from "$lib/data/test";
 import CollectionData from "$lib/entities/collection";
 import { ImageObjectData } from "$lib/entities/image";
 import { search } from "$lib/states/index.svelte";
-import { generateRandomString, sleep } from "$lib/utils";
+import { generateRandomString, sleep } from "$lib/utils/misc";
 import { updateURLParameter } from "$lib/utils/url";
 import { faker } from "@faker-js/faker";
 import { DateTime } from "luxon";

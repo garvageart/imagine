@@ -1,33 +1,4 @@
 import { dev } from "$app/environment";
-import { CLIENT_IS_PRODUCTION, type ServerURLConfig } from "./constants";
-
-/**
- * Reads a URL's hash and returns an object containing the query key/pair values as a properties
- * @param  {string url} URL query string
- */
-export function getURLParams(url: string): any {
-    // Ew
-    const queryParams = Object.fromEntries(new URL(url).searchParams.entries());
-    return queryParams;
-}
-
-/**
- * Various methods for storing, retrieving and deleting cookies from the browser
- */
-export const cookieMethods = {
-    set: (key: string, value: string, expiresDate?: Date | string) => {
-        document.cookie = `${key}=${value}; expires=${expiresDate}; Secure; path =/`;
-    },
-    get: (key: string): string | undefined => {
-        const allCookies = document?.cookie;
-        const cookieValue = allCookies.split("; ").find(cookie => cookie.startsWith(`${key}`))?.split("=")[1];
-
-        return cookieValue;
-    },
-    delete: (key: string) => {
-        document.cookie = `${key}=; max-age=0; path =/`;
-    }
-};
 
 export const sleep = (time: number) => new Promise(resolve => setTimeout(resolve, time));
 
@@ -40,14 +11,6 @@ export function generateRandomString(length: number): string {
     }
 
     return result;
-}
-
-export function createServerURL(serverURL: ServerURLConfig): string {
-    if (!CLIENT_IS_PRODUCTION) {
-        return serverURL.url;
-    } else {
-        return serverURL.subdomain;
-    }
 }
 
 export const fullscreen = {
@@ -163,40 +126,9 @@ export class VizLocalStorage<V = string> {
     };
 }
 
-export function checkDOMForID(id: string) {
-    const el = document.getElementById(id);
-
-    if (el) {
-        return true;
-    }
-
-    return false;
-}
-
 export function swapArrayElements<A>(array: A[], index1: number, index2: number) {
     array[index1] = array.splice(index2, 1, array[index1])[0];
 };
-
-export function debugEvent(event: CustomEvent, printAsString: boolean = false) {
-    if (!dev) {
-        return;
-    }
-
-    console.log("Event:", event.type, new Date().toLocaleTimeString());
-
-    if (printAsString) {
-        console.log("Detail:", JSON.stringify(event.detail, null, 2));
-        return;
-    }
-
-    console.log("Detail:", event.detail);
-}
-
-// TODO: Move utility functions to purpose made files
-// instead of shoving them down all one utility file
-export function generateKeyId(length = 10): string {
-    return "sp-" + generateRandomString(length);
-}
 
 export function arrayHasDuplicates(arr: any[]): { hasDuplicates: boolean, duplicates: any[]; } {
     let dupli: never[] = [];
@@ -218,9 +150,4 @@ export function arrayHasDuplicates(arr: any[]): { hasDuplicates: boolean, duplic
         hasDuplicates: false,
         duplicates: []
     };
-}
-
-// Taken from here: https://stackoverflow.com/a/29956714
-export function isElementScrollable(element: HTMLElement) {
-    return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
 }

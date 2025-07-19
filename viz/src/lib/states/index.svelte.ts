@@ -1,5 +1,5 @@
 import type { Collection, IImageObjectData } from "$lib/types/images";
-import { cookieMethods } from "$lib/utils";
+import { cookieMethods } from "$lib/utils/cookie";
 import { writable } from "svelte/store";
 
 export let login = $state({

@@ -47,9 +47,10 @@
 	} from "./internal/utils/position.js";
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
-	import { generateKeyId, VizLocalStorage } from "$lib/utils";
+	import { VizLocalStorage } from "$lib/utils/misc";
 	import { allSplitpanes, layoutState, layoutTree } from "./state.svelte";
 	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
+	import { generateKeyId } from "$lib/utils/layout";
 
 	// TYPE DECLARATIONS ----------------
 

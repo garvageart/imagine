@@ -5,4 +5,4 @@ export function readConfig(): any {
     return JSON.parse(fileData.toString());
 }
 
-export * from './utils'; 
+export * from './utils/misc'; 

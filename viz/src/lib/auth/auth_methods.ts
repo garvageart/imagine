@@ -1,6 +1,6 @@
 import { goto } from "$app/navigation";
 import { AUTH_SERVER } from "$lib/constants";
-import { cookieMethods, createServerURL, getURLParams, sleep } from "$lib/utils";
+import { cookieMethods, createServerURL, getURLParams, sleep } from "$lib/utils/misc";
 
 interface AuthorizationCodeFlowResponse {
     code: string;

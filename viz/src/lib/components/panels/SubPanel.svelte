@@ -19,7 +19,6 @@
 <script lang="ts">
 	import { untrack, type ComponentProps, type Snippet } from "svelte";
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
-	import { generateKeyId, isElementScrollable } from "$lib/utils";
 	import MaterialIcon from "../MaterialIcon.svelte";
 	import { dev } from "$app/environment";
 	import type { TabData } from "$lib/views/tabs.svelte";
@@ -29,6 +28,8 @@
 	import { measureComponentRenderTimes, resetAndReloadLayout } from "$lib/dev/components.svelte";
 	import { views } from "$lib/layouts/views";
 	import LoadingContainer from "../LoadingContainer.svelte";
+	import { isElementScrollable } from "$lib/utils/dom";
+	import { generateKeyId } from "$lib/utils/layout";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;

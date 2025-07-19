@@ -1,6 +1,6 @@
 import type { VizSubPanel } from "../components/panels/SubPanel.svelte";
 import { layoutState } from "../third-party/svelte-splitpanes/state.svelte";
-import { sleep, swapArrayElements } from "../utils";
+import { sleep, swapArrayElements } from "../utils/misc";
 import VizView from "./views.svelte";
 import { dev } from "$app/environment";
 import { views } from "$lib/layouts/views";

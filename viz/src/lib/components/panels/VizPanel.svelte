@@ -3,10 +3,11 @@
 	import { testLayout } from "$lib/layouts/test";
 	import { Splitpanes as Panel, type ITree } from "$lib/third-party/svelte-splitpanes";
 	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
-	import { arrayHasDuplicates, debugEvent, generateKeyId, VizLocalStorage } from "$lib/utils";
-	import { onMount, untrack } from "svelte";
-	import SubPanel, { type VizSubPanel } from "./SubPanel.svelte";
+	import { arrayHasDuplicates, generateKeyId, VizLocalStorage } from "$lib/utils/misc";
+	import { onMount } from "svelte";
+	import SubPanel from "./SubPanel.svelte";
 	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
+	import { debugEvent } from "$lib/utils/dom";
 
 	let { id }: { id: string } = $props();
 	const theme = DEFAULT_THEME;

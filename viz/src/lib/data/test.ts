@@ -1,7 +1,7 @@
 import CollectionData from "$lib/entities/collection";
 import UserData from "$lib/entities/user";
 import { ImageObjectData } from "$lib/entities/image";
-import { generateRandomString } from "$lib/utils";
+import { generateRandomString } from "$lib/utils/misc";
 import { faker } from "@faker-js/faker";
 
 
