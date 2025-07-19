@@ -4,13 +4,15 @@
 	let { children } = $props();
 	let modalOverlayEl: HTMLElement | undefined = $state();
 
-	$effect(() => {
-		if (modal.show) {
-			console.log("modal is showing");
-        } else {
-            console.log("modal is not showing");
-        }
-	});
+	if (window.debug) {
+		$effect(() => {
+			if (modal.show) {
+				console.log("modal is showing");
+			} else {
+				console.log("modal is not showing");
+			}
+		});
+	}
 </script>
 
 <svelte:window
