@@ -24,12 +24,12 @@
 	import type { TabData } from "$lib/views/tabs.svelte";
 	import TabOps from "$lib/views/tabs.svelte";
 	import VizView from "$lib/views/views.svelte";
-	import { findSubPanel } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { measureComponentRenderTimes, resetAndReloadLayout } from "$lib/dev/components.svelte";
 	import { views } from "$lib/layouts/views";
 	import LoadingContainer from "../LoadingContainer.svelte";
 	import { isElementScrollable } from "$lib/utils/dom";
-	import { generateKeyId } from "$lib/utils/layout";
+	import { findSubPanel, generateKeyId } from "$lib/utils/layout";
+	import { goto } from "$app/navigation";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;
@@ -261,7 +261,18 @@ for Splitpanes
 						role="tab"
 						title={view.name}
 						aria-label={view.name}
-						onclick={() => makeViewActive(view instanceof VizView ? view : new VizView(view))}
+						onclick={async () => {
+							if (dev) {
+								if (activeView.id === view.id) {
+									if (view.path) {
+										await goto(view.path);
+										return;
+									}
+								}
+							}
+
+							makeViewActive(view instanceof VizView ? view : new VizView(view));
+						}}
 						use:tabDragable={data}
 						use:tabDrop
 						ondragover={(event) => onDropOver(event)}
