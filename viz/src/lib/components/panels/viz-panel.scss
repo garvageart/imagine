@@ -95,10 +95,10 @@
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    outline: 3px;
-    outline-offset: -3px;
+    outline: 2px;
+    outline-offset: -2px;
     outline-style: dashed;
-    outline-color: var(--imag-20);
+    outline-color: var(--imag-primary);
     background-color: rgba(212, 214, 219, 0.2);
     z-index: 899;
     transition: all 0.2s ease-in-out

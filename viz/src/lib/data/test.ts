@@ -4,7 +4,11 @@ import { ImageObjectData } from "$lib/entities/image";
 import { generateRandomString } from "$lib/utils/misc";
 import { faker } from "@faker-js/faker";
 
-
+/**
+ * Creates a random test user for testing purposes.
+ *
+ * @returns A UserData object with random data.
+ */
 export function createTestUser() {
     return new UserData({
         id: generateRandomString(8),
@@ -18,11 +22,17 @@ export function createTestUser() {
     });
 }
 
+/**
+ * Creates a random test image object for testing purposes.
+ * 
+ * @returns An ImageObjectData object with random data.
+ */
 export function createTestImageObject() {
     const randomImageNumber = Math.floor(Math.random() * 100);
+    const name = `${faker.word.adjective()} ${faker.word.noun()}`;
     return new ImageObjectData({
         id: generateRandomString(16),
-        name: `${faker.word.adjective()} ${faker.word.noun()}`,
+        name,
         collection_id: generateRandomString(16),
         uploaded_on: faker.date.past({ years: 2 }),
         updated_on: faker.date.recent({ days: 30 }),
@@ -37,7 +47,7 @@ export function createTestImageObject() {
             raw: `https://picsum.photos/1920/1080?random=${randomImageNumber}`
         },
         image_data: {
-            file_name: `${faker.word.noun()}.jpg`,
+            file_name: `${name.replace(/\s/g, "_")}.jpg`,
             file_size: Math.floor(Math.random() * 1000000) + 100000, // Random size between 100KB and 1MB
             original_file_name: `${faker.word.noun()}_original.jpg`,
             file_type: "jpg",
@@ -49,6 +59,11 @@ export function createTestImageObject() {
     });
 }
 
+/**
+ * Creates a new test collection with some random data.
+ *
+ * @returns A CollectionData object with random data.
+ */
 export function createTestCollection() {
     const testUser = createTestUser();
 

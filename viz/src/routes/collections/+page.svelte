@@ -8,12 +8,22 @@
 	import type { Collection } from "$lib/types/images";
 	import ModalOverlay from "$lib/components/modal/ModalOverlay.svelte";
 	import { modal } from "$lib/states/index.svelte";
-	import { goto, invalidateAll } from "$app/navigation";
+	import { goto } from "$app/navigation";
 	import type { ActionResult } from "@sveltejs/kit";
 	import { deserialize } from "$app/forms";
 	import SliderToggle from "$lib/components/SliderToggle.svelte";
+	import { page } from "$app/state";
 
 	let { data }: PageProps = $props();
+
+	const pagination = $state({
+		limit: 10,
+		offset: 0
+	});
+	let shouldUpdate = $derived(data.response.length > pagination.limit * pagination.offset);
+	let collectionsData = $derived(
+		data.response.slice(0, pagination.limit * (pagination.offset === 0 ? 1 : pagination.offset + 1))
+	); // initialize with pagination limit
 </script>
 
 <ModalOverlay>
@@ -60,7 +70,15 @@
 		</form>
 	</div>
 </ModalOverlay>
-<VizViewContainer name="Collections">
+<VizViewContainer
+	name="Collections"
+	bind:data={collectionsData}
+	bind:hasMore={shouldUpdate}
+	paginate={() => {
+		pagination.offset++;
+	}}
+	style="height: 100%;"
+>
 	<div id="viz-collections-toolbar">
 		<Button
 			id="create-collection"
@@ -72,8 +90,8 @@
 			<MaterialIcon iconName="add" />
 		</Button>
 	</div>
-	<div id="viz-card-container">
-		{#each data?.response as collection}
+	<div id="viz-card-container" style="padding: 0em {page.url.pathname === '/' ? '1em' : '3em'};">
+		{#each collectionsData as collection}
 			<CollectionCard {collection} />
 		{/each}
 	</div>
@@ -169,7 +187,6 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
-		// padding: 2em;
 	}
 
 	:global(#create-collection) {
@@ -177,8 +194,7 @@
 	}
 
 	#viz-card-container {
-		padding: 1em 3em;
-		margin: 1em 0em;
+		margin: 2em 0em;
 		display: grid;
 		gap: 1em;
 		max-width: 100%;

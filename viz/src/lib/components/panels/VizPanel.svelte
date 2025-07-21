@@ -4,9 +4,9 @@
 	import { Splitpanes as Panel, type ITree } from "$lib/third-party/svelte-splitpanes";
 	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { arrayHasDuplicates, VizLocalStorage } from "$lib/utils/misc";
-	import { onMount } from "svelte";
+	import { onMount, untrack } from "svelte";
 	import SubPanel from "./SubPanel.svelte";
-	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
+	import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
 	import { debugEvent } from "$lib/utils/dom";
 	import { generateKeyId } from "$lib/utils/layout";
 
@@ -23,7 +23,24 @@
 
 	function intializeLayoutStructures() {
 		layoutState.tree ??= [];
-		layoutState.tree = storedLayout ?? testLayout;
+		let layout = storedLayout;
+		if (layout) {
+			layout = layout.map((panel) => {
+				return new VizSubPanelData({
+					...panel,
+					content: panel.childs.content.map((content) => {
+						return new Content({
+							...content,
+							size: content.size === null ? undefined : content.size
+						});
+					})
+				});
+			});
+		} else {
+			layout = testLayout;
+		}
+
+		layoutState.tree = layout;
 		layoutTree.childs = layoutState.tree;
 
 		const storedTree = treeLayout.get();
@@ -50,25 +67,25 @@
 
 	onMount(() => {
 		intializeLayoutStructures();
-		const duplicateAnswer = arrayHasDuplicates(
-			layoutState.tree
-				.flatMap((panel) => {
-					if (panel.views) {
-						return panel.views.map((tab) => tab.id);
-					} else {
-						return [];
-					}
-				})
-				.concat(
-					testLayout.flatMap((panel) =>
-						panel.childs?.content ? panel.childs.content.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
-					)
-				)
-		);
+		// const duplicateAnswer = arrayHasDuplicates(
+		// 	layoutState.tree
+		// 		.flatMap((panel) => {
+		// 			if (panel.views) {
+		// 				return panel.views.map((tab) => tab.id);
+		// 			} else {
+		// 				return [];
+		// 			}
+		// 		})
+		// 		.concat(
+		// 			testLayout.flatMap((panel) =>
+		// 				panel.childs?.content ? panel.childs.content.flatMap((subPanel) => subPanel.views.map((tab) => tab.id)) : []
+		// 			)
+		// 		)
+		// );
 
-		if (duplicateAnswer.hasDuplicates) {
-			console.error("The following tabs have duplicate IDs. Please check the panels loaded", duplicateAnswer.duplicates);
-		}
+		// if (duplicateAnswer.hasDuplicates) {
+		// 	console.error("The following tabs have duplicate IDs. Please check the panels loaded", duplicateAnswer.duplicates);
+		// }
 	});
 
 	// This derived value was initially used to do
@@ -84,23 +101,36 @@
 	}
 
 	$effect(() => {
-		saveLayout.set(layoutState.tree);
+		// looool proxies don't save properly in JSON.stringify lmao
+		const layoutToSave = layoutState.tree.map((panel) => {
+			return Object.assign(
+				{},
+				{
+					id: panel.id,
+					keyId: panel.paneKeyId,
+					size: panel.size,
+					minSize: panel.minSize,
+					maxSize: panel.maxSize,
+					class: panel.class,
+					childs: panel.childs,
+					views: panel.views
+				}
+			);
+		}) as unknown as VizSubPanelData[];
+		saveLayout.set(layoutToSave);
 		layoutTree.childs = layoutState.tree;
-		treeLayout.set(layoutTree);
+		const layoutTreeSave = { ...layoutTree } as unknown as ITree;
+		layoutTreeSave.childs = layoutToSave;
+		treeLayout.set(layoutTreeSave);
 	});
-</script>
 
-<Panel
-	{id}
-	{theme}
-	keyId={generateKeyId(16)}
-	style="max-height: 100%;"
-	pushOtherPanes={false}
-	on:resized={(event) => {
+	function handleResize(event: CustomEvent<VizSubPanelData[]>) {
 		debugEvent(event);
 		layoutState.tree = event.detail;
-	}}
->
+	}
+</script>
+
+<Panel {id} {theme} keyId={generateKeyId(16)} style="max-height: 100%;" pushOtherPanes={false} on:resized={handleResize}>
 	<!--
 Okay so, here's the problem,
 
@@ -131,14 +161,7 @@ component yet which is a bit of a problem I guess
 		{#key panel.childs.content.length}
 			<!-- empty array for views to supress typescript errors about required views -->
 			<SubPanel {...panel.childs.internalSubPanelContainer} class="viz-internal-subpanel" header={false} maxSize={100} views={[]}>
-				<Panel
-					{...panel.childs.internalPanelContainer}
-					class="viz-internal-panel"
-					on:resized={(event) => {
-						debugEvent(event);
-						layoutState.tree = event.detail;
-					}}
-				>
+				<Panel {...panel.childs.internalPanelContainer} class="viz-internal-panel" on:resized={handleResize}>
 					<!-- TODO: Document and explain what the hell is going on -->
 					<!-- ---------------------------------------------------- -->
 					<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->

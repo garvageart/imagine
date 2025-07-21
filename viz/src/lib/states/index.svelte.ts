@@ -25,3 +25,7 @@ export let search = $state({
 export let modal = $state({
     show: false
 });
+
+export let lightbox = $state({
+    show: false
+});

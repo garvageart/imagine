@@ -4,7 +4,7 @@ import { createTestCollection } from "$lib/data/test";
 
 export const load: PageLoad = ({ fetch }) => {
     let allCollections: Collection[] = [];
-    const randomCollectionCount = Math.floor(Math.random() * 30) + 10; // Random number between 5 and 25
+    const randomCollectionCount = Math.floor(Math.random() * 70) + 70; // Random number between 5 and 25
     for (let i = 0; i < randomCollectionCount; i++) {
         const testData = createTestCollection();
 

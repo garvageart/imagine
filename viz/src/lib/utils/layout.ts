@@ -75,6 +75,6 @@ export function findSubPanel(key: keyof VizSubPanelData, value: VizSubPanelData[
     };
 }
 
-export function addContentToSubPanel(view: VizView, parentIndex: number, contentIndex: number) {
+export function addViewToContent(view: VizView, parentIndex: number, contentIndex: number) {
     layoutState.tree[parentIndex].childs.content[contentIndex].views.push(view);
 }

@@ -49,7 +49,7 @@
 	import { calcComputedStyle } from "./internal/utils/styling.js";
 	import { VizLocalStorage } from "$lib/utils/misc";
 	import { allSplitpanes, layoutState, layoutTree } from "./state.svelte";
-	import VizSubPanelData from "$lib/layouts/subpanel.svelte";
+	import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
 	import { generateKeyId } from "$lib/utils/layout";
 
 	// TYPE DECLARATIONS ----------------
@@ -790,7 +790,20 @@
 
 		const updatedLayout = currentLayout.map(updatePanelSize);
 
-		return updatedLayout;
+		return updatedLayout.map((panel) => {
+			const newPanel = new VizSubPanelData({
+				id: panel.id,
+				keyId: panel.paneKeyId,
+				size: panel.size,
+				minSize: panel.minSize,
+				maxSize: panel.maxSize,
+				class: panel.class,
+				content: panel.childs.content
+			});
+
+			newPanel.childs = panel.childs;
+			return newPanel;
+		});
 	}
 
 	/**

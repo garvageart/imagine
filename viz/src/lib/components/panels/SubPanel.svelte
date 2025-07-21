@@ -17,7 +17,7 @@
 </script>
 
 <script lang="ts">
-	import { untrack, type ComponentProps, type Snippet } from "svelte";
+	import { setContext, untrack, type ComponentProps, type Snippet } from "svelte";
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
 	import MaterialIcon from "../MaterialIcon.svelte";
 	import { dev } from "$app/environment";
@@ -88,8 +88,8 @@
 		throw new Error("Viz: Header is showing, but no tabs are provided for: " + keyId);
 	}
 
-	const storedActiveView = panelViews.find((view) => view.isActive === true);
-	let activeView = $state(storedActiveView ?? panelViews[0]);
+	const storedActiveView = $derived(panelViews.find((view) => view.isActive === true));
+	let activeView = $derived(storedActiveView ?? panelViews[0]);
 	let panelData = $derived(activeView?.getComponentData());
 
 	let subPanelContentElement: HTMLDivElement | undefined = $state();
@@ -113,6 +113,10 @@
 
 	if (panelViews.length) {
 		tabDropper = new TabOps(panelViews);
+		setContext<Content>("content", {
+			paneKeyId: keyId,
+			views: panelViews
+		});
 		$effect(() => {
 			const element = subPanelContentElement;
 			if (!element) {

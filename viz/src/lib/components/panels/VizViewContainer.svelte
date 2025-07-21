@@ -1,36 +1,85 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import type { Snippet } from "svelte";
+	import { onDestroy, onMount, type Snippet } from "svelte";
 	import LoadingContainer from "../LoadingContainer.svelte";
 	import { dev } from "$app/environment";
 	import type { SvelteHTMLElements } from "svelte/elements";
+	import { isElementScrollable } from "$lib/utils/dom";
 
 	interface Props {
 		children: Snippet;
 		name: string;
 		style?: string;
+		data?: typeof page.data;
+		hasMore?: boolean;
+		paginate?: () => void;
 	}
 
-	let { children, name, style, ...props }: SvelteHTMLElements["div"] & Props = $props();
+	let {
+		children,
+		name,
+		style,
+		hasMore = $bindable(false), // default to false, don't spam unnecessarily
+		data = $bindable(),
+		paginate,
+		...props
+	}: SvelteHTMLElements["div"] & Props = $props();
+
 	let isLoading = $state(true);
 	const initStyle = $derived(`${isLoading ? "height: 100%;" : ""} ${style}`);
-	const pageData = $derived.by(() => {
+	let pageData = $derived.by(() => {
 		if (dev) {
-			const randomLatency = dev ? Math.floor(Math.random() * 2000) + 500 : 0; // Random latency between 1 and 3 seconds in dev mode
+			const randomLatency = Math.floor(Math.random() * 2000) + 500; // Random latency between 1 and 3 seconds in dev mode
 			return new Promise((resolve) => {
 				setTimeout(() => {
 					isLoading = false;
-					if (dev) {
-						console.log("random latency:", randomLatency, "ms");
-						console.log("pageData resolved:", page.data);
-					}
-					resolve(page.data);
+					console.log("random latency:", randomLatency, "ms");
+					console.log("pageData resolved:", $state.snapshot(data));
+					resolve(data);
 				}, randomLatency);
 			});
 		} else {
-			return page.data;
+			return data;
 		}
 	});
+
+	// Clean up stuff since this component gets mounted and unmounted often, especially during development
+	onDestroy(() => {
+		pageData = undefined;
+	});
+
+	// Scroll handling
+	let scrollThreshold = 0; // in pixels
+	let isLoadMore = $state(false);
+
+	function loadMore() {
+		paginate?.();
+	}
+
+	function handleLoadOnMount(element: HTMLDivElement) {
+		onMount(() => {
+			// When the component is mounted, check if there's more data to show
+			// and if so, load more so that the user can scroll down
+			// If not, then there's no data to load and no scrollbar is required
+			if (!isLoadMore && hasMore && !isElementScrollable(element)) {
+				loadMore();
+			}
+		});
+	}
+
+	function onScroll(e: UIEvent) {
+		const element = e.target! as HTMLDivElement;
+		const offset = element.scrollHeight - element.clientHeight - element.scrollTop;
+
+		if (offset <= scrollThreshold) {
+			if (!isLoadMore && hasMore) {
+				loadMore();
+			}
+			isLoadMore = true;
+		} else {
+			isLoadMore = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -38,7 +87,15 @@
 		<title>{name}</title>
 	{/if}
 </svelte:head>
-<div {...props} class="viz-view-container" style={initStyle} data-view-name={name}>
+<div
+	{...props}
+	class="viz-view-container"
+	use:handleLoadOnMount
+	onscroll={onScroll}
+	onresize={onScroll}
+	style={initStyle}
+	data-view-name={name}
+>
 	{#if page.url.pathname === "/"}
 		{@render children()}
 	{:else}
@@ -47,6 +104,11 @@
 		{:then data}
 			{#if data}
 				{@render children()}
+				{#if hasMore}
+					<div style="width: 3em; height: 3em; margin: 5em;">
+						<LoadingContainer />
+					</div>
+				{/if}
 			{:else}
 				<p>No data available</p>
 			{/if}
