@@ -1,18 +1,14 @@
 package db
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
-	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	imaglog "imagine/log"
-	"imagine/utils"
 )
 
 func (db *DB) Connect() (*gorm.DB, error) {
@@ -119,38 +115,4 @@ func SetupDatabaseLogger() *slog.Logger {
 	})
 
 	return imaglog.CreateLogger([]slog.Handler{fileHandler, consoleHandler})
-}
-
-// This is just for testing
-// DO NOT USE IN PROD
-func Initis() error {
-	mongoCtx, cancelMongo := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancelMongo()
-
-	var db = &DB{
-		Address:         "localhost",
-		Port:            27017,
-		User:            os.Getenv("MONGO_USER"),
-		Password:        os.Getenv("MONGO_PASSWORD"),
-		AppName:         utils.AppName,
-		DatabaseName:    "imagine-dev",
-		TableNameString: "images",
-		Context:         mongoCtx,
-	}
-
-	client, err := db.Connect()
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		if client != nil {
-			if disconnectErr := db.Disconnect(client); disconnectErr != nil {
-				panic("error disconnecting from MongoDB: " + disconnectErr.Error())
-			}
-
-			fmt.Println("Disconnected from MongoDB")
-		}
-	}()
-	return err
 }
