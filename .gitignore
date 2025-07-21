@@ -5,7 +5,7 @@ logs
 var
 resources/test
 resources/internal
-auth
+security
 
 # Misc files
 auth/*.json
