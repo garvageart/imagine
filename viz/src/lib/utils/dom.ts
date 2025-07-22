@@ -64,3 +64,9 @@ export function buildGridArray(element: HTMLElement) {
         })
     );
 }
+
+export function blurOnEsc(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Esc") {
+        (event.currentTarget as HTMLElement)?.blur();
+    }
+}
