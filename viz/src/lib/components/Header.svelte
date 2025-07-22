@@ -7,6 +7,9 @@
 	import { performSearch } from "$lib/search/execute";
 	import MaterialIcon from "./MaterialIcon.svelte";
 	import { page } from "$app/state";
+	import type { SvelteHTMLElements } from "svelte/elements";
+
+	let { ...props }: SvelteHTMLElements["header"] = $props();
 
 	// eventually this will move to a different page with a different way of enabling, this is just temporary
 	const storeDebug = new VizLocalStorage<boolean>("debugMode");
@@ -39,7 +42,7 @@
 	let searchInputHasFocus = $state(false);
 </script>
 
-<header>
+<header {...props} class="{props.class} no-select">
 	<a id="viz-title" href="/">viz</a>
 	<div class="search-container{searchInputHasFocus ? ' has-focus' : ''}">
 		<button

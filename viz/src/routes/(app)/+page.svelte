@@ -22,7 +22,7 @@
 	<p>Skip to main content</p>
 </a>
 
-<main id="main" style="height: calc(100% - {mainHeaderHeight + 2}px);">
+<main id="main" style="height: calc(100% - {mainHeaderHeight + 2}px);" class="no-select">
 	<div class="viz-content-container" bind:this={vizContentContainer}>
 		<VizPanel id="viz-content" />
 	</div>
