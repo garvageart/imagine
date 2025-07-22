@@ -6,9 +6,10 @@
 	interface Props {
 		label: string;
 		value: "on" | "off";
+		labelPos?: "side" | "top";
 	}
 
-	let { label, value = $bindable(), ...props }: Props & SvelteHTMLElements["div"] = $props();
+	let { label, value = $bindable(), labelPos = "side", ...props }: Props & SvelteHTMLElements["div"] = $props();
 
 	let checked = $state(true);
 	const uniqueID = generateRandomString(6);
@@ -27,10 +28,11 @@
 	}
 </script>
 
-<div {...props} class="toggle-slider">
+<div {...props} class="toggle-slider {labelPos === 'side' ? 'side' : 'top'}">
 	<label for="switch-{uniqueID}" id={`switch-${uniqueID}-label`}>{label}</label>
 	<button
 		id="switch-{uniqueID}"
+		style={labelPos === "side" ? "margin-left: 0.5em;" : ""}
 		role="switch"
 		aria-checked={checked}
 		data-checked={checked}
@@ -54,13 +56,25 @@
 	.toggle-slider {
 		display: flex;
 		align-items: center;
+
+		&.side {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		&.top {
+			flex-direction: column;
+			align-items: flex-start;
+			justify-content: space-between;
+			height: 3.2em;
+		}
 	}
 
 	.toggle-slider button {
 		width: 3em;
 		height: 1.6em;
 		position: relative;
-		margin: 0 0 0 0.5em;
 		background: var(--gray);
 		border: none;
 	}
