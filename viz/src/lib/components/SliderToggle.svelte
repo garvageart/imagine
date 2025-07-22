@@ -18,6 +18,7 @@
 	});
 
 	function handleClick(event: MouseEvent) {
+		event.preventDefault();
 		const target = event.target as HTMLButtonElement;
 		const state = target.getAttribute("aria-checked");
 
