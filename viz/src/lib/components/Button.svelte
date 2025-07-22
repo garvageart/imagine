@@ -4,7 +4,7 @@
 	let { children, ...props }: HTMLButtonAttributes = $props();
 </script>
 
-<button {...props}>
+<button {...props} aria-label={props["aria-label"] ?? props.title}>
 	{@render children?.()}
 </button>
 
