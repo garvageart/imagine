@@ -13,6 +13,7 @@
 	import { deserialize } from "$app/forms";
 	import SliderToggle from "$lib/components/SliderToggle.svelte";
 	import { page } from "$app/state";
+	import { DateTime } from "luxon";
 
 	let { data }: PageProps = $props();
 
@@ -64,7 +65,7 @@
 			<!-- svelte-ignore element_invalid_self_closing_tag -->
 			<textarea id="create_collection-description" name="description" rows="1" placeholder="Description (optional)" />
 			<SliderToggle id="create_collection-private" style="margin-bottom: 1rem;" label="Private" value="off" />
-			<Button>
+			<Button style="margin-top: 1rem;">
 				<input id="create_collection-submit" type="submit" value="Create" />
 			</Button>
 		</form>
@@ -80,15 +81,20 @@
 	style="height: 100%;"
 >
 	<div id="viz-collections-toolbar">
-		<Button
-			id="create-collection"
-			onclick={() => {
-				modal.show = true;
-			}}
-		>
-			Create
-			<MaterialIcon iconName="add" />
-		</Button>
+		<span id="coll-details-floating">{data.response.length} {data.response.length === 1 ? "collection" : "collections"}</span>
+		<div id="coll-tools">
+			<Button
+				id="create-collection"
+				title="Create Collection"
+				aria-label="Create Collection"
+				onclick={() => {
+					modal.show = true;
+				}}
+			>
+				Create
+				<MaterialIcon iconName="add" />
+			</Button>
+		</div>
 	</div>
 	<div id="viz-card-container" style="padding: 0em {page.url.pathname === '/' ? '1em' : '3em'};">
 		{#each collectionsData as collection}
@@ -99,13 +105,40 @@
 
 <style lang="scss">
 	#viz-collections-toolbar {
+		font-size: 1em;
 		width: 100%;
 		max-width: 100%;
+		min-height: 3rem;
 		padding: 0.5rem 0rem;
 		display: flex;
-		justify-content: space-between;
+		flex-direction: row;
+		align-items: center;
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background-color: change-color($color: #0f1726, $alpha: 0.95);
+		backdrop-filter: blur(5px);
 		border-bottom: 1px solid var(--imag-60);
-		font-size: 0.8em;
+
+		& :global(button) {
+			font-size: 0.8em;
+		}
+	}
+
+	#coll-details-floating {
+		color: var(--imag-40);
+		background-color: transparent;
+		padding: 0.5rem 0rem;
+		margin: 0rem 1rem;
+		font-family: var(--imag-code-font);
+	}
+
+	#coll-tools {
+		display: flex;
+		align-items: center;
+		position: absolute;
+		right: 2rem;
+		height: 100%;
 	}
 
 	form {
@@ -134,7 +167,7 @@
 		font-size: 2rem;
 		font-family: var(--imag-font-family);
 		font-weight: bold;
-		padding: 0.5rem 0rem;
+		padding: 0.5rem 1rem;
 		margin-bottom: 1em;
 
 		&::placeholder {
