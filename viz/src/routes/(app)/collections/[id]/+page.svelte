@@ -12,7 +12,7 @@
 	import hotkeys from "hotkeys-js";
 	import { blurOnEsc, buildGridArray } from "$lib/utils/dom.js";
 	import { dev } from "$app/environment";
-	
+
 	let { data = $bindable(page.data as PageData) } = $props();
 
 	// Types
@@ -101,6 +101,12 @@
 
 			for (let i = start; i <= end; i++) {
 				selectedImages.add(imagesData[i]);
+			}
+		} else if (e.ctrlKey) {
+			if (selectedImages.has(image)) {
+				selectedImages.delete(image);
+			} else {
+				selectedImages.add(image);
 			}
 		} else {
 			selectedImages.clear();
@@ -360,6 +366,10 @@
 				}}
 				ondblclick={(e) => {
 					e.preventDefault();
+					if (e.ctrlKey) {
+						return;
+					}
+
 					lightboxImage = image;
 				}}
 				onkeydown={(e) => {
