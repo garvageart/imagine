@@ -9,8 +9,22 @@ import (
 	"github.com/go-chi/render"
 )
 
+type ErrorResponse struct {
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+	Code    int    `json:"code"`
+}
+
+func CreateErrorResponse(message string, status int, code int) ErrorResponse {
+	return ErrorResponse{
+		Message: message,
+		Status:  status,
+		Code:    code,
+	}
+}
+
 // Logs the error to all sources and creates an HTTP 500 response
-// if there is a user message to send. HTTP responses will be sent in JSON 
+// if there is a user message to send. HTTP responses will be sent in JSON
 func ServerError(res http.ResponseWriter, req *http.Request, err error, logger *slog.Logger, logArgs []slog.Attr, msg string, userMsg string) {
 	jsonResponse := map[string]any{
 		"user_message": "Something went wrong on our side, please try again later",
@@ -44,8 +58,8 @@ func ServerError(res http.ResponseWriter, req *http.Request, err error, logger *
 
 	logger.Error(msg, slog.Any("args", logArgs))
 
-	if (userMsg == "") {
-		return		
+	if userMsg == "" {
+		return
 	}
 
 	// Usually theres no other kind of http error code for stuff breaking on the server
