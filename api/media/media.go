@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,12 +9,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	libvips "github.com/davidbyttow/govips/v2/vips"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 
-	gcp "imagine/common/gcp/storage"
+	"imagine/common/entities"
 	libhttp "imagine/common/http"
+	"imagine/db"
+	"imagine/utils"
 )
 
 const (
@@ -26,33 +28,33 @@ type ImagineMediaServer struct {
 	*libhttp.ImagineServer
 }
 
-func (server ImagineMediaServer) setupImageRouter() *chi.Mux {
-	imageRouter := chi.NewRouter()
+// func (server ImagineMediaServer) setupImageRouter() *chi.Mux {
+// 	imageRouter := chi.NewRouter()
 
-	logger := server.Logger
+// 	logger := server.Logger
 
-	gcsContext, gcsContextCancel := context.WithCancel(context.Background())
-	defer gcsContextCancel()
+// 	gcsContext, gcsContextCancel := context.WithCancel(context.Background())
+// 	defer gcsContextCancel()
 
-	storageClient, err := gcp.SetupClient(gcsContext)
-	if err != nil {
-		panic("Failed to setup GCP Storage client" + err.Error())
-	}
+// 	storageClient, err := gcp.SetupClient(gcsContext)
+// 	if err != nil {
+// 		panic("Failed to setup GCP Storage client" + err.Error())
+// 	}
 
-	imageRouter.Get("/download", func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusNotImplemented)
-		res.Header().Add("Content-Type", "text/plain")
-		res.Write([]byte("not implemented"))
-	})
+// 	imageRouter.Get("/download", func(res http.ResponseWriter, req *http.Request) {
+// 		res.WriteHeader(http.StatusNotImplemented)
+// 		res.Header().Add("Content-Type", "text/plain")
+// 		res.Write([]byte("not implemented"))
+// 	})
 
-	imageRouter.Get("/upload", func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusNotImplemented)
-		res.Header().Add("Content-Type", "text/plain")
-		res.Write([]byte("not implemented"))
-	})
+// 	imageRouter.Get("/upload", func(res http.ResponseWriter, req *http.Request) {
+// 		res.WriteHeader(http.StatusNotImplemented)
+// 		res.Header().Add("Content-Type", "text/plain")
+// 		res.Write([]byte("not implemented"))
+// 	})
 
-	return imageRouter
-}
+// 	return imageRouter
+// }
 
 // TODO: This will be the main API server and therefore will have a lot of routes.
 // This file and directory will be renamed to "api" and the parent directory to "servers" :)
@@ -61,8 +63,9 @@ func (server ImagineMediaServer) setupImageRouter() *chi.Mux {
 
 // TODO TODO: Create a `createServer/Router` function that returns a router
 // with common defaults for each server type
+
 func (server ImagineMediaServer) Launch(router *chi.Mux) {
-	imageRouter := server.setupImageRouter()
+	// imageRouter := server.setupImageRouter()
 	logger := server.Logger
 
 	correctLogger := slog.NewLogLogger(logger.Handler(), slog.LevelDebug)
@@ -74,23 +77,35 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	router.Use(middleware.AllowContentEncoding("deflate", "gzip"))
 	router.Use(middleware.RequestID)
 
+	libvips.Startup(nil)
+	defer libvips.Shutdown()
+
+	database := server.Database
+	client := database.Client
+
 	// Mount image router to main router
-	router.Mount("/image", imageRouter)
+	router.Mount("/collections", CollectionsRouter(client, logger))
+	router.Mount("/images", ImagesRouter(client, logger))
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 		jsonResponse := map[string]any{"message": "pong"}
 		render.JSON(res, req, jsonResponse)
 	})
 
-	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
+	// TODO: only admin can do a healthcheck
+	router.Post("/healthcheck", func(res http.ResponseWriter, req *http.Request) {
+		result := client.Exec("SELECT 1")
+		if result.Error != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+			render.JSON(res, req, map[string]string{"error": "healthcheck failed"})
+			return
+		}
 
-	logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", serverKey, address))
-	err := http.ListenAndServe(address, router)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to start server: %s", err)
-		logger.Error(errMsg)
-		panic(errMsg)
-	}
+		res.WriteHeader(http.StatusOK)
+		render.JSON(res, req, map[string]string{"message": "ok", "status": "all love and peace 🤍"})
+	})
+
+	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
 
 	go func() {
 		logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", serverKey, address))
@@ -129,6 +144,19 @@ func main() {
 
 	server := ImagineMediaServer{ImagineServer: libhttp.ImagineServers[serverKey]}
 	server.ImagineServer.Logger = logger
+	server.Database = &db.DB{
+		Address:      "localhost",
+		Port:         5432,
+		User:         os.Getenv("DB_USER"),
+		Password:     os.Getenv("DB_PASSWORD"),
+		AppName:      utils.AppName,
+		DatabaseName: "imagine-dev",
+		Logger:       logger,
+	}
+
+	// Lmao I hate this
+	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{})
+	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)
 }
