@@ -2,12 +2,16 @@ package http
 
 import (
 	"log/slog"
+	"fmt"
 
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 
-	"fmt"
 	libos "imagine/common/os"
+	"imagine/db"
 	"imagine/utils"
+
+	_ "github.com/joho/godotenv/autoload"
 )
 
 var (
@@ -33,7 +37,7 @@ var (
 		result := map[string]*ImagineServer{}
 		for _, serverKey := range ServerKeys {
 			result[serverKey] = &ImagineServer{Server: &Server{}}
-			
+
 			result[serverKey].Port = config.GetInt(fmt.Sprintf("servers.%s.port", serverKey))
 			result[serverKey].Host = host
 			result[serverKey].Key = serverKey
@@ -51,7 +55,28 @@ type Server struct {
 
 type ImagineServer struct {
 	*Server
-	Logger *slog.Logger
+	Logger   *slog.Logger
+	Database *db.DB
+}
+
+func (server ImagineServer) ConnectToDatabase(dst ...any) *gorm.DB {
+	logger := server.Logger
+	database := server.Database
+
+	client, dbError := database.Connect()
+	if dbError != nil {
+		logger.Error("error connecting to postgres", slog.Any("error", dbError))
+		panic("")
+	}
+
+	logger.Info("Running auto-migration for auth server")
+	dbError = client.AutoMigrate(dst...)
+	if dbError != nil {
+		logger.Error("error running auto-migration for auth server", slog.Any("error", dbError))
+		panic("")
+	}
+
+	return client
 }
 
 func ReadConfig() (viper.Viper, error) {
