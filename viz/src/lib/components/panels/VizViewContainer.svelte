@@ -89,7 +89,7 @@
 </svelte:head>
 <div
 	{...props}
-	class="viz-view-container"
+	class="viz-view-container no-select {props.class}"
 	use:handleLoadOnMount
 	onscroll={onScroll}
 	onresize={onScroll}
