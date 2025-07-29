@@ -517,6 +517,7 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
 		gap: 1rem;
+		width: calc(100% - (1em * 2) - 2rem);
 		max-width: 100%;
 	}
 
