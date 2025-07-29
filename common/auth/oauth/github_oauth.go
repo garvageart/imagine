@@ -19,7 +19,7 @@ var (
 	GithubOAuthConfig = &oauth2.Config{
 		ClientID:     os.Getenv("GITHUB_OAUTH2_CLIENT_ID"),
 		ClientSecret: os.Getenv("GITHUB_OAUTH2_CLIENT_SECRET"),
-		RedirectURL:  "http://localhost:7777/signin/oauth?provider=GitHub",
+		RedirectURL:  "http://localhost:7777/auth/login/oauth?provider=GitHub",
 		Scopes: []string{
 			"read:user",
 			"user:email",
