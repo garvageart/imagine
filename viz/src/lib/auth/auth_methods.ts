@@ -70,7 +70,14 @@ export async function sendOAuthParams(provider: string | null): Promise<boolean>
 
 
     if (authData.email) {
-        goto("/signup");
+        goto("/auth/register", {
+            state: {
+                email: authData.email,
+                name: authData.name,
+                picture: authData.picture,
+                provider: provider
+            }
+        });
         return true;
     } else {
         cookieMethods.delete("imag-state");
