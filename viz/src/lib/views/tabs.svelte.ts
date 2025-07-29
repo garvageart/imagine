@@ -7,6 +7,7 @@ import { views } from "$lib/layouts/views";
 import { cleanupSubPanels, findChildIndex, findPanelIndex, getSubPanelParent } from "./utils";
 import type { DropPosition } from "./types";
 import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
+import { isTabData } from "$lib/utils/layout";
 
 export interface TabData {
     index: number;
@@ -195,6 +196,11 @@ class TabOps {
 
         const data = event.dataTransfer.getData("text/json");
         const state = JSON.parse(data) as TabData;
+
+        if (!isTabData(state)) {
+            return;
+        }
+
         const tabKeyId = node.getAttribute("data-tab-id")!;
         const nodeParentId = node.parentElement?.getAttribute("data-viz-sp-id");
         const nodeIsPanelHeader = node.classList.contains("viz-sub_panel-header");
@@ -652,6 +658,7 @@ class TabOps {
     subPanelDropInside(node: HTMLElement, data: TabData) {
         $effect(() => {
             node.addEventListener("dragenter", (e) => {
+                e.preventDefault();
                 this.handleDropInsideEnter(node);
             });
 
