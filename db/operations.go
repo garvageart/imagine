@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -17,10 +18,17 @@ func (db *DB) Connect() (*gorm.DB, error) {
 	}
 
 	logger := db.Logger
+	gormLogger := slogGorm.New(
+		slogGorm.WithHandler(logger.Handler()),
+		slogGorm.SetLogLevel(slogGorm.DefaultLogType, slog.LevelDebug),
+	)
+
 	logger.Info("Connecting to Postgres...")
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable", db.Address, db.User, db.Password, db.DatabaseName, db.Port)
-	client, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	client, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: gormLogger,
+	})
 	if err != nil {
 		return client, err
 	}
@@ -34,8 +42,6 @@ func (db *DB) Connect() (*gorm.DB, error) {
 
 	if db.TableNameString != "" {
 		db.Table = client.Table(db.TableNameString)
-	} else {
-		logger.Warn("No table name provided, consider providing a table name or use the SetTable() method to avoid errors")
 	}
 
 	// Set the client to the `Client` field on the receiver to be used else where
