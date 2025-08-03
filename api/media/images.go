@@ -469,17 +469,17 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 			defer libvipsImg.Close()
 
-			allImageData, entityErr := createNewImageEntity(fileLogger, fileName, libvipsImg)
-			if entityErr != nil {
-				failedImages = append(failedImages, entityErr)
-				logger.Warn("Failed to create image entity", slog.String("file", fileName), slog.Any("error", err))
+			allImageData, uploadErr := createNewImageEntity(fileLogger, fileName, libvipsImg)
+			if uploadErr != nil {
+				failedImages = append(failedImages, uploadErr)
+				logger.Warn("Failed to create image entity", slog.String("file", fileName), slog.Any("error", uploadErr))
 				continue
 			}
 
-			imgErr := createImageTypes(logger, allImageData, libvipsImg, imageBucket, db, ctx)
-			if imgErr != nil {
-				failedImages = append(failedImages, imgErr)
-				logger.Warn("Failed to create image types", slog.String("file", fileName), slog.Any("error", imgErr))
+			uploadErr = createImageTypes(logger, allImageData, libvipsImg, imageBucket, db, ctx)
+			if uploadErr != nil {
+				failedImages = append(failedImages, uploadErr)
+				logger.Warn("Failed to create image types", slog.String("file", fileName), slog.Any("error", uploadErr))
 
 				allImageData.Processed = true
 				dbSlice = append(dbSlice, allImageData)
