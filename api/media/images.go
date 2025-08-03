@@ -41,7 +41,7 @@ type ImageUploadURL struct {
 }
 
 type ImageUploadFile struct {
-	Data   []byte `json:"data"`
+	Data     []byte `json:"data"`
 	FileName string `json:"file_name"`
 }
 
@@ -52,7 +52,7 @@ type ImageUploadError struct {
 	Error     string `json:"error"`
 }
 
-func createImageTypes(fileLogger *slog.Logger, img *entities.Image, libvipsImg *libvips.ImageRef, bucket *storage.BucketHandle, tx *gorm.DB, context context.Context) *ImageUploadError {
+func createImageTypes(fileLogger *slog.Logger, img *entities.Image, libvipsImg *libvips.ImageRef, bucket *storage.BucketHandle, context context.Context) *ImageUploadError {
 	fileLogger.Info("processing image and generating, thumbnail, preview and original images")
 	var libvipsErr error
 
@@ -390,7 +390,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		imageEntity.FileSize = req.ContentLength
-		imageErr = createImageTypes(logger, imageEntity, libvipsImg, imageBucket, db, ctx)
+		imageErr = createImageTypes(logger, imageEntity, libvipsImg, imageBucket, ctx)
 
 		if imageErr != nil {
 			res.WriteHeader(http.StatusInternalServerError)
@@ -476,7 +476,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				continue
 			}
 
-			uploadErr = createImageTypes(logger, allImageData, libvipsImg, imageBucket, db, ctx)
+			uploadErr = createImageTypes(logger, allImageData, libvipsImg, imageBucket, ctx)
 			if uploadErr != nil {
 				failedImages = append(failedImages, uploadErr)
 				logger.Warn("Failed to create image types", slog.String("file", fileName), slog.Any("error", uploadErr))
