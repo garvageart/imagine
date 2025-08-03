@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"maps"
+	"math/rand"
 	"os"
 	"reflect"
 	"slices"
@@ -116,6 +117,10 @@ func StructToMap(item interface{}) map[string]interface{} {
 			}
 		}
 	}
-	
+
 	return res
+}
+
+func RandomInt(min, max int) int {
+	return min + rand.Intn(max-min)
 }
