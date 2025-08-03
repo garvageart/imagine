@@ -1,10 +1,10 @@
 package imageops
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"io"
+	"log/slog"
 	"os"
 
 	libos "imagine/common/os"
@@ -27,6 +27,53 @@ var (
 		FilePerm: os.ModePerm,
 	}
 )
+
+func GetColourSpaceString(image *libvips.ImageRef) string {
+	switch image.ColorSpace() {
+	case libvips.InterpretationError:
+		return "Error"
+	case libvips.InterpretationMultiband:
+		return "Multiband"
+	case libvips.InterpretationBW:
+		return "BW"
+	case libvips.InterpretationHistogram:
+		return "Histogram"
+	case libvips.InterpretationXYZ:
+		return "XYZ"
+	case libvips.InterpretationLAB:
+		return "LAB"
+	case libvips.InterpretationCMYK:
+		return "CMYK"
+	case libvips.InterpretationLABQ:
+		return "LABQ"
+	case libvips.InterpretationRGB:
+		return "RGB"
+	case libvips.InterpretationRGB16:
+		return "RGB16"
+	case libvips.InterpretationCMC:
+		return "CMC"
+	case libvips.InterpretationLCH:
+		return "LCH"
+	case libvips.InterpretationLABS:
+		return "LABS"
+	case libvips.InterpretationSRGB:
+		return "SRGB"
+	case libvips.InterpretationYXY:
+		return "YXY"
+	case libvips.InterpretationFourier:
+		return "Fourier"
+	case libvips.InterpretationGrey16:
+		return "Grey16"
+	case libvips.InterpretationMatrix:
+		return "Matrix"
+	case libvips.InterpretationScRGB:
+		return "ScRGB"
+	case libvips.InterpretationHSV:
+		return "HSV"
+	default:
+		return "Unknown"
+	}
+}
 
 func ScaleProportionally(lv *libvips.ImageRef, width int, height int) (*libvips.ImageRef, error) {
 	image := lv
@@ -91,16 +138,7 @@ func ReadToImage(reader io.Reader) (image.Image, string, error) {
 	return img, str, err
 }
 
-func GenerateThumbhash(imgData []byte) (hash []byte, err error) {
-	ioRead := io.NewSectionReader(bytes.NewReader(imgData), 0, int64(len(imgData)))
-
-	imgDecoded, _, err := ReadToImage(ioRead)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
-	}
-
-	hashBytes := thumbhash.EncodeImage(imgDecoded)
-
+func GenerateThumbhash(logger *slog.Logger, img image.Image) (hash []byte, err error) {
+	hashBytes := thumbhash.EncodeImage(img)
 	return hashBytes, nil
 }
