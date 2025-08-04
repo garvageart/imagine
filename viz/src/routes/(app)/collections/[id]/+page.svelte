@@ -65,6 +65,9 @@
 		return gridArray;
 	});
 
+	// Toolbar stuff
+	let toolbarOpacity = $state(0);
+
 	// Inspecting/Debugging
 	if (window.debug) {
 		$inspect(
@@ -278,42 +281,70 @@
 	paginate={() => {
 		pagination.offset++;
 	}}
->
-	<div id="viz-toolbar-container" style="top: {0}px;">
-		<!-- TODO: Selection options will show in this toolbar -->
-		<input
-			name="name"
-			id="coll-name-floating"
-			type="text"
-			placeholder="Add a title"
-			autocomplete="off"
-			autocorrect="off"
-			title={loadedData.name}
-			value={loadedData.name}
-			oninput={(e) => (loadedData.name = e.currentTarget.value)}
-			onkeydown={blurOnEsc}
-		/>
-		<span id="coll-details-floating"
-			>{DateTime.fromJSDate(loadedData.created_on).toFormat("dd.MM.yyyy")} - {loadedData.image_count}
-			{loadedData.image_count === 1 ? "image" : "images"}</span
-		>
+	onscroll={(e) => {
+		const info = document.getElementById("viz-info-container")!;
+		const bottom = info.scrollHeight;
 
-		<div id="coll-tools">
-			{#if dev}
-				<button
-					id="print-collection-button"
-					class="toolbar-button"
-					title="Print Collection as Table"
-					aria-label="Print Collection as Table"
-					onclick={() => {
-						printGridAsTable();
-					}}
-				>
-					<MaterialIcon showHoverBG={false} iconName="print" />
-				</button>
-			{/if}
+		if (e.currentTarget.scrollTop < bottom) {
+			toolbarOpacity = e.currentTarget.scrollTop / bottom;
+		} else {
+			toolbarOpacity = 1;
+		}
+	}}
+>
+	{#if selectedImages.size > 1}
+		<div id="viz-toolbar-container" style="top: {0}px;">
+			<button
+				id="coll-clear-selection"
+				title="Clear selection"
+				aria-label="Clear selection"
+				style="margin-left: 1em;"
+				class="toolbar-button"
+				onclick={() => selectedImages.clear()}
+			>
+				<MaterialIcon iconName="close" />
+			</button>
+			<span style="font-weight: 600;">{selectedImages.size} selected</span>
 		</div>
-	</div>
+	{:else}
+		<div
+			id="viz-toolbar-container"
+			style="top: 0px; opacity: {toolbarOpacity}; visibility: {toolbarOpacity === 0 ? 'hidden' : 'visible'};"
+		>
+			<!-- TODO: Selection options will show in this toolbar -->
+			<input
+				name="name"
+				id="coll-name-floating"
+				type="text"
+				placeholder="Add a title"
+				autocomplete="off"
+				autocorrect="off"
+				title={loadedData.name}
+				value={loadedData.name}
+				oninput={(e) => (loadedData.name = e.currentTarget.value)}
+				onkeydown={blurOnEsc}
+			/>
+			<span id="coll-details-floating"
+				>{DateTime.fromJSDate(loadedData.created_on).toFormat("dd.MM.yyyy")} - {loadedData.image_count}
+				{loadedData.image_count === 1 ? "image" : "images"}</span
+			>
+			<div id="coll-tools">
+				{#if dev}
+					<button
+						id="print-collection-button"
+						class="toolbar-button"
+						title="Print Collection as Table"
+						aria-label="Print Collection as Table"
+						onclick={() => {
+							printGridAsTable();
+						}}
+					>
+						<MaterialIcon showHoverBG={false} iconName="print" />
+					</button>
+				{/if}
+			</div>
+		</div>
+	{/if}
 	<div id="viz-info-container">
 		<div id="coll-metadata">
 			<span id="coll-details"
@@ -408,6 +439,7 @@
 		background-color: rgba(39, 51, 74, 0.9);
 		backdrop-filter: blur(5px);
 		border-bottom: 1px solid var(--imag-60);
+			min-height: 3em;
 		width: 100%;
 		max-width: 100%;
 		display: flex;
