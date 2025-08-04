@@ -91,9 +91,15 @@
 	{...props}
 	class="viz-view-container no-select {props.class}"
 	use:handleLoadOnMount
-	onscroll={onScroll}
-	onresize={onScroll}
-	style={initStyle}
+	onscroll={(e) => {
+		onScroll(e);
+		props.onscroll?.(e);
+	}}
+	onresize={(e) => {
+		onScroll(e);
+		props.onresize?.(e);
+	}}
+	style="{initStyle} {style}"
 	data-view-name={name}
 >
 	{#if page.url.pathname === "/"}
@@ -124,7 +130,7 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		overflow-y: auto;
+		overflow: auto;
 		max-width: 100%;
 	}
 </style>
