@@ -55,7 +55,7 @@
 	let selectedImages = $state<SvelteSet<IImageObjectData>>(new SvelteSet());
 	let singleSelectedImage: IImageObjectData | undefined = $state();
 	let imageGridArray: ImageGridArray | undefined = $derived.by(() => {
-		// depend on imagesData
+		// depend on imagesGridEl
 		imagesGridEl;
 		if (!imagesGridEl) {
 			return;
