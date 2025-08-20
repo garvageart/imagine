@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { lightbox } from "$lib/states/index.svelte";
+
+	let lightboxEl: HTMLElement | undefined = $state();
 	let {
 		children,
-		onclick
+		onclick,
+		lightboxElement = $bindable()
 	}: {
 		children: () => any;
 		onclick?: (
@@ -10,8 +13,12 @@
 				currentTarget: EventTarget & Document;
 			}
 		) => void;
+		lightboxElement?: HTMLElement | undefined;
 	} = $props();
-	let lightboxEl: HTMLElement | undefined = $state();
+
+	$effect(() => {
+		lightboxElement = lightboxEl;
+	});
 
 	if (window.debug) {
 		$effect(() => {
@@ -34,9 +41,9 @@
 
 <svelte:document
 	on:click={(e) => {
-        if (e.target === lightboxEl) {
-            lightbox.show = false;
-            onclick && onclick(e);
+		if (e.target === lightboxEl) {
+			lightbox.show = false;
+			onclick?.(e);
 		}
 	}}
 />

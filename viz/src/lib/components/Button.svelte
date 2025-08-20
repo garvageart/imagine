@@ -1,10 +1,40 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import type { HTMLButtonAttributes } from "svelte/elements";
 
-	let { children, ...props }: HTMLButtonAttributes = $props();
+	let { children, hoverColor = "var(--imag-90)", ...props }: { hoverColor?: string } & HTMLButtonAttributes = $props();
+	let el: HTMLButtonElement | undefined = $state();
+	let defaultBackgroundColour: string | undefined = $state();
+
+	onMount(() => {
+		defaultBackgroundColour = el?.computedStyleMap().get("background-color")?.toString();
+
+		// I hate this, why am I this person
+		if (defaultBackgroundColour === hoverColor) {
+			const colourStepValue = 10;
+			const currentColour = parseInt(defaultBackgroundColour.split("var(--imag-")[1].split(")")[0], 10);
+			if (currentColour <= 40) {
+				hoverColor = `var(--imag-${currentColour + colourStepValue})`;
+			} else {
+				hoverColor = `var(--imag-${currentColour - colourStepValue})`;
+			}
+		}
+	});
 </script>
 
-<button {...props} aria-label={props["aria-label"] ?? props.title}>
+<button
+	bind:this={el}
+	{...props}
+	onmouseenter={(e) => {
+		props.onmouseenter?.(e);
+		e.currentTarget.style.setProperty("background-color", hoverColor);
+	}}
+	onmouseleave={(e) => {
+		props.onmouseleave?.(e);
+		e.currentTarget.style.setProperty("background-color", defaultBackgroundColour!);
+	}}
+	aria-label={props["aria-label"] ?? props.title}
+>
 	{@render children?.()}
 </button>
 
@@ -26,9 +56,5 @@
 		position: relative;
 		transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
 		border-radius: 100px;
-
-		&:hover {
-			background-color: var(--imag-100);
-		}
 	}
 </style>

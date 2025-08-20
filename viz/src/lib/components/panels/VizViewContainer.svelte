@@ -25,6 +25,7 @@
 		...props
 	}: SvelteHTMLElements["div"] & Props = $props();
 
+	let viewContainer: HTMLElement | undefined = $state();
 	let isLoading = $state(true);
 	const initStyle = $derived(`${isLoading ? "height: 100%;" : ""} ${style}`);
 	let pageData = $derived.by(() => {
@@ -49,7 +50,7 @@
 	});
 
 	// Scroll handling
-	let scrollThreshold = 0; // in pixels
+	let scrollThreshold = window.innerHeight / 2; // in pixels. idk maybe this setting somewhere else? customisable?
 	let isLoadMore = $state(false);
 
 	function loadMore() {
@@ -101,6 +102,7 @@
 	}}
 	style="{initStyle} {style}"
 	data-view-name={name}
+	bind:this={viewContainer}
 >
 	{#if page.url.pathname === "/"}
 		{@render children()}

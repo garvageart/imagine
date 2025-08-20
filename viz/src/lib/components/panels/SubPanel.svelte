@@ -288,8 +288,7 @@ for Splitpanes
 						shifting the layout  
 						-->
 						<MaterialIcon
-							showHoverBG={false}
-							style={`transform: translateY(${view.opticalCenterFix ?? 0.5}px);`}
+							style={`transform: translateY(${view.opticalCenterFix ?? 0.5}px); margin-left: 0.5em;`}
 							iconName="menu"
 						/>
 					</button>

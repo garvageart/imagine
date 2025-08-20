@@ -1,33 +1,14 @@
-<script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import type CollectionData from "$lib/entities/collection";
-	import { addViewToContent } from "$lib/utils/layout";
-	import VizView from "$lib/views/views.svelte";
-	import { DateTime } from "luxon";
-	import CollectionPage from "../../routes/(app)/collections/[id]/+page.svelte";
-	import { getContext } from "svelte";
-	import { Content } from "$lib/layouts/subpanel.svelte";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
-	import { findPanelIndex, getSubPanelParent } from "$lib/views/utils";
-	import type { SvelteHTMLElements } from "svelte/elements";
-
-	interface Props {
-		collection: CollectionData;
-	}
-
-	let { collection, ...props }: Props & SvelteHTMLElements["button"] = $props();
-
-	const currentContent = getContext<Content>("content");
-	function openCollection() {
+<script lang="ts" module>
+	export function openCollection(collection: CollectionData, currentContent: Content) {
 		if (page.url.pathname !== "/") {
+			goto(`/collections/${collection.id}`, { state: { from: page.url.pathname, data: collection } });
 			return;
 		}
 
 		const currentParentIdx = findPanelIndex(layoutState.tree, getSubPanelParent(layoutState.tree, currentContent.paneKeyId)!);
 		if (currentParentIdx === -1) {
 			console.warn("Can't find panel in layout, navigating to collection page");
-			goto(`/collections/${collection.id}`, { state: { from: page.url.pathname } });
+			goto(`/collections/${collection.id}`, { state: { from: page.url.pathname, data: collection } });
 			return;
 		}
 
@@ -36,7 +17,19 @@
 
 		if (childIndex === -1) {
 			console.warn(`Can't find child inside panel ${currentParent.paneKeyId}, navigating to collection page`);
-			goto(`/collections/${collection.id}`, { state: { from: page.url.pathname } });
+			goto(`/collections/${collection.id}`, { state: { from: page.url.pathname, data: collection } });
+			return;
+		}
+
+		const existingView = layoutState.tree
+			.flatMap((panel) => panel.childs.content)
+			.find((subPanel) => subPanel.views.some((view) => view.path === `/collections/${collection.id}`));
+
+		if (existingView) {
+			const parent = findSubPanel("paneKeyId", existingView.paneKeyId)?.subPanel as VizSubPanelData | undefined;
+			if (parent) {
+				parent.makeViewActive(existingView.views.find((view) => view.path === `/collections/${collection.id}`)!);
+			}
 			return;
 		}
 
@@ -51,7 +44,27 @@
 	}
 </script>
 
-<button {...props} type="button" class="coll-card" onclick={() => openCollection()} data-collection-id={collection.id}>
+<script lang="ts">
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import type CollectionData from "$lib/entities/collection";
+	import { addViewToContent, findSubPanel } from "$lib/utils/layout";
+	import VizView from "$lib/views/views.svelte";
+	import { DateTime } from "luxon";
+	import CollectionPage from "../../routes/(app)/collections/[id]/+page.svelte";
+	import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
+	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import { findPanelIndex, getSubPanelParent } from "$lib/views/utils";
+	import type { SvelteHTMLElements } from "svelte/elements";
+
+	interface Props {
+		collection: CollectionData;
+	}
+
+	let { collection, ...props }: Props & SvelteHTMLElements["div"] = $props();
+</script>
+
+<div {...props} class="coll-card" data-asset-id={collection.id}>
 	<div class="image-container">
 		<img src={collection.thumbnail?.urls.thumbnail} alt={collection.name} class="collection-image" />
 	</div>
@@ -60,7 +73,7 @@
 		<span class="coll-created_on">{DateTime.fromJSDate(collection.created_on).toFormat("dd.MM.yyyy")}</span>
 		<span class="coll-image_count">{collection.image_count} {collection.image_count === 1 ? "image" : "images"}</span>
 	</div>
-</button>
+</div>
 
 <style lang="scss">
 	.coll-name {
@@ -84,22 +97,10 @@
 		min-width: 100%;
 		max-width: 100%;
 		height: auto;
-		border-radius: 0.5em;
 		background-color: var(--imag-90);
 		transition: background-color 0.1s ease;
 		text-align: left;
 		overflow: overlay;
-		box-shadow: 0 4px 0 var(--imag-100);
-
-		&:hover {
-			background-color: var(--imag-70);
-			cursor: pointer;
-		}
-
-		&:active {
-			outline: 2px solid var(--imag-80);
-			outline-offset: -2px;
-		}
 	}
 
 	.image-container {
