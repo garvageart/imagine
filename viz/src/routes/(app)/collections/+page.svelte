@@ -1,7 +1,7 @@
 <script lang="ts">
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
 	import type { PageProps } from "./$types";
-	import CollectionCard from "$lib/components/CollectionCard.svelte";
+	import CollectionCard, { openCollection } from "$lib/components/CollectionCard.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import Button from "$lib/components/Button.svelte";
 	import { sendAPIRequest } from "$lib/utils/http";
@@ -9,11 +9,13 @@
 	import ModalOverlay from "$lib/components/modal/ModalOverlay.svelte";
 	import { modal } from "$lib/states/index.svelte";
 	import { goto } from "$app/navigation";
-	import type { ActionResult } from "@sveltejs/kit";
-	import { deserialize } from "$app/forms";
 	import SliderToggle from "$lib/components/SliderToggle.svelte";
 	import { page } from "$app/state";
-	import { DateTime } from "luxon";
+	import { SvelteSet } from "svelte/reactivity";
+	import AssetGrid from "$lib/components/AssetGrid.svelte";
+	import type { Content } from "$lib/layouts/subpanel.svelte";
+	import { getContext } from "svelte";
+	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
 
 	let { data }: PageProps = $props();
 
@@ -25,6 +27,12 @@
 	let collectionsData = $derived(
 		data.response.slice(0, pagination.limit * (pagination.offset === 0 ? 1 : pagination.offset + 1))
 	); // initialize with pagination limit
+
+	// Selection
+	let selectedAssets = $state<SvelteSet<any>>(new SvelteSet());
+	let singleSelectedAsset: any | undefined = $state();
+
+	const currentPanelContent = getContext<Content>("content");
 </script>
 
 <ModalOverlay>
@@ -51,13 +59,10 @@
 				)) as Response;
 
 				if (response) {
-					const result: ActionResult<Record<string, Collection>> = deserialize(await response.json());
+					const data = (await response.json()) as Collection;
 
-					// TODO: fix the shape of data
-					if (result.type === "success") {
-						goto(`/collections/${result.data?.data.id}`, { state: result.data?.data });
-						return;
-					}
+					modal.show = false;
+					goto(`/collections/${data.id}`);
 				}
 			}}
 		>
@@ -71,6 +76,17 @@
 		</form>
 	</div>
 </ModalOverlay>
+
+{#snippet collectionCard(collectionData: Collection)}
+	{#if page.url.pathname !== "/"}
+		<a data-sveltekit-preload-data class="collection-card-link" href="/collections/{collectionData.id}">
+			<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} collection={collectionData} />
+		</a>
+	{:else}
+		<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} collection={collectionData} />
+	{/if}
+{/snippet}
+
 <VizViewContainer
 	name="Collections"
 	bind:data={collectionsData}
@@ -80,65 +96,73 @@
 	}}
 	style="height: 100%;"
 >
-	<div id="viz-collections-toolbar">
-		<span id="coll-details-floating">{data.response.length} {data.response.length === 1 ? "collection" : "collections"}</span>
-		<div id="coll-tools">
-			<Button
-				id="create-collection"
-				title="Create Collection"
-				aria-label="Create Collection"
-				onclick={() => {
-					modal.show = true;
-				}}
+	{#if selectedAssets.size > 1}
+		<AssetToolbar class="selection-toolbar">
+			<button
+				id="coll-clear-selection"
+				title="Clear selection"
+				aria-label="Clear selection"
+				style="margin-right: 0.5em;"
+				class="toolbar-button"
+				onclick={() => selectedAssets.clear()}
 			>
-				Create
-				<MaterialIcon iconName="add" />
-			</Button>
-		</div>
-	</div>
-	<div id="viz-card-container" style="padding: 0em {page.url.pathname === '/' ? '1em' : '3em'};">
-		{#each collectionsData as collection}
-			{#if page.url.pathname !== "/"}
-				<a data-sveltekit-preload-data class="collection-card-link" href="/collections/{collection.id}">
-					<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} {collection} />
-				</a>
-			{:else}
-				<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} {collection} />
-			{/if}
-			
-		{/each}
-	</div>
+				<MaterialIcon iconName="close" />
+			</button>
+			<span style="font-weight: 600;">{selectedAssets.size} selected</span>
+		</AssetToolbar>
+	{:else}
+		<AssetToolbar>
+			<span id="coll-details-floating">{data.response.length} {data.response.length === 1 ? "collection" : "collections"}</span>
+			<div id="coll-tools">
+				<Button
+					id="create-collection"
+					class="toolbar-button"
+					style="font-size: 0.8rem; background-color: var(--imag-80);"
+					title="Create Collection"
+					aria-label="Create Collection"
+					onclick={() => {
+						modal.show = true;
+					}}
+				>
+					Create
+					<MaterialIcon iconName="add" />
+				</Button>
+			</div>
+		</AssetToolbar>
+	{/if}
+	<AssetGrid
+		assetDblClick={(_, asset) => {
+			openCollection(asset, currentPanelContent);
+		}}
+		assetSnippet={collectionCard}
+		data={data.response}
+		bind:selectedAssets
+		bind:singleSelectedAsset
+	/>
 </VizViewContainer>
 
 <style lang="scss">
 	@use "sass:color";
 
-	#viz-collections-toolbar {
-		font-size: 1em;
-		width: 100%;
-		max-width: 100%;
-		min-height: 3rem;
-		padding: 0.5rem 0rem;
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		position: sticky;
-		top: 0;
-		z-index: 1;
-		background-color: color.change($color: #0f1726, $alpha: 0.95);
-		backdrop-filter: blur(5px);
-		border-bottom: 1px solid var(--imag-60);
+	.collection-card-link {
+		cursor: context-menu;
+	}
 
-		& :global(button) {
-			font-size: 0.8em;
-		}
+	:global(.toolbar-button) {
+		border-radius: 10em;
+		margin: 0.5em 0em;
+		font-size: 0.9em;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--imag-text-color);
+		cursor: pointer;
 	}
 
 	#coll-details-floating {
 		color: var(--imag-40);
 		background-color: transparent;
-		padding: 0.5rem 0rem;
-		margin: 0rem 1rem;
+		margin: 0.5rem 0rem;
 		font-family: var(--imag-code-font);
 	}
 
@@ -229,23 +253,5 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
-	}
-
-	:global(#create-collection) {
-		margin: 0em 1rem;
-	}
-
-	#viz-card-container {
-		margin: 2em 0em;
-		display: grid;
-		gap: 1em;
-		max-width: 100%;
-		text-overflow: clip;
-		justify-content: center;
-		grid-template-columns: repeat(auto-fit, minmax(15em, 1fr));
-
-		& :global(.metadata) {
-			font-size: 0.9rem;
-		}
 	}
 </style>

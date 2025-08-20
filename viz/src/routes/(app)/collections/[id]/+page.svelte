@@ -1,280 +1,157 @@
 <script lang="ts">
 	import { page } from "$app/state";
+	import AssetGrid from "$lib/components/AssetGrid.svelte";
+	import AssetsShell from "$lib/components/AssetsShell.svelte";
 	import Lightbox from "$lib/components/Lightbox.svelte";
 	import LoadingContainer from "$lib/components/LoadingContainer.svelte";
-	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
-	import { lightbox } from "$lib/states/index.svelte";
+	import SearchInput from "$lib/components/SearchInput.svelte";
+	import { lightbox, sort } from "$lib/states/index.svelte";
+	import type { AssetGridArray } from "$lib/types/asset.js";
 	import type { IImageObjectData } from "$lib/types/images";
+	import { blurOnEsc, loadImage } from "$lib/utils/dom.js";
+	import hotkeys from "hotkeys-js";
 	import { DateTime } from "luxon";
 	import { SvelteSet } from "svelte/reactivity";
-	import type { PageData } from "./$types.js";
-	import hotkeys from "hotkeys-js";
-	import { blurOnEsc, buildGridArray } from "$lib/utils/dom.js";
-	import { dev } from "$app/environment";
+	import type { ComponentProps } from "svelte";
+	import { sortCollectionImages } from "$lib/sort/sort.js";
 
-	let { data = $bindable(page.data as PageData) } = $props();
-
-	// Types
-	type ImageGridArray = {
-		image: IImageObjectData;
-		row: number;
-		rowSize: number;
-		column: number;
-		columnSize: number;
-		size: number;
-	}[][];
-
+	let { data } = $props();
 	// Keyboard events
 	const permittedKeys: string[] = [];
 	const selectKeys = ["Enter", "Space", " "];
 	const moveKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 	permittedKeys.push(...selectKeys, ...moveKeys);
 
+	// Data
+	let loadedData = $state(data.response);
+
+	// Lightbox
+	let lightboxImage: IImageObjectData | undefined = $state();
+	let currentImageEl: HTMLImageElement | undefined = $derived(lightboxImage ? document.createElement("img") : undefined);
+
+	// Search stuff
+	let searchValue = $state("");
+	let searchData = $derived(searchForData());
+
+	// Pagination
+	// NOTE: This might be moved to a settings thing and this could just be default
 	const pagination = $state({
 		limit: 25,
 		offset: 0
 	});
 
-	// HTML Elements
-	let imagesGridEl: HTMLDivElement | undefined = $state();
-
-	// Data
-	let loadedData = $state(Object.assign({}, data.response));
-
-	// Lightbox
-	let lightboxImage: IImageObjectData | undefined = $state();
-	let currentImageEl: HTMLImageElement | undefined = $derived(lightboxImage ? document.createElement("img") : undefined);
-	let imageLoaded = $derived(false);
-
-	// Pagination
-	let imagesData = $derived(loadedData.images.slice(0, pagination.limit * (pagination.offset === 0 ? 1 : pagination.offset + 1))); // initialize with pagination limit
-	let shouldUpdate = $derived(loadedData.images.length > pagination.limit * pagination.offset);
+	// the searchValue hides the loading indicator when searching since we're
+	// already searching through *all* the data that is available on the client
+	let shouldUpdate = $derived(loadedData.images.length > pagination.limit * pagination.offset && searchValue.trim() === "");
 
 	// Selection
-	let selectedImages = $state<SvelteSet<IImageObjectData>>(new SvelteSet());
-	let singleSelectedImage: IImageObjectData | undefined = $state();
-	let imageGridArray: ImageGridArray | undefined = $derived.by(() => {
-		// depend on imagesGridEl
-		imagesGridEl;
-		if (!imagesGridEl) {
-			return;
-		}
+	let selectedAssets = $state<SvelteSet<IImageObjectData>>(new SvelteSet());
+	let singleSelectedAsset: IImageObjectData | undefined = $state();
 
-		const gridArray = buildImageGridArray(imagesGridEl);
-		return gridArray;
-	});
+	let imageGridArray: AssetGridArray<IImageObjectData> | undefined = $state();
 
 	// Toolbar stuff
 	let toolbarOpacity = $state(0);
 
-	// Inspecting/Debugging
-	if (window.debug) {
-		$inspect(
-			"selected images",
-			selectedImages.values().map((i) => i.id)
-		);
+	function searchForData() {
+		if (searchValue.trim() === "") {
+			return [];
+		}
+		// eventually this should also look through keywords/tags
+		// and labels idk. fuzzy search???
+		return loadedData.images.filter((i) => i.name.toLowerCase().includes(searchValue.toLowerCase()));
 	}
+
+	// Display Data
+	let displayData = $derived(
+		searchValue.trim() ? sortCollectionImages(searchData, sort) : sortCollectionImages(loadedData.images, sort)
+	);
+
+	// Grid props
+	let grid: ComponentProps<typeof AssetGrid<IImageObjectData>> = $derived({
+		assetSnippet: imageCard,
+		assetGridArray: imageGridArray,
+		selectedAssets,
+		singleSelectedAsset,
+		data: displayData,
+		assetDblClick: (_, asset) => {
+			lightboxImage = asset;
+		}
+	});
 
 	$effect(() => {
 		if (lightboxImage) {
 			lightbox.show = true;
-			loadImage(lightboxImage!.urls.original, currentImageEl!).then(() => {
-				imageLoaded = true;
-			});
 		}
-	});
-
-	async function loadImage(url: string, element: HTMLImageElement): Promise<HTMLImageElement> {
-		return new Promise((resolve, reject) => {
-			element.src = url;
-			element.onload = () => resolve(element);
-			element.onerror = reject;
-		});
-	}
-
-	function handleImageCardSelect(image: IImageObjectData, e: MouseEvent) {
-		if (e.shiftKey && singleSelectedImage) {
-			const ids = imagesData.map((i) => i.id);
-			const startIndex = ids.indexOf(singleSelectedImage.id);
-			const endIndex = ids.indexOf(image.id);
-
-			const start = Math.min(startIndex, endIndex);
-			const end = Math.max(startIndex, endIndex);
-
-			for (let i = start; i <= end; i++) {
-				selectedImages.add(imagesData[i]);
-			}
-		} else if (e.ctrlKey) {
-			if (selectedImages.has(image)) {
-				selectedImages.delete(image);
-			} else {
-				selectedImages.add(image);
-			}
-		} else {
-			selectedImages.clear();
-			selectedImages.add(image);
-			singleSelectedImage = image;
-		}
-	}
-
-	function handleKeydownCardSelect(image: IImageObjectData, e: KeyboardEvent) {
-		if (!imageGridArray) {
-			return;
-		}
-
-		const imageInGridArray = imageGridArray
-			.find((i) => i.find((j) => j.image.id === image.id))
-			?.find((j) => j.image.id === image.id);
-
-		if (!imageInGridArray) {
-			if (dev) {
-				console.warn(`Can't find image ${image.id} in grid array`);
-			}
-
-			return;
-		}
-
-		const columnCount = imageGridArray?.[0].length;
-		const positionIndexInGrid = imageInGridArray.row * columnCount + imageInGridArray.column;
-		const imageGridChildren = imagesGridEl?.children;
-
-		// Mimic click since we already have a handler for that in `handleImageCardSelect()`
-		const focusAndSelectElement = (element: HTMLElement | undefined) => {
-			// out of bounds
-			if (!element) {
-				return;
-			}
-
-			// maybe unnessary to blur but i wanna make sure lmao
-			(Array.from(imageGridChildren!)[positionIndexInGrid] as HTMLElement).blur();
-			element.focus();
-			element.click();
-		};
-
-		switch (e.key) {
-			case "ArrowRight":
-				const elementRight = imageGridChildren?.item(positionIndexInGrid + 1) as HTMLElement;
-				focusAndSelectElement(elementRight);
-				break;
-			case "ArrowLeft":
-				const elementLeft = imageGridChildren?.item(positionIndexInGrid - 1) as HTMLElement;
-				focusAndSelectElement(elementLeft);
-				break;
-			case "ArrowUp":
-				const elementUp = imageGridChildren?.item(positionIndexInGrid - columnCount) as HTMLElement;
-				focusAndSelectElement(elementUp);
-
-				break;
-			case "ArrowDown":
-				const elementDown = imageGridChildren?.item(positionIndexInGrid + columnCount) as HTMLElement;
-				focusAndSelectElement(elementDown);
-				break;
-		}
-	}
-
-	function buildImageGridArray(element: HTMLElement) {
-		const array = buildGridArray(element).map((i) => {
-			return i.map((j) => {
-				const imageId = j.element?.getAttribute("data-image-id")!;
-				const image = imagesData.find((i) => i.id === imageId)!;
-
-				return {
-					image,
-					row: j.row,
-					column: j.column,
-					columnSize: j.columnSize,
-					size: j.size,
-					rowSize: j.rowSize
-				};
-			});
-		});
-
-		return array;
-	}
-
-	function unselectImagesOnClickOutsideGrid(element: HTMLElement) {
-		$effect(() => {
-			document.addEventListener("click", (e) => {
-				const target = e.target as HTMLElement;
-				const imageCard = target.closest(".image-card") as HTMLElement | undefined;
-				const isGridButNotImageCard = target === element && !imageCard;
-				if (!element.contains(target) || isGridButNotImageCard) {
-					singleSelectedImage = undefined;
-					selectedImages.clear();
-				}
-			});
-
-			return () => {
-				document.removeEventListener("click", (e) => {
-					const target = e.target as HTMLElement;
-					const imageCard = target.closest(".image-card") as HTMLElement | undefined;
-					const isGridButNotImageCard = target === element && !imageCard;
-					if (!element.contains(target) || isGridButNotImageCard) {
-						singleSelectedImage = undefined;
-						selectedImages.clear();
-					}
-				});
-			};
-		});
-	}
-
-	function printGridAsTable() {
-		console.log(
-			`%cGrid Array at ${DateTime.now().toFormat("dd.MM.yyyy HH:mm:ss")}`,
-			"font-weight: bold; color: var(--imag-100); font-size: 18px;"
-		);
-		console.table(imageGridArray?.map((i) => i.map((j) => j.image?.name)));
-	}
-
-	hotkeys("ctrl+a", (e) => {
-		e.preventDefault();
-		selectedImages.clear();
-		imagesData.forEach((i) => selectedImages.add(i));
 	});
 
 	hotkeys("esc", (e) => {
-		e.preventDefault();
-		selectedImages.clear();
 		lightboxImage = undefined;
-		imageLoaded = false;
 	});
 </script>
 
 {#if lightboxImage}
+	{@const imageToLoad = lightboxImage.urls.original}
 	<Lightbox
 		onclick={() => {
 			lightboxImage = undefined;
-			imageLoaded = false;
 		}}
 	>
-		{#if !imageLoaded}
+		<!-- Awaitng like this is better inline but `currentImageEl` is kinda
+	 being created/allocated unncessarily and is never removed or freed until the component is destroyed
+	 It's small but annoying enough where I want to find a different way to load an image
+	  -->
+		{#await loadImage(imageToLoad, currentImageEl!)}
 			<div style="width: 3em; height: 3em">
 				<LoadingContainer />
 			</div>
-		{:else}
+		{:then _}
 			<img
-				bind:this={currentImageEl}
+				src={imageToLoad}
 				class="lightbox-image"
 				alt="{lightboxImage.name} by {lightboxImage.uploaded_by.username}"
 				title="{lightboxImage.name} by {lightboxImage.uploaded_by.username}"
 				loading="eager"
 				data-image-id={lightboxImage.id}
 			/>
-		{/if}
+		{:catch error}
+			<p>Failed to load image</p>
+			<p>{error}</p>
+		{/await}
 	</Lightbox>
 {/if}
 
-<!-- TODO: Create a floating toolbar component that will be shown on selection :)
- Ideally, this would be the default but would allow users to be able to pin it somewhere
- or let it be shown in a fixed place, like the header.
- When user clicks on a card, it'll just select that one card and they can do actions 
- on that card but if there is more than one card, a floating toolbar can be shown as a shortcut instead
- of using the context menu actions for each card
--->
+{#snippet imageCard(asset: IImageObjectData)}
+	{@const imageDate = DateTime.fromJSDate(asset.uploaded_on)}
+
+	<div class="image-card" data-asset-id={asset.id}>
+		<div class="image-container">
+			<img
+				class="image-card-image"
+				src={asset.urls.preview}
+				alt="{asset.name} by {asset.uploaded_by.username}"
+				title="{asset.name} by {asset.uploaded_by.username}"
+				loading="lazy"
+			/>
+		</div>
+		<div class="image-card-meta">
+			<span class="image-card-name" title={asset.image_data.file_name}>{asset.image_data.file_name}</span>
+			<div class="image-card-date_time" title="Photo taken at {imageDate.toFormat('dd/MM/yyyy - HH:mm')}">
+				<span class="image-card-date">{imageDate.toFormat("dd/MM/yyyy")}</span>
+				<span class="image-card-divider">•</span>
+				<span class="image-card-time">{imageDate.toFormat("HH:mm")}</span>
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet toolbarSnippet()}
+	<SearchInput style="margin: 0em 1em;" bind:value={searchValue} />
+{/snippet}
 
 <VizViewContainer
-	bind:data={imagesData}
+	bind:data={displayData}
 	bind:hasMore={shouldUpdate}
 	name="{loadedData.name} - Collection"
 	style="padding: 0em {page.url.pathname === '/' ? '1em' : '0em'};"
@@ -292,200 +169,55 @@
 		}
 	}}
 >
-	{#if selectedImages.size > 1}
-		<div id="viz-toolbar-container" style="top: {0}px;">
-			<button
-				id="coll-clear-selection"
-				title="Clear selection"
-				aria-label="Clear selection"
-				style="margin-left: 1em;"
-				class="toolbar-button"
-				onclick={() => selectedImages.clear()}
-			>
-				<MaterialIcon iconName="close" />
-			</button>
-			<span style="font-weight: 600;">{selectedImages.size} selected</span>
-		</div>
-	{:else}
-		<div
-			id="viz-toolbar-container"
-			style="top: 0px; opacity: {toolbarOpacity}; visibility: {toolbarOpacity === 0 ? 'hidden' : 'visible'};"
-		>
-			<!-- TODO: Selection options will show in this toolbar -->
+	<AssetsShell
+		toolbarProps={{
+			style: "justify-content: center;"
+		}}
+		bind:grid
+		{toolbarSnippet}
+		{pagination}
+	>
+		<div id="viz-info-container">
+			<div id="coll-metadata">
+				<span id="coll-details"
+					>{DateTime.fromJSDate(loadedData.created_on).toFormat("dd.MM.yyyy")}
+					•
+					{#if searchValue.trim()}
+						{searchData.length} {searchData.length === 1 ? "image" : "images"} of {loadedData.image_count}
+					{:else}
+						{loadedData.image_count} {loadedData.image_count === 1 ? "image" : "images"}
+					{/if}
+				</span>
+			</div>
 			<input
 				name="name"
-				id="coll-name-floating"
+				id="coll-name"
 				type="text"
 				placeholder="Add a title"
 				autocomplete="off"
 				autocorrect="off"
-				title={loadedData.name}
+				spellcheck="false"
 				value={loadedData.name}
 				oninput={(e) => (loadedData.name = e.currentTarget.value)}
 				onkeydown={blurOnEsc}
 			/>
-			<span id="coll-details-floating"
-				>{DateTime.fromJSDate(loadedData.created_on).toFormat("dd.MM.yyyy")} - {loadedData.image_count}
-				{loadedData.image_count === 1 ? "image" : "images"}</span
-			>
-			<div id="coll-tools">
-				{#if dev}
-					<button
-						id="print-collection-button"
-						class="toolbar-button"
-						title="Print Collection as Table"
-						aria-label="Print Collection as Table"
-						onclick={() => {
-							printGridAsTable();
-						}}
-					>
-						<MaterialIcon showHoverBG={false} iconName="print" />
-					</button>
-				{/if}
-			</div>
+			<textarea
+				name="description"
+				id="coll-description"
+				placeholder="Add a description"
+				spellcheck="false"
+				rows="1"
+				value={loadedData.description}
+				oninput={(e) => {
+					loadedData.description = e.currentTarget.value;
+				}}
+				onkeydown={blurOnEsc}
+			></textarea>
 		</div>
-	{/if}
-	<div id="viz-info-container">
-		<div id="coll-metadata">
-			<span id="coll-details"
-				>{DateTime.fromJSDate(loadedData.created_on).toFormat("dd.MM.yyyy")} - {loadedData.image_count}
-				{loadedData.image_count === 1 ? "image" : "images"}</span
-			>
-		</div>
-		<input
-			name="name"
-			id="coll-name"
-			type="text"
-			placeholder="Add a title"
-			value={loadedData.name}
-			oninput={(e) => (loadedData.name = e.currentTarget.value)}
-			onkeydown={blurOnEsc}
-		/>
-		<textarea
-			name="description"
-			id="coll-description"
-			placeholder="Add a description"
-			spellcheck="false"
-			rows="1"
-			value={loadedData.description}
-			oninput={(e) => {
-				loadedData.description = e.currentTarget.value;
-			}}
-			onkeydown={blurOnEsc}
-		></textarea>
-	</div>
-	<div
-		bind:this={imagesGridEl}
-		class="images-grid"
-		style="padding: 0em {page.url.pathname === '/' ? '1em' : '2em'};"
-		data-collection-id={loadedData.id}
-		use:unselectImagesOnClickOutsideGrid
-	>
-		{#each imagesData as image, i}
-			{@const imageDate = DateTime.fromJSDate(image.uploaded_on)}
-			<div
-				class="image-card {selectedImages
-					.values()
-					.map((i) => i.id)
-					.some((i) => i === image.id) || singleSelectedImage?.id === image.id
-					? 'selected-card'
-					: ''}"
-				role="button"
-				tabindex="0"
-				data-image-id={image.id}
-				onclick={(e) => {
-					e.preventDefault();
-					handleImageCardSelect(image, e);
-				}}
-				ondblclick={(e) => {
-					e.preventDefault();
-					if (e.ctrlKey) {
-						return;
-					}
-
-					lightboxImage = image;
-				}}
-				onkeydown={(e) => {
-					e.preventDefault();
-					handleKeydownCardSelect(image, e);
-				}}
-			>
-				<div class="image-container">
-					<img
-						class="image-card-image"
-						src={image.urls.preview}
-						alt="{image.name} by {image.uploaded_by.username}"
-						title="{image.name} by {image.uploaded_by.username}"
-						loading="lazy"
-					/>
-				</div>
-				<div class="image-card-meta">
-					<span class="image-card-name" title={image.image_data.file_name}>{image.image_data.file_name}</span>
-					<div class="image-card-date_time" title="Photo taken at {imageDate.toFormat('dd/MM/yyyy - HH:mm')}">
-						<span class="image-card-date">{imageDate.toFormat("dd/MM/yyyy")}</span>
-						<span class="image-card-divider">•</span>
-						<span class="image-card-time">{imageDate.toFormat("HH:mm")}</span>
-					</div>
-				</div>
-			</div>
-		{/each}
-	</div>
+	</AssetsShell>
 </VizViewContainer>
 
 <style lang="scss">
-	#viz-toolbar-container {
-		position: sticky;
-		z-index: 1;
-		background-color: rgba(39, 51, 74, 0.9);
-		backdrop-filter: blur(5px);
-		border-bottom: 1px solid var(--imag-60);
-			min-height: 3em;
-		width: 100%;
-		max-width: 100%;
-		display: flex;
-		align-items: center;
-		flex-direction: row;
-	}
-
-	#coll-tools {
-		display: flex;
-		align-items: center;
-		position: absolute;
-		right: 2rem;
-	}
-
-	.toolbar-button {
-		border-radius: 10em;
-		width: 2em;
-		height: 2em;
-		padding: 1em;
-		font-size: 1.3em;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	#coll-name-floating {
-		font-weight: bold;
-		font-size: 1.2rem;
-		color: var(--imag-text-color);
-		background-color: transparent;
-		padding: 0.2rem 0rem;
-		margin: 0rem 2rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 30%;
-	}
-
-	#coll-details-floating {
-		color: var(--imag-60);
-		background-color: transparent;
-		padding: 0.5rem 0rem;
-		margin: 0rem -1rem;
-		font-family: var(--imag-code-font);
-	}
-
 	:global(#create-collection) {
 		margin: 0em 1rem;
 	}
@@ -555,16 +287,6 @@
 		padding: 0.3rem inherit;
 	}
 
-	.images-grid {
-		margin: 1em 0em;
-		margin-bottom: 2em;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
-		gap: 1rem;
-		width: calc(100% - (1em * 2) - 2rem);
-		max-width: 100%;
-	}
-
 	.image-card {
 		max-height: 20em;
 		background-color: var(--imag-100);
@@ -582,10 +304,6 @@
 		&:hover {
 			background-color: var(--imag-90);
 		}
-	}
-
-	.selected-card {
-		box-shadow: 0 0 0 2px var(--imag-primary) inset;
 	}
 
 	.image-container {
