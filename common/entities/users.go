@@ -1,6 +1,8 @@
 package entities
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type User struct {
 	gorm.Model
@@ -18,4 +20,13 @@ type User struct {
 
 func (User) TableName() string {
 	return "users"
+}
+
+type Session struct {
+	gorm.Model
+	UID          string `json:"uid"`
+	SessionToken string `json:"session_token"`
+	ExpiresAt    int64  `json:"expires_at"`
+	RevokedAt    int64  `json:"revoked_at"`
+	Revoked      bool   `json:"revoked"`
 }

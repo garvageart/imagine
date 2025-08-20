@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -166,6 +165,65 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		render.JSON(res, req, jsonResponse)
 	})
 
+	router.Post("/login", func(res http.ResponseWriter, req *http.Request) {
+		var user entities.User
+		err := render.DecodeJSON(req.Body, &user)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"invalid request body",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		// user.Password gets binded in the db request later
+		// so store it here
+		inputPass := user.Password
+
+		if user.Email == "" || user.Password == "" {
+			res.WriteHeader(http.StatusBadRequest)
+			render.JSON(res, req, map[string]string{"error": "Required fields are missing"})
+			return
+		}
+
+		tx := client.Select("email", "password").Where("email = ?", user.Email).First(&user)
+		if tx.Error != nil {
+			if tx.Error == gorm.ErrRecordNotFound {
+				res.WriteHeader(http.StatusNotFound)
+				render.JSON(res, req, map[string]string{"error": "Cannot find user with provided email"})
+				return
+			}
+			return
+		}
+
+		argon := crypto.CreateArgon2Hash(3, 32, 2, 32, 16)
+		dbPass := strings.Split(user.Password, ":")
+
+		hashedInputPassword, _ := argon.Hash([]byte(inputPass), []byte(dbPass[0]))
+		isValidPass := argon.Verify(hashedInputPassword, dbPass[1])
+
+		if !isValidPass {
+			res.WriteHeader(http.StatusUnauthorized)
+			render.JSON(res, req, map[string]string{"error": "Invalid password"})
+			return
+		}
+
+		authToken, err := auth.GenerateAuthToken(user.UID, serverKey, jwtSecret)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"error generating auth token",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		expiryTime := carbon.Now().AddYear().StdTime()
+		http.SetCookie(res, auth.CreateAuthTokenCookie(expiryTime, authToken))
+
+		logger.Info("user authenticated", slog.String("request_id", libhttp.GetRequestID(req)))
+		render.JSON(res, req, map[string]string{"message": "User authenticated"})
+	})
+
 	router.Get("/oauth", func(res http.ResponseWriter, req *http.Request) {
 		authTokenCookie := req.CookiesNamed("imag-auth_token")
 
@@ -201,7 +259,6 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 				jsonResponse := map[string]any{"error": "token expired"}
 
 				res.WriteHeader(http.StatusForbidden)
-				http.Redirect(res, req, "localhost:7777/", http.StatusTemporaryRedirect)
 				render.JSON(res, req, jsonResponse)
 				return
 			case errors.Is(err, jwt.ErrTokenNotValidYet):
@@ -332,30 +389,9 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			http.Redirect(res, req, "localhost:7777/", http.StatusTemporaryRedirect)
 		}
 
-		userFingerprint := auth.GenerateRandomBytes(50)
-		userFingerprintString := hex.EncodeToString(userFingerprint)
-
-		tokenSHA256 := sha256.New()
-		tokenSHA256.Write([]byte(userFingerprintString))
-		sha256Sum := tokenSHA256.Sum(nil)
-		hashString := hex.EncodeToString(sha256Sum)
-
 		expiryTime := carbon.Now().AddYear().StdTime()
 
-		// TODO: Generate a refresh token as well
-		// Note: did I just reimplement oauth lmao????
-		// Create a new JWT token with claims
-		claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			// This probably bad and maybe we should generate an ID here instead
-			"sub": userEmail,         // Subject (user identifier)
-			"aud": "viz",             // TODO: change this to the actual audience/browser/server URL idk
-			"iss": serverKey,         // Issuer
-			"iat": time.Now().Unix(), // Issued at
-			"exp": expiryTime,        // Expiration time
-			"fgp": hashString,        // Fingerprint
-		})
-
-		tokenString, err := claims.SignedString(jwtSecret)
+		tokenString, err := auth.GenerateAuthToken(userEmail, serverKey, jwtSecret)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
 				"Failed to sign JWT token",
@@ -384,15 +420,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			HttpOnly: true,
 		})
 
-		http.SetCookie(res, &http.Cookie{
-			Name:     "imag-auth_token",
-			Value:    tokenString,
-			Expires:  expiryTime,
-			HttpOnly: true,
-			Path:     "/",
-			Secure:   true,
-			SameSite: http.SameSiteNoneMode, //FIXME: this needs to change to same site
-		})
+		http.SetCookie(res, auth.CreateAuthTokenCookie(expiryTime, tokenString))
 
 		logger.Info("User logged in with OAuth", slog.String("provider", provider))
 		render.JSON(res, req, actualUserData)
@@ -408,6 +436,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			return
 		}
 
+		logger.Debug("user on req", slog.Any("user", createdUser))
 		if createdUser.Name == "" || createdUser.Password == "" || createdUser.Email == "" {
 			res.WriteHeader(http.StatusBadRequest)
 			render.JSON(res, req, map[string]string{"error": "required fields are missing"})
@@ -424,8 +453,11 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 
 		//todo: fix this mess. get a string from the salt and hash seperately
 		argon := crypto.CreateArgon2Hash(3, 32, 2, 32, 16)
-		hashedPass := argon.Hash([]byte(createdUser.Password), argon.GenerateSalt())
-		createdUser.Password = hex.EncodeToString(hashedPass)
+		salt := argon.GenerateSalt()
+		hashedPass, _ := argon.Hash([]byte(createdUser.Password), salt)
+		createdUser.Password = hex.EncodeToString(salt) + ":" + hex.EncodeToString(hashedPass)
+
+		logger.Debug("user before db", slog.Any("user", createdUser))
 
 		err = client.Create(&createdUser).Error
 		if err != nil {
