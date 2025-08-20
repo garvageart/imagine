@@ -4,19 +4,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/dromara/carbon/v2"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/joho/godotenv/autoload"
@@ -31,13 +26,6 @@ import (
 	"imagine/common/entities"
 	libhttp "imagine/common/http"
 	"imagine/common/uid"
-	"imagine/db"
-	imalog "imagine/log"
-	"imagine/utils"
-)
-
-const (
-	serverKey = "auth-server"
 )
 
 type ImagineAuthServer struct {
@@ -79,28 +67,11 @@ type ImagineAPIKeyData struct {
 	ApplicationName string `json:"application_name"`
 }
 
-func (a ImagineAPIKeyData) TableName() string { return "auth" }
+func (a ImagineAPIKeyData) TableName() string { return "api_keys" }
 
 // TODO: Migrate to central API file/route
-func (server ImagineAuthServer) Launch(router *chi.Mux) {
-	// Setup logger
-	logger := server.Logger
-	httpMiddlewareLogger := slog.NewLogLogger(logger.Handler(), imalog.DefaultLogLevel)
-	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
-		Logger: httpMiddlewareLogger,
-	}))
-
-	// Setup general middleware
-	router.Use(libhttp.AuthedMiddleware)
-	router.Use(middleware.AllowContentEncoding("deflate", "gzip"))
-	router.Use(middleware.RequestID)
-	router.Use(cors.Handler(cors.Options{
-		// TODO: Replace with config addresses instead of the hardcoded values
-		AllowedOrigins:   []string{"https://localhost:7777", "http://localhost:7777"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "set-cookie"},
-		AllowCredentials: true,
-	}))
+func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
+	router := chi.NewRouter()
 
 	// Set up auth
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
@@ -208,7 +179,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 			return
 		}
 
-		authToken, err := auth.GenerateAuthToken(user.UID, serverKey, jwtSecret)
+		authToken, err := auth.GenerateAuthToken(user.UID, "api", jwtSecret)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
 				"error generating auth token",
@@ -391,7 +362,7 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 
 		expiryTime := carbon.Now().AddYear().StdTime()
 
-		tokenString, err := auth.GenerateAuthToken(userEmail, serverKey, jwtSecret)
+		tokenString, err := auth.GenerateAuthToken(userEmail, "api", jwtSecret)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
 				"Failed to sign JWT token",
@@ -472,58 +443,6 @@ func (server ImagineAuthServer) Launch(router *chi.Mux) {
 		res.WriteHeader(http.StatusCreated)
 		render.JSON(res, req, createdUser)
 	})
-	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
 
-	go func() {
-		logger.Info(fmt.Sprintf("Hellooooooo! It is I, the protector of secrets - %s: %s", serverKey, address))
-		err := http.ListenAndServe(address, router)
-		if err != nil {
-			if !errors.Is(err, http.ErrServerClosed) {
-				logger.Error(fmt.Sprintf("failed to start server: %s", err))
-			}
-
-			errMsg := fmt.Sprintf("failed to start server: %s", err)
-			logger.Error(errMsg)
-			panic("")
-		}
-	}()
-
-	// Taken and adjusted from https://github.com/bluesky-social/social-app/blob/main/bskyweb/cmd/bskyweb/server.go
-	// Wait for a signal to exit.
-	logger.Info("registering OS exit signal handler")
-	quit := make(chan struct{})
-	exitSignals := make(chan os.Signal, 1)
-	signal.Notify(exitSignals, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-exitSignals
-		logger.Info(fmt.Sprintf("received OS exit signal: %s", sig))
-
-		// Trigger the return that causes an exit.
-		close(quit)
-	}()
-	<-quit
-	logger.Info("graceful shutdown complete")
-}
-
-func main() {
-	router := chi.NewRouter()
-	logger := libhttp.SetupChiLogger(serverKey)
-
-	server := ImagineAuthServer{ImagineServer: libhttp.ImagineServers[serverKey]}
-	server.ImagineServer.Logger = logger
-	server.Database = &db.DB{
-		Address:      "localhost",
-		Port:         5432,
-		User:         os.Getenv("DB_USER"),
-		Password:     os.Getenv("DB_PASSWORD"),
-		AppName:      utils.AppName,
-		DatabaseName: "imagine-dev",
-		Logger:       logger,
-	}
-
-	// Lmao I hate this
-	client := server.ConnectToDatabase(&ImagineUser{}, &ImagineAPIKeyData{})
-	server.ImagineServer.Database.Client = client
-	server.Launch(router)
+	return router
 }

@@ -12,6 +12,7 @@ import (
 	libvips "github.com/davidbyttow/govips/v2/vips"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 
 	"imagine/common/entities"
@@ -44,8 +45,17 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		Logger: serverLogger,
 	}))
 
+	// Setup general middleware
+	router.Use(libhttp.AuthedMiddleware)
 	router.Use(middleware.AllowContentEncoding("deflate", "gzip"))
 	router.Use(middleware.RequestID)
+	router.Use(cors.Handler(cors.Options{
+		// TODO: Replace with config addresses instead of the hardcoded values
+		AllowedOrigins:   []string{"https://localhost:7777", "http://localhost:7777"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "set-cookie"},
+		AllowCredentials: true,
+	}))
 
 	database := server.Database
 	dbClient := database.Client
@@ -98,6 +108,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	// Mount image router to main router
 	router.Mount("/collections", CollectionsRouter(dbClient, logger))
 	router.Mount("/images", ImagesRouter(dbClient, logger))
+	router.Mount("/accounts", UsersRouter(dbClient, logger))
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 		jsonResponse := map[string]any{"message": "pong"}

@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/render"
 	"gorm.io/gorm"
 
-	"imagine/api"
 	"imagine/common/entities"
 	libhttp "imagine/common/http"
 	"imagine/common/uid"
@@ -24,7 +23,7 @@ type ImagesResponse struct {
 }
 
 type Images struct {
-	api.Pagination
+	*Pagination
 	Items []ImagesResponse `json:"items"`
 }
 
@@ -190,7 +189,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}{
 			Collection: collection,
 			Images: Images{
-				Pagination: api.Pagination{
+				Pagination: &Pagination{
 					Href:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, defaultImageOffset, defaultImageLimit),
 					Prev:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, defaultImageOffset-defaultImageLimit, defaultImageLimit),
 					Next:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, defaultImageOffset+defaultImageLimit, defaultImageLimit),
@@ -255,7 +254,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		result := Images{
-			Pagination: api.Pagination{
+			Pagination: &Pagination{
 				Href:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset, limit),
 				Prev:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset-limit, limit),
 				Next:   fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset+limit, limit),

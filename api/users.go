@@ -12,10 +12,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
+func UsersRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
-	router.Post("/user", func(res http.ResponseWriter, req *http.Request) {
+	router.Post("/", func(res http.ResponseWriter, req *http.Request) {
 		var createdUser entities.User
 
 		err := render.DecodeJSON(req.Body, &createdUser)
@@ -52,8 +52,8 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, createdUser)
 	})
 
-	router.Get("/user/{user_id}", func(res http.ResponseWriter, req *http.Request) {
-		userID := chi.URLParam(req, "user_id")
+	router.Get("/{id}", func(res http.ResponseWriter, req *http.Request) {
+		userID := chi.URLParam(req, "id")
 
 		var user entities.User
 
