@@ -70,3 +70,13 @@ export function blurOnEsc(event: KeyboardEvent) {
         (event.currentTarget as HTMLElement)?.blur();
     }
 }
+
+export async function loadImage(url: string, element: HTMLImageElement): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        element.src = url;
+        element.onload = () => {
+            resolve(true);
+        };
+        element.onerror = reject;
+    });
+}

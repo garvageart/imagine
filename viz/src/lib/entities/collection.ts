@@ -5,7 +5,7 @@ class CollectionData implements Collection {
     id: string;
     name: string;
     image_count: number;
-    private?: boolean;
+    private: boolean;
     images: IImageObjectData[];
     created_on: Date;
     updated_on: Date;

@@ -1,3 +1,4 @@
+import type { AssetSort } from "$lib/types/asset";
 import type { Collection, IImageObjectData } from "$lib/types/images";
 import { cookieMethods } from "$lib/utils/cookie";
 import { writable } from "svelte/store";
@@ -19,7 +20,8 @@ export let search = $state({
         collections: [] as unknown as Collection[],
         images: [] as unknown as IImageObjectData[]
     },
-    value: ""
+    value: "",
+    element: undefined as unknown as HTMLInputElement | undefined
 });
 
 export let modal = $state({
@@ -28,4 +30,17 @@ export let modal = $state({
 
 export let lightbox = $state({
     show: false
+});
+
+/**
+ * @todo Get sort options from saved settings by these are the defaults for now
+ */
+export let sort: AssetSort = $state({
+    display: "cover",
+    group: {
+        by: "year",
+        order: "asc",
+    },
+    by: "name",
+    order: "asc",
 });
