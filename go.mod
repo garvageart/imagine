@@ -12,10 +12,10 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/image v0.27.0 // indirect
+	golang.org/x/image v0.30.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 )
 
 require (
@@ -29,6 +29,8 @@ require (
 )
 
 require (
+	github.com/boxes-ltd/imaging v1.6.11 // indirect
+	github.com/cshum/vipsgen v1.1.1 // indirect
 	github.com/dsoprea/go-exif/v3 v3.0.1 // indirect
 	github.com/dsoprea/go-heic-exif-extractor/v2 v2.0.0-20210512044107-62067e44c235 // indirect
 	github.com/dsoprea/go-iptc v0.0.0-20200609062250-162ae6b44feb // indirect
@@ -39,6 +41,7 @@ require (
 	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
+	github.com/orandin/slog-gorm v1.4.0 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
