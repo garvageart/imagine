@@ -1,0 +1,161 @@
+<script lang="ts">
+	import type { SvelteHTMLElements } from "svelte/elements";
+	import MaterialIcon from "./MaterialIcon.svelte";
+
+	interface Props {
+		loading?: boolean;
+		value: string;
+		element?: HTMLInputElement;
+		placeholder?: string;
+		performSearch?: (e: KeyboardEvent | MouseEvent) => void;
+	}
+
+	let searchInputHasFocus = $state(false);
+	let {
+		loading = $bindable(false),
+		value = $bindable(),
+		element = $bindable(),
+		placeholder = "Search",
+		performSearch,
+		...props
+	}: Props & SvelteHTMLElements["div"] = $props();
+
+	function handleSearch(e: KeyboardEvent) {
+		e.key === "Enter" && performSearch?.(e);
+	}
+</script>
+
+<div class="search-container" class:has-focus={searchInputHasFocus} {...props}>
+	<button
+		id="search-button"
+		aria-label="Search"
+		aria-disabled={loading}
+		aria-pressed={loading}
+		title="Search"
+		onclick={performSearch}
+		onkeydown={handleSearch}
+		disabled={loading}
+	>
+		<MaterialIcon iconName="search" style="margin: 0 0.2em;" />
+	</button>
+	<input
+		type="search"
+		class="search-input"
+		{placeholder}
+		aria-label="Search"
+		aria-disabled={loading}
+		disabled={loading}
+		onkeydown={handleSearch}
+		onfocus={() => (searchInputHasFocus = true)}
+		onblur={() => (searchInputHasFocus = false)}
+		bind:value
+		bind:this={element}
+	/>
+	{#if value}
+		<button
+			id="clear-search-button"
+			type="button"
+			aria-label="Clear Search"
+			title="Clear Search"
+			aria-disabled={loading}
+			aria-pressed={loading}
+			disabled={loading}
+			onclick={() => (value = "")}
+		>
+			<MaterialIcon iconName="close" />
+		</button>
+	{/if}
+</div>
+
+<style lang="scss">
+	#search-button {
+		background-color: var(--imag-100);
+		border: none;
+		height: 100%;
+		padding: 0.2em 0.5em;
+		font-size: 1rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--imag-text-color);
+		cursor: pointer;
+
+		&:focus {
+			/* box-shadow: 0px 0px 0px 3px inset var(--imag-primary); */
+			outline: none;
+			background-color: var(--imag-80);
+		}
+
+		&:hover {
+			background-color: var(--imag-90);
+		}
+
+		&:active {
+			background-color: var(--imag-80);
+		}
+	}
+
+	.search-container {
+		display: flex;
+		align-items: center;
+		width: 20%;
+		height: 2em;
+		border: 1px solid;
+		border-color: var(--imag-90);
+		border-radius: 2em;
+		background-color: var(--imag-bg-color);
+		overflow: hidden;
+		&:focus {
+			border-color: var(--imag-80);
+			height: 1.3em;
+		}
+	}
+
+	.search-input {
+		font-size: 0.9em;
+		background-color: var(--imag-bg-color);
+		color: var(--imag-text-color);
+		outline: none;
+		border: none;
+		width: 100%;
+		height: 100%;
+		border-top-left-radius: 0%;
+		border-bottom-left-radius: 0%;
+		padding: 0 0.7em;
+		font-family: var(--imag-font-family);
+
+		&::placeholder {
+			color: var(--imag-40);
+			font-family: var(--imag-font-family);
+		}
+
+		&:focus::placeholder {
+			color: var(--imag-text-color);
+		}
+	}
+
+	.search-container.has-focus {
+		border: 1.5px solid var(--imag-primary);
+	}
+
+	#clear-search-button {
+		border: none;
+		outline: none;
+		height: 100%;
+		padding: 0.2em 0.5em;
+		font-size: 1.2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--imag-80);
+		cursor: pointer;
+
+		&:hover {
+			color: var(--imag-70);
+		}
+
+		&:active {
+			color: var(--imag-60);
+		}
+	}
+</style>
