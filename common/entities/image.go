@@ -32,6 +32,7 @@ type ImageMetadata struct {
 	FileCreatedAt    time.Time `json:"file_created_at"`
 	Thumbhash        string    `json:"thumbhash"`
 	Label            string    `json:"label,omitempty"`
+	Checksum         string    `json:"checksum"`
 }
 
 type ImagePaths struct {

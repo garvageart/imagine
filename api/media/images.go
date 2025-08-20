@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
@@ -384,8 +387,10 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		imageEntity, imageErr := createNewImageEntity(logger, "", libvipsImg)
 
 		if imageErr != nil {
-			res.WriteHeader(http.StatusInternalServerError)
-			render.JSON(res, req, map[string]string{"error": imageErr.Error})
+			libhttp.ServerError(res, req, errors.New(imageErr.Error), logger, nil,
+				"",
+				"Failed to process image data",
+			)
 			return
 		}
 
@@ -393,10 +398,23 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		imageErr = createImageTypes(logger, imageEntity, libvipsImg, imageBucket, ctx)
 
 		if imageErr != nil {
-			res.WriteHeader(http.StatusInternalServerError)
-			render.JSON(res, req, map[string]string{"error": imageErr.Error})
+			libhttp.ServerError(res, req, errors.New(imageErr.Error), logger, nil,
+				"",
+				"Failed to create image",
+			)
 			return
 		}
+
+		hasher := md5.New()
+		if _, err := io.Copy(hasher, req.Body); err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"",
+				"Failed to create image",
+			)
+			return
+		}
+
+		imageEntity.Checksum = hex.EncodeToString(hasher.Sum(nil))
 
 		logger.Info("adding images to database", slog.String("id", imageEntity.UID))
 		dbCreateTx := db.Create(&imageEntity)
@@ -498,36 +516,47 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				dbSlice = append(dbSlice, allImageData)
 			}
 
-			var dbImageIDs = make([]string, 0)
-			for _, img := range dbSlice {
-				dbImageIDs = append(dbImageIDs, img.UID)
-			}
-
-			// remove failed images
-			// not final logic
-			for _, img := range failedImages {
-				if slices.Contains(dbImageIDs, img.ID) {
-					logger.Warn("failed to upload image, removing", slog.String("id", img.ID), slog.String("reason", img.Reason))
-					dbImageIDs = slices.Delete(dbImageIDs, slices.Index(dbImageIDs, img.ID), 1)
-				}
-			}
-
-			logger.Info("adding images to database", slog.Int("count", len(dbSlice)))
-			dbCreateTx := db.Create(&dbSlice)
-
-			if dbCreateTx.Error != nil {
-				libhttp.ServerError(res, req, dbCreateTx.Error, logger, nil,
+			hasher := md5.New()
+			if _, err := io.Copy(hasher, bytes.NewReader(fileBytes)); err != nil {
+				libhttp.ServerError(res, req, err, logger, nil,
 					"",
-					"Failed to create images",
+					"Failed to create image",
 				)
 				return
 			}
 
-			logger.Info("upload images success", slog.Int("count", len(dbImageIDs)))
-
-			res.WriteHeader(http.StatusCreated)
-			render.JSON(res, req, map[string]any{"images": dbImageIDs})
+			allImageData.Checksum = hex.EncodeToString(hasher.Sum(nil))
 		}
+
+		var dbImageIDs = make([]string, 0)
+		for _, img := range dbSlice {
+			dbImageIDs = append(dbImageIDs, img.UID)
+		}
+
+		// remove failed images
+		// not final logic
+		for _, img := range failedImages {
+			if slices.Contains(dbImageIDs, img.ID) {
+				logger.Warn("failed to upload image, removing", slog.String("id", img.ID), slog.String("reason", img.Reason))
+				dbImageIDs = slices.Delete(dbImageIDs, slices.Index(dbImageIDs, img.ID), 1)
+			}
+		}
+
+		logger.Info("adding images to database", slog.Int("count", len(dbSlice)))
+		dbCreateTx := db.Create(&dbSlice)
+
+		if dbCreateTx.Error != nil {
+			libhttp.ServerError(res, req, dbCreateTx.Error, logger, nil,
+				"",
+				"Failed to create images",
+			)
+			return
+		}
+
+		logger.Info("upload images success", slog.Int("count", len(dbImageIDs)))
+
+		res.WriteHeader(http.StatusCreated)
+		render.JSON(res, req, map[string]any{"images": dbImageIDs})
 	})
 
 	return router
