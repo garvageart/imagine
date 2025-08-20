@@ -1,21 +1,24 @@
+@use 'sass:color';
+
 @use './sassflexboxgrid/main.scss';
-@import url('../../../../static/css/general-sans.css');
 @import 'material-symbols/sharp.css';
+@import url('../../../../static/css/general-sans.css');
 
 /* Colours */
+$base-color: #27334a;
 :root {
     --imag-bg-color: #0F1726;
     --imag-text-color: #F7F9F9;
-    --imag-100: #27334a;
-    --imag-90: #3C475C;
-    --imag-80: #525C6E;
-    --imag-70: #687080;
-    --imag-60: #7D8592;
-    --imag-50: #7D8592;
-    --imag-40: #A9ADB7;
-    --imag-30: #7D8592;
-    --imag-20: #D4D6DB;
-    --imag-10: #D4D6DB;
+    --imag-100: #{color.mix($base-color, #fff, 100%)};
+    --imag-90: #{color.mix($base-color, #fff, 90%)};
+    --imag-80: #{color.mix($base-color, #fff, 80%)};
+    --imag-70: #{color.mix($base-color, #fff, 70%)};
+    --imag-60: #{color.mix($base-color, #fff, 60%)};
+    --imag-50: #{color.mix($base-color, #fff, 50%)};
+    --imag-40: #{color.mix($base-color, #fff, 40%)};
+    --imag-30: #{color.mix($base-color, #fff, 30%)};
+    --imag-20: #{color.mix($base-color, #fff, 20%)};
+    --imag-10: #{color.mix($base-color, #fff, 10%)};
     --imag-primary: #1885df;
     --imag-secondary: #06589b;
 }
@@ -79,12 +82,6 @@ body {
     flex-direction: column;
     position: relative;
     overflow: hidden;
-}
-
-.material-symbols-sharp {
-    font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 48;
-    font-size: inherit;
-    user-select: none;
 }
 
 .no-select {
