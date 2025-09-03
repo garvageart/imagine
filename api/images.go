@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -433,7 +434,16 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, map[string]string{"id": imageEntity.UID})
 	})
 
+	// TODO: either this should be a config option or removed entirely.
+	// it's possible that URL uploads could be a security problem.
+	// cool idea in theory i guess tho
 	router.Post("/urls", func(res http.ResponseWriter, req *http.Request) {
+		if os.Getenv("ENABLE_URL_UPLOAD") == "true" {
+			res.WriteHeader(http.StatusForbidden)
+			render.JSON(res, req, map[string]string{"error": "url uploads are disabled"})
+			return
+		}
+
 		ctx, gcsContextCancel := context.WithCancel(ctx)
 		defer gcsContextCancel()
 

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/hex"
+	"imagine/common/crypto"
 	"imagine/common/entities"
 	libhttp "imagine/common/http"
 	"imagine/common/uid"
@@ -37,6 +39,12 @@ func UsersRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				"Something went wrong, please try again later",
 			)
 		}
+
+		//todo: fix this mess. get a string from the salt and hash seperately
+		argon := crypto.CreateArgon2Hash(3, 32, 2, 32, 16)
+		salt := argon.GenerateSalt()
+		hashedPass, _ := argon.Hash([]byte(createdUser.Password), salt)
+		createdUser.Password = hex.EncodeToString(salt) + ":" + hex.EncodeToString(hashedPass)
 
 		err = db.Create(&createdUser).Error
 		if err != nil {

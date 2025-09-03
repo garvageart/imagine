@@ -2,18 +2,15 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/dromara/carbon/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/gorm"
 
@@ -28,11 +25,6 @@ import (
 	"imagine/common/uid"
 )
 
-type ImagineAuthServer struct {
-	*libhttp.ImagineServer
-	oauth.ImagineOAuth
-}
-
 type ImagineAuthCodeFlow struct {
 	Code  string `json:"code"`
 	State string `json:"state"`
@@ -43,57 +35,21 @@ type ImagineAuthPasswordFlow struct {
 	State string
 }
 
-type ImagineUser struct {
-	gorm.Model
-	UID           string  `json:"uid"`
-	FirstName     *string `json:"first_name"`
-	LastName      *string `json:"last_name"`
-	Name          string  `json:"name"`
-	Email         string  `json:"email"`
-	Password      string  `json:"password"`
-	UsedOAuth     *bool   `json:"used_oauth"`
-	OAuthProvider *string `json:"oauth_provider"`
-	OAuthState    *string `json:"oauth_state"`
-	UserToken     *string `json:"user_token"`
-}
-
-func (user ImagineUser) TableName() string { return "users" }
-
 type ImagineAPIKeyData struct {
 	gorm.Model
-	ID              string `json:"id" gorm:"primary_key"`
-	APIKeyHashed    string `json:"api_key_hashed"`
-	ApplicationID   string `json:"application_id"`
-	ApplicationName string `json:"application_name"`
+	UID       string    `json:"uid" gorm:"primary_key"`
+	Key       string    `json:"key"`
+	CreatedAt time.Time `json:"created_at"`
+	UserID    string    `json:"user_id"`
+	Scopes    []string  `json:"scopes"`
+	RevokedAt time.Time `json:"revoked_at"`
+	Revoked   bool      `json:"revoked"`
 }
 
 func (a ImagineAPIKeyData) TableName() string { return "api_keys" }
 
-// TODO: Migrate to central API file/route
-func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
+func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
-
-	// Set up auth
-	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-
-	// Setup DB (lmao I promise this wasn't AI)
-	database := server.Database
-	client := database.Client
-
-	defer func() {
-		err := database.Disconnect(client)
-		if err != nil {
-			logger.Error("error disconnecting from postgres", slog.Any("error", err))
-		}
-
-		logger.Info("Disconnected from Postgres")
-	}()
-
-	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
-		jsonResponse := map[string]any{"message": "You have been PONGED by the auth server. What do you want here? 🤨"}
-		logger.Info("server pinged", slog.String("request_id", libhttp.GetRequestID(req)))
-		render.JSON(res, req, jsonResponse)
-	})
 
 	router.Get("/apikey", func(res http.ResponseWriter, req *http.Request) {
 		keys, err := auth.GenerateAPIKey()
@@ -116,11 +72,11 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 		}
 
 		apiDataDocument := &ImagineAPIKeyData{
-			ID:           apiKeyId,
-			APIKeyHashed: keys["hashed_key"],
+			UID: apiKeyId,
+			Key: keys["hashed_key"],
 		}
 
-		tx := client.Create(apiDataDocument)
+		tx := db.Create(apiDataDocument)
 		if tx.Error != nil {
 			if (tx.Error == gorm.ErrDuplicatedKey) || (tx.Error == gorm.ErrInvalidData) {
 				// Return the key
@@ -157,7 +113,7 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 			return
 		}
 
-		tx := client.Select("email", "password").Where("email = ?", user.Email).First(&user)
+		tx := db.Select("email", "password").Where("email = ?", user.Email).First(&user)
 		if tx.Error != nil {
 			if tx.Error == gorm.ErrRecordNotFound {
 				res.WriteHeader(http.StatusNotFound)
@@ -179,15 +135,7 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 			return
 		}
 
-		authToken, err := auth.GenerateAuthToken(user.UID, "api", jwtSecret)
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"error generating auth token",
-				"Something went wrong, please try again later",
-			)
-			return
-		}
-
+		authToken := auth.GenerateAuthToken()
 		expiryTime := carbon.Now().AddYear().StdTime()
 		http.SetCookie(res, auth.CreateAuthTokenCookie(expiryTime, authToken))
 
@@ -196,72 +144,6 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 	})
 
 	router.Get("/oauth", func(res http.ResponseWriter, req *http.Request) {
-		authTokenCookie := req.CookiesNamed("imag-auth_token")
-
-		if len(authTokenCookie) > 0 {
-			authTokenVal := authTokenCookie[0].Value
-			authToken, err := jwt.Parse(authTokenVal, func(token *jwt.Token) (interface{}, error) {
-				return jwtSecret, nil
-			}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-
-			switch {
-			case authToken.Valid:
-				logger.Info("user already authenticated", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"message": "user already authenticated"}
-
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenMalformed):
-				logger.Info("malformed token", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "malformed token"}
-
-				res.WriteHeader(http.StatusBadRequest)
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenSignatureInvalid):
-				logger.Error("invalid token signature", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "invalid token signature"}
-
-				res.WriteHeader(http.StatusBadRequest)
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenExpired):
-				logger.Info("token expired", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "token expired"}
-
-				res.WriteHeader(http.StatusForbidden)
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenNotValidYet):
-				logger.Info("token not valid yet", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "token not valid yet"}
-
-				res.WriteHeader(http.StatusBadRequest)
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenExpired):
-				logger.Info("token expired", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "token expired"}
-
-				res.WriteHeader(http.StatusForbidden)
-				render.JSON(res, req, jsonResponse)
-				return
-			case errors.Is(err, jwt.ErrTokenInvalidClaims):
-				logger.Info("token invalid claims", slog.String("request_id", libhttp.GetRequestID(req)))
-				jsonResponse := map[string]any{"error": "token invalid claims"}
-
-				res.WriteHeader(http.StatusBadRequest)
-				render.JSON(res, req, jsonResponse)
-				return
-			default:
-				libhttp.ServerError(res, req, err, logger, nil,
-					"",
-					"Something went wrong on our side, please try again later",
-				)
-				return
-			}
-		}
-
 		var oauthConfig *oauth2.Config
 		provider := req.FormValue("provider")
 
@@ -325,8 +207,11 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 	router.Post("/oauth/{provider}", func(res http.ResponseWriter, req *http.Request) {
 		provider := strings.ToLower(chi.URLParam(req, "provider"))
 		state := req.FormValue("state")
-		var actualUserData any // To store the user data struct
-		var userEmail string
+		var actualUserData struct {
+			Email   string `json:"email"`
+			Name    string `json:"name"`
+			Picture string `json:"picture"`
+		}
 
 		switch provider {
 		case "google":
@@ -340,8 +225,9 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 				return
 			}
 
-			userEmail = resp.Email
-			actualUserData = resp
+			actualUserData.Email = resp.Email
+			actualUserData.Name = resp.Name
+			actualUserData.Picture = resp.Picture
 		case "github":
 			resp, err := oauth.GithubOAuthHandler(res, req, logger)
 			if err != nil {
@@ -352,8 +238,9 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 				return
 			}
 
-			userEmail = resp.GetEmail()
-			actualUserData = resp
+			actualUserData.Email = resp.GetEmail()
+			actualUserData.Name = resp.GetName()
+			actualUserData.Picture = resp.GetAvatarURL()
 		default:
 			res.WriteHeader(http.StatusBadRequest)
 			res.Write([]byte("OAuth provider unsupported"))
@@ -362,14 +249,7 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 
 		expiryTime := carbon.Now().AddYear().StdTime()
 
-		tokenString, err := auth.GenerateAuthToken(userEmail, "api", jwtSecret)
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"Failed to sign JWT token",
-				"Could not process your login information. Please try again later",
-			)
-			return
-		}
+		tokenString := auth.GenerateAuthToken()
 
 		// at this point, the state has been validated to be correct
 		// and unmodified to use that
@@ -395,53 +275,6 @@ func (server ImagineAuthServer) AuthRouter(db *gorm.DB, logger *slog.Logger) *ch
 
 		logger.Info("User logged in with OAuth", slog.String("provider", provider))
 		render.JSON(res, req, actualUserData)
-	})
-
-	router.Post("/user", func(res http.ResponseWriter, req *http.Request) {
-		var createdUser entities.User
-
-		err := render.DecodeJSON(req.Body, &createdUser)
-		if err != nil {
-			res.WriteHeader(http.StatusBadRequest)
-			render.JSON(res, req, map[string]string{"error": "invalid request body"})
-			return
-		}
-
-		logger.Debug("user on req", slog.Any("user", createdUser))
-		if createdUser.Name == "" || createdUser.Password == "" || createdUser.Email == "" {
-			res.WriteHeader(http.StatusBadRequest)
-			render.JSON(res, req, map[string]string{"error": "required fields are missing"})
-			return
-		}
-
-		createdUser.UID, err = uid.Generate()
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"Failed to generate user ID",
-				"Something went wrong, please try again later",
-			)
-		}
-
-		//todo: fix this mess. get a string from the salt and hash seperately
-		argon := crypto.CreateArgon2Hash(3, 32, 2, 32, 16)
-		salt := argon.GenerateSalt()
-		hashedPass, _ := argon.Hash([]byte(createdUser.Password), salt)
-		createdUser.Password = hex.EncodeToString(salt) + ":" + hex.EncodeToString(hashedPass)
-
-		logger.Debug("user before db", slog.Any("user", createdUser))
-
-		err = client.Create(&createdUser).Error
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"Failed to create user",
-				"Something went wrong, please try again later",
-			)
-
-			return
-		}
-
-		res.WriteHeader(http.StatusCreated)
-		render.JSON(res, req, createdUser)
 	})
 
 	return router

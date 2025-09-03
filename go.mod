@@ -1,6 +1,6 @@
 module imagine
 
-go 1.24.3
+go 1.25.0
 
 require github.com/davidbyttow/govips/v2 v2.16.0
 
@@ -39,9 +39,13 @@ require (
 	github.com/dsoprea/go-photoshop-info-format v0.0.0-20200609050348-3db9b63b202c // indirect
 	github.com/dsoprea/go-tiff-image-structure/v2 v2.0.0-20221003165014-8ecc4f52edca // indirect
 	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect
+	github.com/go-co-op/gocron/v2 v2.16.5 // indirect
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/orandin/slog-gorm v1.4.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
