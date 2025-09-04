@@ -1,7 +1,7 @@
 {
 	"baseUrl": "les-is.online",
 	"servers": {
-		"media-server": {
+		"api-server": {
 			"port": 7770,
 			"database": "images"
 		},
