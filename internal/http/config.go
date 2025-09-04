@@ -31,7 +31,7 @@ var (
 
 		config, err := ReadConfig()
 		if err != nil {
-			panic("Unable to read config file")
+			panic("Unable to read config file " + err.Error())
 		}
 
 		result := map[string]*ImagineServer{}
