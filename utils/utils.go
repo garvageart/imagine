@@ -39,7 +39,12 @@ const (
 )
 
 func GetAppVersion() string {
-	data, _ := os.ReadFile("version.txt")
+	data, err := os.ReadFile("version.txt")
+
+	if err != nil {
+		panic(err)
+	}
+
 	return strings.Split(string(data), "\n")[0]
 }
 
