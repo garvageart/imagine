@@ -14,10 +14,12 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"@types/node": "^22.15.21"
+		"@types/node": "^22.15.21",
+		"@types/semver": "^7.7.1"
 	},
 	"dependencies": {
 		"dotenv": "^17.2.1",
+		"semver": "^7.7.2",
 		"unsplash-js": "^7.0.19"
 	}
 }
