@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	libos "imagine/internal/os"
-	"imagine/utils"
+	"imagine/internal/utils"
 )
 
 const (

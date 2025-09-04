@@ -16,7 +16,7 @@ import (
 
 	liberrors "imagine/internal/errors"
 	libos "imagine/internal/os"
-	"imagine/utils"
+	"imagine/internal/utils"
 )
 
 var (

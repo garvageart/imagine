@@ -32,7 +32,7 @@ import (
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
 	"imagine/internal/uid"
-	"imagine/utils"
+	"imagine/internal/utils"
 )
 
 type ImageUpload struct {

@@ -9,7 +9,7 @@ import (
 
 	"imagine/internal/db"
 	libos "imagine/internal/os"
-	"imagine/utils"
+	"imagine/internal/utils"
 
 	_ "github.com/joho/godotenv/autoload"
 )

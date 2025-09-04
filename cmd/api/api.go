@@ -19,7 +19,7 @@ import (
 	"imagine/internal/db"
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
-	"imagine/utils"
+	"imagine/internal/utils"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"imagine/utils"
+	"imagine/internal/utils"
 
 	slogmulti "github.com/samber/slog-multi"
 )

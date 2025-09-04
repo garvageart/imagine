@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 	libos "imagine/internal/os"
-	"imagine/utils"
+	"imagine/internal/utils"
 
 	"github.com/spf13/viper"
 )
