@@ -50,10 +50,7 @@ func SetupDefaultLogHandlers() []slog.Handler {
 		consoleLogger = slog.NewTextHandler(os.Stderr, &fileHandlerOpts)
 	} else {
 		// Setups up colour logger
-		consoleLogger = NewColourLogger(&ImalogHandlerOptions{
-			HandlerOptions: &consoleHandlerOpts,
-			Writer:         os.Stderr, // Explicitly set writer for colour logger
-		})
+		consoleLogger = NewColourHandler(&consoleHandlerOpts, WithDestinationWriter(os.Stderr), WithColor())
 	}
 
 	return []slog.Handler{
@@ -63,10 +60,7 @@ func SetupDefaultLogHandlers() []slog.Handler {
 }
 
 func CreateLogger(handlers []slog.Handler) *slog.Logger {
-	logger := slog.New(slogmulti.Fanout(handlers...))
-	logger = logger.With(LoggerProgramInfoGroup)
-
-	return logger
+	return slog.New(slogmulti.Fanout(handlers...))
 }
 
 func CreateDefaultLogger() *slog.Logger {

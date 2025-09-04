@@ -1,11 +1,14 @@
 package log
 
+// Modified from https://github.com/dusted-go/logging/blob/main/prettylog/prettylog.go
+// Apache 2.0 License https://github.com/dusted-go/logging/blob/main/LICENSE
+
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-
+	"imagine/internal/ansi"
 	"io"
 	"log/slog"
 	"strings"
@@ -13,143 +16,117 @@ import (
 )
 
 const (
-	Reset = "\033[0m"
-
-	Black        = 30
-	Red          = 31
-	Green        = 32
-	Yellow       = 33
-	Blue         = 34
-	Magenta      = 35
-	Cyan         = 36
-	LightGray    = 37
-	DarkGray     = 90
-	LightRed     = 91
-	LightGreen   = 92
-	LightYellow  = 93
-	LightBlue    = 94
-	LightMagenta = 95
-	LightCyan    = 96
-	White        = 97
+	TimeFormat = "[01-02-2006 15:04:05.000]"
 )
 
-const (
-	timeFormat = "[01-02-2006 15:04:05.000]"
-)
-
-type LogMessage struct {
-	Time        string
-	LevelString string
-	Level       slog.Level
-	Message     string
-	Bytes       string
-}
-
-type SlogColourHandler struct {
+type Handler struct {
 	handler          slog.Handler
-	buffer           *bytes.Buffer
+	recorder         func([]string, slog.Attr) slog.Attr
+	buf              *bytes.Buffer
+	mu               *sync.Mutex
 	writer           io.Writer
-	mutex            *sync.Mutex
-	showRecord       bool
+	colorize         bool
 	outputEmptyAttrs bool
-	replaceAttrs     func([]string, slog.Attr) slog.Attr
 }
 
-
-func RGBToAnsiString(r, g, b uint8) string {
-	return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
+func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.handler.Enabled(ctx, level)
 }
 
-func colorize(colorCode int, v string) string {
-	return fmt.Sprintf("\033[%dm%s%s", colorCode, v, Reset)
+func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &Handler{handler: h.handler.WithAttrs(attrs), buf: h.buf, recorder: h.recorder, mu: h.mu, writer: h.writer, colorize: h.colorize}
 }
 
-func (h *SlogColourHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return true
+func (h *Handler) WithGroup(name string) slog.Handler {
+	return &Handler{handler: h.handler.WithGroup(name), buf: h.buf, recorder: h.recorder, mu: h.mu, writer: h.writer, colorize: h.colorize}
 }
 
-func (h *SlogColourHandler) computeAttrs(ctx context.Context, r slog.Record) (map[string]any, error) {
-	h.mutex.Lock()
+func (h *Handler) computeAttrs(
+	ctx context.Context,
+	r slog.Record,
+) (map[string]any, error) {
+	h.mu.Lock()
 	defer func() {
-		h.buffer.Reset()
-		h.mutex.Unlock()
+		h.buf.Reset()
+		h.mu.Unlock()
 	}()
-
 	if err := h.handler.Handle(ctx, r); err != nil {
-	return map[string]any{}, fmt.Errorf("error when calling inner handler's Handle: %w", err)
+		return nil, fmt.Errorf("error when calling inner handler's Handle: %w", err)
 	}
 
 	var attrs map[string]any
-	err := json.Unmarshal(h.buffer.Bytes(), &attrs)
-
+	err := json.Unmarshal(h.buf.Bytes(), &attrs)
 	if err != nil {
-	return map[string]any{}, fmt.Errorf("error when unmarshaling inner handler's Handle result: %w", err)
+		return nil, fmt.Errorf("error when unmarshaling inner handler's Handle result: %w", err)
 	}
-
 	return attrs, nil
 }
 
-func SuppressDefaults(next func([]string, slog.Attr) slog.Attr) func([]string, slog.Attr) slog.Attr {
-	return func(groups []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.TimeKey ||
-			a.Key == slog.LevelKey ||
-			a.Key == slog.MessageKey {
-			return slog.Attr{}
-			}
-		if next == nil {
-			return a
-		}
-
-		return next(groups, a)
-		}
-}
-
-func (h *SlogColourHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return h
-}
-
-func (h *SlogColourHandler) WithGroup(name string) slog.Handler {
-	return h
-}
-
-func (h *SlogColourHandler) Handle(ctx context.Context, record slog.Record) error {
-	var attrs map[string]any
-	var err error
-	var attrsAsBytes []byte
-
-	var levelString string
-	levelAttr := slog.Attr{
-		Key:   slog.LevelKey,
-		Value: slog.AnyValue(record.Level),
+func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
+	colorize := func(code int, value string) string {
+		return value
+	}
+	if h.colorize {
+		colorize = ansi.Colorize
 	}
 
-	if h.replaceAttrs != nil {
-		levelAttr = h.replaceAttrs([]string{}, levelAttr)
+	var level string
+	levelAttr := slog.Attr{
+		Key:   slog.LevelKey,
+		Value: slog.AnyValue(r.Level),
+	}
+	if h.recorder != nil {
+		levelAttr = h.recorder([]string{}, levelAttr)
 	}
 
 	if !levelAttr.Equal(slog.Attr{}) {
-		levelString = levelAttr.Value.String() + ":"
+		level = levelAttr.Value.String() + ":"
 
-		if record.Level <= slog.LevelDebug {
-			levelString = colorize(LightGreen, levelString)
-		} else if record.Level <= slog.LevelInfo {
-			levelString = colorize(Cyan, levelString)
-		} else if record.Level < slog.LevelWarn {
-			levelString = colorize(LightBlue, levelString)
-		} else if record.Level < slog.LevelError {
-			levelString = colorize(LightYellow, levelString)
-		} else if record.Level <= slog.LevelError+1 {
-			levelString = colorize(LightRed, levelString)
-		} else if record.Level > slog.LevelError+1 {
-			levelString = colorize(LightMagenta, levelString)
+		if r.Level <= slog.LevelDebug {
+			level = colorize(ansi.LightGray, level)
+		} else if r.Level <= slog.LevelInfo {
+			level = colorize(ansi.Cyan, level)
+		} else if r.Level < slog.LevelWarn {
+			level = colorize(ansi.LightBlue, level)
+		} else if r.Level < slog.LevelError {
+			level = colorize(ansi.LightYellow, level)
+		} else if r.Level <= slog.LevelError+1 {
+			level = colorize(ansi.LightRed, level)
+		} else if r.Level > slog.LevelError+1 {
+			level = colorize(ansi.LightMagenta, level)
 		}
 	}
 
-	attrs, err = h.computeAttrs(ctx, record)
+	var timestamp string
+	timeAttr := slog.Attr{
+		Key:   slog.TimeKey,
+		Value: slog.StringValue(r.Time.Format(TimeFormat)),
+	}
+	if h.recorder != nil {
+		timeAttr = h.recorder([]string{}, timeAttr)
+	}
+	if !timeAttr.Equal(slog.Attr{}) {
+		timestamp = colorize(ansi.LightGray, timeAttr.Value.String())
+	}
+
+	var msg string
+	msgAttr := slog.Attr{
+		Key:   slog.MessageKey,
+		Value: slog.StringValue(r.Message),
+	}
+	if h.recorder != nil {
+		msgAttr = h.recorder([]string{}, msgAttr)
+	}
+	if !msgAttr.Equal(slog.Attr{}) {
+		msg = colorize(ansi.White, msgAttr.Value.String())
+	}
+
+	attrs, err := h.computeAttrs(ctx, r)
 	if err != nil {
 		return err
 	}
 
+	var attrsAsBytes []byte
 	if h.outputEmptyAttrs || len(attrs) > 0 {
 		attrsAsBytes, err = json.MarshalIndent(attrs, "", "  ")
 		if err != nil {
@@ -157,45 +134,15 @@ func (h *SlogColourHandler) Handle(ctx context.Context, record slog.Record) erro
 		}
 	}
 
-	var timestamp string
-	timeAttr := slog.Attr{
-		Key:   slog.TimeKey,
-		Value: slog.StringValue(record.Time.Format(timeFormat)),
-	}
-
-	if h.replaceAttrs != nil {
-		timeAttr = h.replaceAttrs([]string{}, timeAttr)
-	}
-
-	if !timeAttr.Equal(slog.Attr{}) {
-		timestamp = colorize(LightGray, timeAttr.Value.String())
-	}
-
-	var msg string
-	msgAttr := slog.Attr{
-		Key:   slog.MessageKey,
-		Value: slog.StringValue(record.Message),
-	}
-
-	if h.replaceAttrs != nil {
-		msgAttr = h.replaceAttrs([]string{}, msgAttr)
-	}
-
-	if !msgAttr.Equal(slog.Attr{}) {
-		msg = colorize(White, msgAttr.Value.String())
-	}
-
 	out := strings.Builder{}
 	if len(timestamp) > 0 {
 		out.WriteString(timestamp)
 		out.WriteString(" ")
 	}
-
-	if len(levelString) > 0 {
-		out.WriteString(levelString)
+	if len(level) > 0 {
+		out.WriteString(level)
 		out.WriteString(" ")
 	}
-
 	if len(msg) > 0 {
 		out.WriteString(msg)
 		out.WriteString(" ")
@@ -211,33 +158,73 @@ func (h *SlogColourHandler) Handle(ctx context.Context, record slog.Record) erro
 	// Which? Idk but I'd rather not find out lmao
 	// This is fine for now
 	if len(attrsAsBytes) > 2 {
-		out.WriteString(colorize(DarkGray, string(attrsAsBytes)))
+		out.WriteString(colorize(ansi.DarkGray, string(attrsAsBytes)))
 	}
 
 	_, err = io.WriteString(h.writer, out.String()+"\n")
-	return err
-}
-
-
-func NewColourLogger(opts *ImalogHandlerOptions) *SlogColourHandler {
-	if opts == nil {
-		opts = &ImalogHandlerOptions{}
+	if err != nil {
+		return err
 	}
 
-	buffer := &bytes.Buffer{}
+	return nil
+}
 
-	return &SlogColourHandler{
-		buffer:     buffer,
-		writer:     opts.Writer,
-		mutex:      &sync.Mutex{},
-		showRecord: opts.ShowSource,
-		handler: slog.NewJSONHandler(buffer, &slog.HandlerOptions{
-			Level:       opts.Level,
-			AddSource:   opts.AddSource,
-			ReplaceAttr: SuppressDefaults(opts.ReplaceAttr),
+func SuppressDefaults(
+	next func([]string, slog.Attr) slog.Attr,
+) func([]string, slog.Attr) slog.Attr {
+	return func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey ||
+			a.Key == slog.LevelKey ||
+			a.Key == slog.MessageKey {
+			return slog.Attr{}
+		}
+		if next == nil {
+			return a
+		}
+		return next(groups, a)
+	}
+}
+
+func NewColourHandler(handlerOptions *slog.HandlerOptions, options ...Option) *Handler {
+	if handlerOptions == nil {
+		handlerOptions = &slog.HandlerOptions{}
+	}
+
+	buf := &bytes.Buffer{}
+	handler := &Handler{
+		buf: buf,
+		handler: slog.NewJSONHandler(buf, &slog.HandlerOptions{
+			Level:       handlerOptions.Level,
+			AddSource:   handlerOptions.AddSource,
+			ReplaceAttr: SuppressDefaults(handlerOptions.ReplaceAttr),
 		}),
-		outputEmptyAttrs: opts.OutputEmptyAttrs,
+		recorder: handlerOptions.ReplaceAttr,
+		mu:       &sync.Mutex{},
+	}
+
+	for _, opt := range options {
+		opt(handler)
+	}
+
+	return handler
+}
+
+type Option func(h *Handler)
+
+func WithDestinationWriter(writer io.Writer) Option {
+	return func(h *Handler) {
+		h.writer = writer
 	}
 }
 
+func WithColor() Option {
+	return func(h *Handler) {
+		h.colorize = true
+	}
+}
 
+func WithOutputEmptyAttrs(outputEmptyAttrs bool) Option {
+	return func(h *Handler) {
+		h.outputEmptyAttrs = outputEmptyAttrs
+	}
+}
