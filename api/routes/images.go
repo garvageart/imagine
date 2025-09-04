@@ -27,10 +27,10 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/gorm"
 
-	"imagine/imageops"
 	"imagine/internal/entities"
 	gcp "imagine/internal/gcp/storage"
 	libhttp "imagine/internal/http"
+	"imagine/internal/imageops"
 	"imagine/internal/uid"
 	"imagine/utils"
 )

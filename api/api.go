@@ -16,14 +16,14 @@ import (
 	"github.com/go-chi/render"
 
 	"imagine/api/routes"
-	"imagine/db"
+	"imagine/internal/db"
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
 	"imagine/utils"
 )
 
 var (
-	ServerKey = libhttp.ServerKeys["api"]
+	ServerConfig = libhttp.ImagineServers["api"]
 )
 
 type ImagineMediaServer struct {
@@ -141,7 +141,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
 
 	go func() {
-		logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", ServerKey, address))
+		logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", ServerConfig.Key, address))
 
 		err := http.ListenAndServe(address, router)
 		if err != nil {
@@ -173,9 +173,9 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 
 func main() {
 	router := chi.NewRouter()
-	logger := libhttp.SetupChiLogger(ServerKey)
+	logger := libhttp.SetupChiLogger(ServerConfig.Key)
 
-	server := ImagineMediaServer{ImagineServer: libhttp.ImagineServers[ServerKey]}
+	server := ImagineMediaServer{ImagineServer: ServerConfig}
 	server.ImagineServer.Logger = logger
 	server.Database = &db.DB{
 		Address:      "localhost",

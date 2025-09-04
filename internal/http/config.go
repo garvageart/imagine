@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 
-	"imagine/db"
+	"imagine/internal/db"
 	libos "imagine/internal/os"
 	"imagine/utils"
 
