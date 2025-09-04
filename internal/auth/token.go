@@ -13,7 +13,7 @@ func GenerateAuthToken() string {
 
 func CreateAuthTokenCookie(expireTime time.Time, token string) *http.Cookie {
 	return &http.Cookie{
-		Name:     "token",
+		Name:     "imag-auth_token",
 		Value:    token,
 		Expires:  expireTime,
 		HttpOnly: true,
