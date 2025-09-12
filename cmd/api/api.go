@@ -1,15 +1,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
-	libvips "github.com/davidbyttow/govips/v2/vips"
+	"cloud.google.com/go/storage"
+	libvips "github.com/cshum/vipsgen/vips"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -18,12 +18,17 @@ import (
 	"imagine/api/routes"
 	"imagine/internal/db"
 	"imagine/internal/entities"
+	gcp "imagine/internal/gcp/storage"
 	libhttp "imagine/internal/http"
+	"imagine/internal/jobs"
+	"imagine/internal/jobs/workers"
+	imalog "imagine/internal/logger"
 	"imagine/internal/utils"
 )
 
 var (
-	ServerConfig = libhttp.ImagineServers["api"]
+	ServerConfig = libhttp.ImagineServers["api-server"]
+	ImageBucket  *storage.BucketHandle
 )
 
 type ImagineMediaServer struct {
@@ -79,7 +84,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		}
 	}
 
-	libvips.LoggingSettings(func(messageDomain string, messageLevel libvips.LogLevel, message string) {
+	var libvipsLogHandler libvips.LoggingHandlerFunction = func(messageDomain string, messageLevel libvips.LogLevel, message string) {
 		switch messageLevel {
 		case libvips.LogLevelCritical:
 			logger.Error(fmt.Sprintf("%s: %s", messageDomain, message))
@@ -94,21 +99,13 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		case libvips.LogLevelDebug:
 			logger.Debug(fmt.Sprintf("%s: %s", messageDomain, message))
 		}
-	}, libvipsLogLevel)
+	}
 
-	// TODO: Migrate to https://github.com/cshum/vipsgen
-	libvips.Startup(&libvips.Config{
-		ConcurrencyLevel: 4,
-		MaxCacheFiles:    100,
-		MaxCacheMem:      500 * 1024 * 1024,
-		MaxCacheSize:     1000,
-		ReportLeaks:      true,
-	})
-	defer libvips.Shutdown()
+	libvips.SetLogging(libvipsLogHandler, libvipsLogLevel)
 
 	// Mount image router to main router
 	router.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
-	router.Mount("/images", routes.ImagesRouter(dbClient, logger))
+	router.Mount("/images", routes.ImagesRouter(dbClient, ImageBucket, logger))
 	router.Mount("/accounts", routes.AccountsRouter(dbClient, logger))
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
@@ -149,31 +146,14 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 				logger.Error(fmt.Sprintf("failed to start server: %s", err))
 			}
 
-			panic("")
+			panic(err)
 		}
 	}()
-
-	// Taken and adjusted from https://github.com/bluesky-social/social-app/blob/main/bskyweb/cmd/bskyweb/server.go
-	// Wait for a signal to exit.
-	logger.Info("registering OS exit signal handler")
-	quit := make(chan struct{})
-	exitSignals := make(chan os.Signal, 1)
-	signal.Notify(exitSignals, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-exitSignals
-		logger.Info(fmt.Sprintf("received OS exit signal: %s", sig))
-
-		// Trigger the return that causes an exit.
-		close(quit)
-	}()
-	<-quit
-	logger.Info("graceful shutdown complete")
 }
 
 func main() {
 	router := chi.NewRouter()
-	logger := libhttp.SetupChiLogger(ServerConfig.Key)
+	logger := imalog.CreateDefaultLogger()
 
 	server := ImagineMediaServer{ImagineServer: ServerConfig}
 	server.ImagineServer.Logger = logger
@@ -191,5 +171,19 @@ func main() {
 	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{})
 	server.ImagineServer.Database.Client = client
 
+	gcpCtx := context.Background()
+
+	// TODO: create a writer interface that any writer can
+	// implement besides Google Cloud Storage. This is just my
+	// personal writer and choice right now
+	storageClient, err := gcp.SetupClient(gcpCtx)
+	if err != nil {
+		panic(err)
+	}
+
+	ImageBucket = storageClient.Bucket("imagine-test-dev")
+
 	server.Launch(router)
+	workers := workers.NewImageWorker(ImageBucket, client)
+	jobs.RunJobQueue(workers)
 }
