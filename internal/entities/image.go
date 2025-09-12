@@ -8,8 +8,8 @@ import (
 
 type Image struct {
 	*gorm.Model
-	ImageMetadata
-	ImagePaths
+	*ImageMetadata
+	*ImagePaths
 	UID         string    `json:"uid"`
 	Name        string    `json:"name"`
 	UploadedBy  string    `json:"uploaded_by"`
