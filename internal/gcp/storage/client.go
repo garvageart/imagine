@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	CredentialsPath  = constructCredentialsPath()
-	CredentialsBytes = func() []byte {
-		credsBytes, err := ReadCredentials(CredentialsPath)
+	credentialsBytes = func() []byte {
+		credsBytes, err := ReadCredentials(constructCredentialsPath())
 		if err != nil {
 			panic(fmt.Sprint("Error reading credentials file", err))
 		}
@@ -55,7 +54,7 @@ func ReadCredentials(path string) ([]byte, error) {
 
 func CredentialsJSON() (CredentialsFileJSON, error) {
 	var credentialsJSON CredentialsFileJSON
-	credsJsonMarBytes, err := json.RawMessage.MarshalJSON(CredentialsBytes)
+	credsJsonMarBytes, err := json.RawMessage.MarshalJSON(credentialsBytes)
 
 	if err != nil {
 		return CredentialsFileJSON{}, liberrors.NewErrorf("Failed to marshal raw JSON message: %w", err)
@@ -83,7 +82,7 @@ func setupGCSEmuClient(ctx context.Context, addr string) (*storage.Client, error
 }
 
 func setupGCSClient(ctx context.Context) (*storage.Client, error) {
-	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(CredentialsBytes))
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credentialsBytes))
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
