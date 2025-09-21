@@ -21,6 +21,14 @@ func Generate() (string, error) {
 	return gonanoid.Generate(Base62Alphabet, DefaultLength)
 }
 
+func MustGenerate() string {
+	id, err := Generate()
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 func IsValid(str string) bool {
 	if len(str) == DefaultLength {
 		return true

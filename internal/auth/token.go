@@ -1,14 +1,14 @@
 package auth
 
 import (
-	"fmt"
+	"imagine/internal/utils"
 	"net/http"
 	"time"
 )
 
 func GenerateAuthToken() string {
-	tokenBytes := GenerateRandomBytes(48)
-	return fmt.Sprintf("%s", tokenBytes)
+	tokenBytes := utils.GenerateRandomBytes(48)
+	return string(tokenBytes)
 }
 
 func CreateAuthTokenCookie(expireTime time.Time, token string) *http.Cookie {

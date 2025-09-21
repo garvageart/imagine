@@ -1,10 +1,11 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"log"
 	"maps"
-	"math/rand"
+	mRand "math/rand"
 	"os"
 	"reflect"
 	"slices"
@@ -127,5 +128,15 @@ func StructToMap(item interface{}) map[string]interface{} {
 }
 
 func RandomInt(min, max int) int {
-	return min + rand.Intn(max-min)
+	return min + mRand.Intn(max-min)
+}
+
+func GenerateRandomBytes(n int) []byte {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return b
 }
