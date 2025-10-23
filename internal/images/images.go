@@ -21,10 +21,12 @@ var (
 			panic("base directory does not exist")
 		}
 
-		dir := baseDir + cfg.GetString("upload.location")
+		dir := cfg.GetString("upload.location")
 		if strings.TrimSpace(dir) == "" {
 			panic("upload location is not set in config")
 		}
+
+		dir = baseDir + "/" + dir
 
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			err := os.MkdirAll(dir, os.ModePerm)

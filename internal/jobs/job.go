@@ -3,9 +3,18 @@ package jobs
 import "context"
 
 type Job struct {
-	ctx   context.Context
-	ID    string
-	topic string
+	ctx    context.Context
+	ID     string
+	topic  string
+	status string
+}
+
+func (j *Job) SetStatus(status string) {
+	j.status = status
+}
+
+func (j *Job) GetStatus() string {
+	return j.status
 }
 
 func (j *Job) Topic() string {

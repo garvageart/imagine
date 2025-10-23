@@ -31,7 +31,7 @@ require (
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1 // indirect
 	github.com/boxes-ltd/imaging v1.6.11 // indirect
-	github.com/cshum/vipsgen v1.1.2 // indirect
+	github.com/cshum/vipsgen v1.1.3 // indirect
 	github.com/dsoprea/go-exif/v3 v3.0.1 // indirect
 	github.com/dsoprea/go-heic-exif-extractor/v2 v2.0.0-20210512044107-62067e44c235 // indirect
 	github.com/dsoprea/go-iptc v0.0.0-20200609062250-162ae6b44feb // indirect

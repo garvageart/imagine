@@ -47,5 +47,11 @@ func ReadFileAsGoImage(uid, fileName, fileType string) (imageData image.Image, f
 }
 
 func SaveImage(data []byte, uid, fileName, fileType string) error {
-	return os.WriteFile(GetImagePath(uid, fileName, fileType), data, 0644)
+	err := CreateImageDir(uid)
+	if err != nil {
+		return err
+	}
+
+	imagesDir := GetImagePath(uid, fileName, fileType)
+	return os.WriteFile(imagesDir, data, 0644)
 }

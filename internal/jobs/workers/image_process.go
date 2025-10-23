@@ -79,7 +79,7 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image) error
 	jobs.Logger.Info("saving thumbnail to disk", loggerFields)
 
 	// Save the thumbnail to disk
-	err = images.SaveImage(thumbData, imgEnt.UID, "thumbnail", "jpg")
+	err = images.SaveImage(thumbData, imgEnt.UID, fmt.Sprintf("%s-thumbnail", imgEnt.UID), "jpeg")
 	if err != nil {
 		return fmt.Errorf("failed to save thumbnail: %w", err)
 	}

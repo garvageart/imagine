@@ -5,9 +5,9 @@ import (
 	"image"
 	"os"
 
+	libvips "imagine/internal/imageops/vips"
 	libos "imagine/internal/os"
 
-	libvips "github.com/cshum/vipsgen/vips"
 	"github.com/galdor/go-thumbhash"
 )
 

@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	"cloud.google.com/go/storage"
-	libvips "github.com/cshum/vipsgen/vips"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -18,6 +16,7 @@ import (
 	"imagine/internal/db"
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
+	libvips "imagine/internal/imageops/vips"
 	"imagine/internal/jobs"
 	"imagine/internal/jobs/workers"
 	imalog "imagine/internal/logger"
@@ -26,7 +25,6 @@ import (
 
 var (
 	ServerConfig = libhttp.ImagineServers["api-server"]
-	ImageBucket  *storage.BucketHandle
 )
 
 type ImagineMediaServer struct {
@@ -103,7 +101,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 
 	// Mount image router to main router
 	router.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
-	router.Mount("/images", routes.ImagesRouter(dbClient, ImageBucket, logger))
+	router.Mount("/images", routes.ImagesRouter(dbClient, logger))
 	router.Mount("/accounts", routes.AccountsRouter(dbClient, logger))
 
 	router.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
@@ -170,6 +168,6 @@ func main() {
 	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)
-	job_workers := workers.NewImageWorker(client)
-	jobs.RunJobQueue(job_workers)
+	jobWorkers := workers.NewImageWorker(client)
+	jobs.RunJobQueue(jobWorkers)
 }

@@ -2,7 +2,6 @@ package routes
 
 import (
 	"bytes"
-	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
@@ -17,8 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/storage"
-	libvips "github.com/cshum/vipsgen/vips"
 	"github.com/dromara/carbon/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -29,6 +26,8 @@ import (
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
+	libvips "imagine/internal/imageops/vips"
+	"imagine/internal/images"
 	"imagine/internal/jobs/workers"
 	"imagine/internal/uid"
 )
@@ -40,7 +39,8 @@ type ImageUpload struct {
 
 type ImageUploadFile struct {
 	Data     []byte `json:"data"`
-	FileName string `json:"file_name"`
+	FileName string `json:"filename"`
+	Checksum string `json:"checksum,omitempty"`
 }
 
 type ImageUploadError struct {
@@ -146,7 +146,7 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 	return &allImageData, nil
 }
 
-func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger) *chi.Mux {
+func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
 	// TODO: Get param values to serve the original file in different
@@ -178,24 +178,23 @@ func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger
 			return
 		}
 
-		imageFile := bucket.Object(uid)
-		fileDataReader, err := imageFile.NewReader(context.Background())
-
-		if err != nil {
+		tx := db.Model(&entities.Image{}).Where("uid = ?", uid)
+		var imgEnt entities.Image
+		result := tx.First(&imgEnt)
+		if result.Error != nil {
+			if result.Error == gorm.ErrRecordNotFound {
+				res.WriteHeader(http.StatusNotFound)
+				render.JSON(res, req, map[string]string{"error": "image not found"})
+				return
+			}
 			res.WriteHeader(http.StatusInternalServerError)
-			render.JSON(res, req, map[string]string{"error": err.Error()})
+			render.JSON(res, req, map[string]string{"error": "failed to fetch image from database"})
 			return
 		}
 
-		fileBytes, err := io.ReadAll(fileDataReader)
-		if err != nil {
-			res.WriteHeader(http.StatusInternalServerError)
-			render.JSON(res, req, map[string]string{"error": err.Error()})
-			return
-		}
-		defer fileDataReader.Close()
+		fileBytes := []byte{}
 
-		goimg, _, err := imageops.ReadToImage(fileBytes)
+		goimg, _, err := images.ReadFileAsGoImage(imgEnt.UID, imgEnt.FileName, imgEnt.FileType)
 		if err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 			render.JSON(res, req, map[string]string{"error": err.Error()})
@@ -266,12 +265,47 @@ func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger
 	router.Post("/", func(res http.ResponseWriter, req *http.Request) {
 		var fileImageUpload ImageUploadFile
 
-		err := render.DecodeJSON(req.Body, &fileImageUpload)
+		// Parse the multipart form in the request
+		err := req.ParseMultipartForm(10 << 20) // limit your max input length!
 		if err != nil {
+			render.JSON(res, req, map[string]string{"error": "invalid request body"})
+			return
+		}
+
+		// Get the form fields
+		fileImageUpload.FileName = req.FormValue("filename")
+
+		// Get the file from the request
+		file, _, err := req.FormFile("data")
+		if err != nil {
+			render.JSON(res, req, map[string]string{"error": err.Error()})
+			return
+		}
+		defer file.Close()
+		fileImageUpload.Data, err = io.ReadAll(file)
+		if err != nil {
+			render.JSON(res, req, map[string]string{"error": "invalid file data"})
+			return
+		}
+
+		if fileImageUpload.FileName == "" || len(fileImageUpload.Data) == 0 {
 			res.WriteHeader(http.StatusBadRequest)
 			render.JSON(res, req, map[string]string{"error": "invalid request body"})
 			return
 		}
+
+		// fileImageUpload.Checksum = req.FormValue("checksum")
+
+		// if fileImageUpload.Checksum != "" {
+		// 	hasher := sha1.New()
+		// 	hasher.Write(fileImageUpload.Data)
+		// 	calculatedChecksum := hex.EncodeToString(hasher.Sum(nil))
+		// 	if fileImageUpload.Checksum != calculatedChecksum {
+		// 		res.WriteHeader(http.StatusBadRequest)
+		// 		render.JSON(res, req, map[string]string{"error": "checksum mismatch"})
+		// 		return
+		// 	}
+		// }
 
 		libvipsImg, err := libvips.NewImageFromBuffer(fileImageUpload.Data, libvips.DefaultLoadOptions())
 		if err != nil {
@@ -281,7 +315,7 @@ func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger
 		}
 
 		defer libvipsImg.Close()
-		imageEntity, err := createNewImageEntity(logger, "", libvipsImg)
+		imageEntity, err := createNewImageEntity(logger, fileImageUpload.FileName, libvipsImg)
 
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
@@ -317,6 +351,16 @@ func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger
 		logger.Info("starting image processing", slog.String("id", imageEntity.UID))
 		workerJob := &workers.ImageProcessJob{
 			Image: *imageEntity,
+		}
+
+		imageEntity.FileName = strings.Split(imageEntity.FileName, ".")[0] // remove extension for saving
+		err = images.SaveImage(fileImageUpload.Data, imageEntity.UID, imageEntity.FileName, imageEntity.FileType)
+		if err != nil {
+			libhttp.ServerError(res, req, err, logger, nil,
+				"",
+				"Failed to process image",
+			)
+			return
 		}
 
 		err = workers.EnqueueImageProcessJob(workerJob)
@@ -423,15 +467,11 @@ func ImagesRouter(db *gorm.DB, bucket *storage.BucketHandle, logger *slog.Logger
 			Image: *imageEntity,
 		}
 
-		imageObject := bucket.Object(fmt.Sprintf("images/%s/%s.%s", imageEntity.UID, imageEntity.FileName, imageEntity.FileType))
-		objWriter := imageObject.NewWriter(context.Background())
-		_, _ = objWriter.Write(fileBytes)
-
-		err = objWriter.Close()
+		err = images.SaveImage(fileBytes, imageEntity.UID, imageEntity.FileName, imageEntity.FileType)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
-				"Failed to save image to disk",
-				"Failed to save image to disk",
+				"",
+				"Failed to process image",
 			)
 			return
 		}

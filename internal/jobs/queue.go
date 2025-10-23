@@ -47,9 +47,10 @@ func RegisterWorkers(workers ...*Worker) {
 			func(msg *message.Message) error {
 				worker.Start()
 				job := &Job{
-					ctx:   msg.Context(),
-					ID:    msg.UUID,
-					topic: topic,
+					ctx:    msg.Context(),
+					ID:     msg.UUID,
+					topic:  topic,
+					status: JobStatusRunning,
 				}
 
 				if job.ID == "" {
@@ -60,6 +61,8 @@ func RegisterWorkers(workers ...*Worker) {
 
 				defer func() {
 					worker.Stop()
+					job.SetStatus(JobStatusSuccess)
+					delete(allJobs, job.ID)
 				}()
 
 				return handler(msg)
