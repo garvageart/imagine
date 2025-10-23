@@ -1,3 +1,7 @@
+<script module lang="ts">
+	export { collectionCard };
+</script>
+
 <script lang="ts">
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
 	import type { PageProps } from "./$types";
@@ -7,15 +11,17 @@
 	import { sendAPIRequest } from "$lib/utils/http";
 	import type { Collection } from "$lib/types/images";
 	import ModalOverlay from "$lib/components/modal/ModalOverlay.svelte";
-	import { modal } from "$lib/states/index.svelte";
+	import { modal, sort } from "$lib/states/index.svelte";
 	import { goto } from "$app/navigation";
 	import SliderToggle from "$lib/components/SliderToggle.svelte";
 	import { page } from "$app/state";
 	import { SvelteSet } from "svelte/reactivity";
 	import AssetGrid from "$lib/components/AssetGrid.svelte";
 	import type { Content } from "$lib/layouts/subpanel.svelte";
-	import { getContext } from "svelte";
-	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
+	import { getContext, type ComponentProps } from "svelte";
+	import type { AssetGridArray } from "$lib/types/asset";
+	import AssetsShell from "$lib/components/AssetsShell.svelte";
+	import { sortCollections } from "$lib/sort/sort";
 
 	let { data }: PageProps = $props();
 
@@ -24,13 +30,27 @@
 		offset: 0
 	});
 	let shouldUpdate = $derived(data.response.length > pagination.limit * pagination.offset);
-	let collectionsData = $derived(
-		data.response.slice(0, pagination.limit * (pagination.offset === 0 ? 1 : pagination.offset + 1))
-	); // initialize with pagination limit
+
+	let displayData = $derived(sortCollections(data.response, sort));
+
+	let fadeOpacity = false;
+	let toolbarOpacity = $state(1);
 
 	// Selection
 	let selectedAssets = $state<SvelteSet<any>>(new SvelteSet());
 	let singleSelectedAsset: any | undefined = $state();
+
+	let collectionGridArray: AssetGridArray<Collection> | undefined = $state();
+	let grid: ComponentProps<typeof AssetGrid<Collection>> = $derived({
+		assetDblClick: (_, asset) => {
+			openCollection(asset, currentPanelContent);
+		},
+		assetSnippet: collectionCard,
+		data: displayData,
+		assetGridArray: collectionGridArray,
+		selectedAssets,
+		singleSelectedAsset
+	});
 
 	const currentPanelContent = getContext<Content>("content");
 </script>
@@ -79,65 +99,71 @@
 
 {#snippet collectionCard(collectionData: Collection)}
 	{#if page.url.pathname !== "/"}
-		<a data-sveltekit-preload-data class="collection-card-link" href="/collections/{collectionData.id}">
-			<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} collection={collectionData} />
+		<a
+			data-sveltekit-preload-data
+			data-asset-id={collectionData.id}
+			class="collection-card-link"
+			href="/collections/{collectionData.id}"
+		>
+			<CollectionCard collection={collectionData} />
 		</a>
 	{:else}
 		<CollectionCard style={page.url.pathname === "/" ? "font-size: 0.9rem;" : ""} collection={collectionData} />
 	{/if}
 {/snippet}
 
+{#snippet toolbarSnippet()}
+	<div id="coll-details-toolbar">
+		<div id="coll-tools">
+			<Button
+				id="create-collection"
+				class="toolbar-button"
+				style="font-size: 0.8rem; background-color: var(--imag-80);"
+				title="Create Collection"
+				aria-label="Create Collection"
+				onclick={() => {
+					modal.show = true;
+				}}
+			>
+				Create
+				<MaterialIcon iconName="add" />
+			</Button>
+		</div>
+		<span id="coll-details-floating">{data.response.length} {data.response.length === 1 ? "collection" : "collections"}</span>
+	</div>
+{/snippet}
+
 <VizViewContainer
-	name="Collections"
-	bind:data={collectionsData}
+	bind:data={displayData}
 	bind:hasMore={shouldUpdate}
+	name="Collections"
+	style="padding: 0em {page.url.pathname === '/' ? '1em' : '0em'};"
 	paginate={() => {
 		pagination.offset++;
 	}}
-	style="height: 100%;"
+	onscroll={(e) => {
+		if (!fadeOpacity) {
+			return;
+		}
+
+		const assetGrid = document.querySelector(".viz-asset-grid-container")! as HTMLElement;
+
+		const top = Math.max(assetGrid.offsetTop, 1);
+		const current = e.currentTarget.scrollTop;
+		if (current >= top) {
+			toolbarOpacity = 0;
+		} else {
+			toolbarOpacity = Math.max(0, Math.min(1, 1 - current / top));
+		}
+	}}
 >
-	{#if selectedAssets.size > 1}
-		<AssetToolbar class="selection-toolbar">
-			<button
-				id="coll-clear-selection"
-				title="Clear selection"
-				aria-label="Clear selection"
-				style="margin-right: 0.5em;"
-				class="toolbar-button"
-				onclick={() => selectedAssets.clear()}
-			>
-				<MaterialIcon iconName="close" />
-			</button>
-			<span style="font-weight: 600;">{selectedAssets.size} selected</span>
-		</AssetToolbar>
-	{:else}
-		<AssetToolbar>
-			<span id="coll-details-floating">{data.response.length} {data.response.length === 1 ? "collection" : "collections"}</span>
-			<div id="coll-tools">
-				<Button
-					id="create-collection"
-					class="toolbar-button"
-					style="font-size: 0.8rem; background-color: var(--imag-80);"
-					title="Create Collection"
-					aria-label="Create Collection"
-					onclick={() => {
-						modal.show = true;
-					}}
-				>
-					Create
-					<MaterialIcon iconName="add" />
-				</Button>
-			</div>
-		</AssetToolbar>
-	{/if}
-	<AssetGrid
-		assetDblClick={(_, asset) => {
-			openCollection(asset, currentPanelContent);
+	<AssetsShell
+		bind:grid
+		{pagination}
+		{toolbarSnippet}
+		toolbarProps={{
+			style: `justify-content: space-between;` + (fadeOpacity ? `opacity: ${toolbarOpacity};` : "")
 		}}
-		assetSnippet={collectionCard}
-		data={data.response}
-		bind:selectedAssets
-		bind:singleSelectedAsset
 	/>
 </VizViewContainer>
 
@@ -159,6 +185,12 @@
 		cursor: pointer;
 	}
 
+	#coll-details-toolbar {
+		width: 100%;
+		display: flex;
+		justify-content: left;
+	}
+
 	#coll-details-floating {
 		color: var(--imag-40);
 		background-color: transparent;
@@ -169,8 +201,6 @@
 	#coll-tools {
 		display: flex;
 		align-items: center;
-		position: absolute;
-		right: 2rem;
 		height: 100%;
 	}
 

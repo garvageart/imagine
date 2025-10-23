@@ -1,3 +1,16 @@
+<script module>
+	export { searchForData };
+
+	function searchForData(searchValue: string, images: ImageObjectData[]) {
+		if (searchValue.trim() === "") {
+			return [];
+		}
+		// eventually this should also look through keywords/tags
+		// and labels idk. fuzzy search???
+		return images.filter((i) => i.name.toLowerCase().includes(searchValue.toLowerCase()));
+	}
+</script>
+
 <script lang="ts">
 	import { page } from "$app/state";
 	import AssetGrid from "$lib/components/AssetGrid.svelte";
@@ -15,6 +28,8 @@
 	import { SvelteSet } from "svelte/reactivity";
 	import type { ComponentProps } from "svelte";
 	import { sortCollectionImages } from "$lib/sort/sort.js";
+	import { ImageObjectData } from "$lib/entities/image.js";
+	import ImageCard from "$lib/components/ImageCard.svelte";
 
 	let { data } = $props();
 	// Keyboard events
@@ -27,12 +42,18 @@
 	let loadedData = $state(data.response);
 
 	// Lightbox
-	let lightboxImage: IImageObjectData | undefined = $state();
+	let lightboxImage: ImageObjectData | undefined = $state();
 	let currentImageEl: HTMLImageElement | undefined = $derived(lightboxImage ? document.createElement("img") : undefined);
+
+	$effect(() => {
+		if (lightboxImage) {
+			lightbox.show = true;
+		}
+	});
 
 	// Search stuff
 	let searchValue = $state("");
-	let searchData = $derived(searchForData());
+	let searchData = $derived(searchForData(searchValue, loadedData.images));
 
 	// Pagination
 	// NOTE: This might be moved to a settings thing and this could just be default
@@ -54,22 +75,13 @@
 	// Toolbar stuff
 	let toolbarOpacity = $state(0);
 
-	function searchForData() {
-		if (searchValue.trim() === "") {
-			return [];
-		}
-		// eventually this should also look through keywords/tags
-		// and labels idk. fuzzy search???
-		return loadedData.images.filter((i) => i.name.toLowerCase().includes(searchValue.toLowerCase()));
-	}
-
 	// Display Data
 	let displayData = $derived(
 		searchValue.trim() ? sortCollectionImages(searchData, sort) : sortCollectionImages(loadedData.images, sort)
 	);
 
 	// Grid props
-	let grid: ComponentProps<typeof AssetGrid<IImageObjectData>> = $derived({
+	let grid: ComponentProps<typeof AssetGrid<ImageObjectData>> = $derived({
 		assetSnippet: imageCard,
 		assetGridArray: imageGridArray,
 		selectedAssets,
@@ -77,12 +89,6 @@
 		data: displayData,
 		assetDblClick: (_, asset) => {
 			lightboxImage = asset;
-		}
-	});
-
-	$effect(() => {
-		if (lightboxImage) {
-			lightbox.show = true;
 		}
 	});
 
@@ -122,31 +128,11 @@
 	</Lightbox>
 {/if}
 
-{#snippet imageCard(asset: IImageObjectData)}
-	{@const imageDate = DateTime.fromJSDate(asset.uploaded_on)}
-
-	<div class="image-card" data-asset-id={asset.id}>
-		<div class="image-container">
-			<img
-				class="image-card-image"
-				src={asset.urls.preview}
-				alt="{asset.name} by {asset.uploaded_by.username}"
-				title="{asset.name} by {asset.uploaded_by.username}"
-				loading="lazy"
-			/>
-		</div>
-		<div class="image-card-meta">
-			<span class="image-card-name" title={asset.image_data.file_name}>{asset.image_data.file_name}</span>
-			<div class="image-card-date_time" title="Photo taken at {imageDate.toFormat('dd/MM/yyyy - HH:mm')}">
-				<span class="image-card-date">{imageDate.toFormat("dd/MM/yyyy")}</span>
-				<span class="image-card-divider">•</span>
-				<span class="image-card-time">{imageDate.toFormat("HH:mm")}</span>
-			</div>
-		</div>
-	</div>
+{#snippet imageCard(asset: ImageObjectData)}
+	<ImageCard {asset} />
 {/snippet}
 
-{#snippet toolbarSnippet()}
+{#snippet searchInputSnippet()}
 	<SearchInput style="margin: 0em 1em;" bind:value={searchValue} />
 {/snippet}
 
@@ -170,12 +156,12 @@
 	}}
 >
 	<AssetsShell
-		toolbarProps={{
-			style: "justify-content: center;"
-		}}
 		bind:grid
-		{toolbarSnippet}
 		{pagination}
+		toolbarSnippet={searchInputSnippet}
+		toolbarProps={{
+			style: "justify-content: center; "
+		}}
 	>
 		<div id="viz-info-container">
 			<div id="coll-metadata">
@@ -287,70 +273,7 @@
 		padding: 0.3rem inherit;
 	}
 
-	.image-card {
-		max-height: 20em;
-		background-color: var(--imag-100);
-		padding: 0.8em;
-		border-radius: 0.5em;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
-
-		&:focus {
-			outline: none;
-		}
-
-		&:hover {
-			background-color: var(--imag-90);
-		}
-	}
-
-	.image-container {
-		height: 13em;
-		background-color: var(--imag-80);
-	}
-
-	.image-card img {
-		max-width: 100%;
-		min-height: 100%;
-		height: auto;
-		object-fit: contain;
-		display: block;
-		pointer-events: none; // prevent clicks on image (right clicking should show the to be made context menu)
-	}
-
-	.image-card-meta {
-		margin-top: 0.5rem;
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		flex-direction: column;
-		font-size: 0.9rem;
-	}
-
-	.image-card-name {
-		font-weight: bold;
-		margin-bottom: 0.2em;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 100%;
-	}
-
-	.image-card-date_time {
-		color: var(--imag-20);
-	}
-
-	.image-card-divider {
-		color: var(--imag-40);
-	}
-
-	.image-card-time {
-		font-size: 0.9rem;
-	}
-
-	.lightbox-image {
+	:global(.lightbox-image) {
 		max-width: 70%;
 		max-height: 70%;
 	}

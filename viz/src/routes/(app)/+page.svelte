@@ -1,6 +1,7 @@
 <script lang="ts">
 	import VizPanel from "$lib/components/panels/VizPanel.svelte";
-	import { login } from "$lib/states/index.svelte";
+	import { login, search } from "$lib/states/index.svelte";
+	import SearchPage from "./search/+page.svelte";
 	import { onMount } from "svelte";
 
 	let vizContentContainer: HTMLDivElement | undefined = $state();
@@ -23,9 +24,13 @@
 </a>
 
 <main id="main" style="height: calc(100% - {mainHeaderHeight + 2}px);" class="no-select">
-	<div class="viz-content-container" bind:this={vizContentContainer}>
-		<VizPanel id="viz-content" />
-	</div>
+	{#if search.value !== "" && search.enableHomePageSearch}
+		<SearchPage />
+	{:else}
+		<div class="viz-content-container" bind:this={vizContentContainer}>
+			<VizPanel id="viz-content" />
+		</div>
+	{/if}
 </main>
 
 <style lang="scss">
