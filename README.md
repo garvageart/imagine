@@ -2,6 +2,10 @@
 
 **Imagine** is a self-hosted image management and processing platform designed for photographers, designers, and creative professionals. It provides a modern API-driven backend (Go) and a responsive web interface (SvelteKit) for organizing, searching, and sharing image collections.
 
+![Home Page Screenshot](./docs/images/home_page_screenshot.png)
+
+> **Note**: This is a work in progress and is not yet production-ready.
+
 ---
 
 ## Features
@@ -177,7 +181,11 @@ Contributions are welcome! Since this project is still in early development, ple
 
 ## License
 
-This project is currently unlicensed and for personal/educational use. A formal license will be added as the project matures.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+See the `LICENSE` file for the full text of the license.
+
+Copyright (c) 2025 Les
 
 ---
 
@@ -191,3 +199,5 @@ This project is currently unlicensed and for personal/educational use. A formal 
 ---
 
 **Questions or feedback?** Open an issue or reach out via the repository discussions.
+
+> **Note:** This initial `README` was partially written by Co-Pilot
