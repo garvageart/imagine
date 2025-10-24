@@ -28,6 +28,8 @@ require (
 	github.com/samber/slog-multi v1.4.0
 	github.com/spf13/viper v1.20.1
 	google.golang.org/api v0.232.0
+	github.com/kovidgoyal/imaging v1.7.2
+	golang.org/x/image v0.32.0
 )
 
 require (
@@ -37,14 +39,11 @@ require (
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/kovidgoyal/go-parallel v1.0.1 // indirect
-	github.com/kovidgoyal/imaging v1.7.2 // indirect
 	github.com/lithammer/shortuuid/v3 v3.0.7 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/sony/gobreaker v1.0.0 // indirect
-	golang.org/x/image v0.32.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
