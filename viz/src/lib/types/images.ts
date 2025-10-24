@@ -1,5 +1,6 @@
-import type { ImageObjectData } from "$lib/entities/image";
 import type { User } from "./users";
+import type { Pagination } from "./http";
+import type CollectionData from "$lib/entities/collection";
 
 export type SupportedImageTypes = "jpeg" | "jpg" | "png" | "tiff";
 export const SUPPORTED_IMAGE_TYPES: SupportedImageTypes[] = [
@@ -107,4 +108,13 @@ export interface ImageDupes {
     original_image_id: string;
     properties: IImageObjectData;
     created_on: Date;
+}
+
+export type ImagesResponse<TImage = Record<string, any>> = TImage & {
+    added_at: string; // time.Time → RFC3339 string
+    added_by: string;
+};
+
+export interface CollectionResponse extends Pagination {
+    items: CollectionData[];
 }

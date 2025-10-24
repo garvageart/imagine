@@ -2,13 +2,25 @@ import { MEDIA_SERVER } from "$lib/constants";
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
 import { createServerURL } from "./url";
 
-export async function sendAPIRequest<T>(path: string, options?: RequestInit, form: boolean = false) {
+type RequestInitOptions = { fetch?: typeof fetch; } & RequestInit;
+
+export async function sendAPIRequest<T>(path: string, options: RequestInitOptions, form: true): Promise<Response>;
+export async function sendAPIRequest<T>(path: string, options?: RequestInitOptions, form?: false): Promise<T>;
+export async function sendAPIRequest<T>(path: string, options?: RequestInitOptions, form: boolean = false): Promise<T | Response> {
     if (path.startsWith("/")) {
         path = path.substring(1);
     }
 
     if (form) {
+        if (options?.fetch) {
+            return options.fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+        }
         return fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+    }
+
+    if (options?.fetch) {
+        const res = await options.fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+        return res.json() as Promise<T>;
     }
 
     return fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options).then(res => res.json() as Promise<T>);
