@@ -66,7 +66,11 @@
 
 <div {...props} class="coll-card" data-asset-id={collection.uid}>
 	<div class="image-container">
-		<img src={collection.thumbnail?.urls.thumbnail} alt={collection.name} class="collection-image" />
+		{#if collection.thumbnail}
+			<img src={collection.thumbnail?.urls.thumbnail} alt={collection.name} class="collection-image" />
+		{:else}
+			<div class="coll-no_thumbnail"></div>
+		{/if}
 	</div>
 	<div class="metadata">
 		<span class="coll-name" title={collection.name}>{collection.name}</span>
@@ -105,13 +109,22 @@
 
 	.image-container {
 		height: 13em;
-		background-color: var(--imag-60);
+		background-color: var(--imag-80);
 		pointer-events: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.collection-image {
 		width: 100%;
 		height: 100%;
+	}
+
+	.coll-no_thumbnail {
+		background-color: var(--imag-40);
+		width: 60%;
+		height: 90%;
 	}
 
 	.metadata {
