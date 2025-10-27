@@ -16,9 +16,9 @@ export function createTestUser() {
         last_name: faker.person.lastName(),
         username: faker.internet.username(),
         email: faker.internet.email(),
-        created_on: faker.date.past({ years: 2 }),
         role: "user",
-        updated_on: faker.date.recent({ days: 60 })
+        created_at: faker.date.past({ years: 2 }),
+        updated_at: faker.date.recent({ days: 60 })
     });
 }
 
@@ -30,31 +30,39 @@ export function createTestUser() {
 export function createTestImageObject() {
     const randomImageNumber = Math.floor(Math.random() * 100);
     const name = `${faker.word.adjective()} ${faker.word.noun()}`;
+    const testUser = createTestUser();
+
     return new ImageObjectData({
         uid: generateRandomString(16),
         name,
         collection_id: generateRandomString(16),
-        uploaded_on: faker.date.past({ years: 2 }),
-        updated_on: faker.date.recent({ days: 30 }),
-        uploaded_by: createTestUser(),
-        dupes: [],
+        uploaded_by: testUser.uid,
         private: false,
+        width: Math.floor(Math.random() * 1920) + 800,
+        height: Math.floor(Math.random() * 1080) + 600,
+        processed: true,
         thumbhash: generateRandomString(16),
-        urls: {
-            original: `https://picsum.photos/1920/1080?random=${randomImageNumber}`,
-            thumbnail: `https://picsum.photos/800/600?random=${randomImageNumber}`,
-            preview: `https://picsum.photos/800/600?random=${randomImageNumber}`,
-            raw: `https://picsum.photos/1920/1080?random=${randomImageNumber}`
-        },
-        image_data: {
+        created_at: faker.date.past({ years: 2 }),
+        updated_at: faker.date.recent({ days: 30 }),
+        added_at: faker.date.past({ years: 2 }),
+        added_by: testUser.uid,
+        image_metadata: {
             file_name: `${name.replace(/\s/g, "_")}.jpg`,
-            file_size: Math.floor(Math.random() * 1000000) + 100000, // Random size between 100KB and 1MB
+            file_size: Math.floor(Math.random() * 1000000) + 100000,
             original_file_name: `${faker.word.noun()}_original.jpg`,
             file_type: "jpg",
             keywords: faker.lorem.words(Math.floor(Math.random() * 15)).split(" "),
-            width: Math.floor(Math.random() * 1920) + 800, // Random width between 800 and 1920
-            height: Math.floor(Math.random() * 1080) + 600, // Random height between 600 and 1080
-            colorSpace: "sRGB"
+            color_space: "sRGB",
+            file_modified_at: faker.date.recent({ days: 30 }).toISOString(),
+            file_created_at: faker.date.past({ years: 2 }).toISOString(),
+            thumbhash: generateRandomString(16),
+            checksum: generateRandomString(32)
+        },
+        image_paths: {
+            original_path: `https://picsum.photos/1920/1080?random=${randomImageNumber}`,
+            thumbnail_path: `https://picsum.photos/800/600?random=${randomImageNumber}`,
+            preview_path: `https://picsum.photos/800/600?random=${randomImageNumber}`,
+            raw_path: `https://picsum.photos/1920/1080?random=${randomImageNumber}`
         }
     });
 }
@@ -74,13 +82,12 @@ export function createTestCollection() {
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" "),
         description: faker.lorem.sentence(),
-        created_on: faker.date.past({ years: 1 }),
-        updated_on: faker.date.recent({ days: 30 }),
         images: [],
         private: faker.datatype.boolean(),
-        created_by: testUser,
+        created_by: testUser.uid,
+        created_at: faker.date.past({ years: 1 }),
+        updated_at: faker.date.recent({ days: 30 }),
         image_count: Math.floor(Math.random() * 400) + 50,
-        owner: testUser,
         thumbnail: createTestImageObject()
     });
 }
