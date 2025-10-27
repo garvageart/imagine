@@ -104,7 +104,7 @@
 </script>
 
 {#if lightboxImage}
-	{@const imageToLoad = lightboxImage.originalUrl}
+	{@const imageToLoad = lightboxImage.image_paths?.original_path ?? ''}
 	<Lightbox
 		onclick={() => {
 			lightboxImage = undefined;

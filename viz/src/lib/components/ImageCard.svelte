@@ -10,7 +10,7 @@
 	<div class="image-container">
 		<img
 			class="image-card-image"
-			src={asset.previewUrl}
+			src={asset.image_paths?.preview_path}
 			alt="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by}` : ''}"
 			title="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by}` : ''}"
 			loading="lazy"

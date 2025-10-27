@@ -67,7 +67,7 @@
 <div {...props} class="coll-card" data-asset-id={collection.uid}>
 	<div class="image-container">
 		{#if collection.thumbnail}
-			<img src={collection.thumbnail?.thumbnailUrl} alt={collection.name} class="collection-image" />
+			<img src={collection.thumbnail?.image_paths?.thumbnail_path} alt={collection.name} class="collection-image" />
 		{:else}
 			<div class="coll-no_thumbnail"></div>
 		{/if}

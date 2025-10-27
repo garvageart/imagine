@@ -68,31 +68,4 @@ export class ImageObjectData {
         imageData.added_by = response.added_by;
         return imageData;
     }
-
-    /**
-     * Get thumbnail URL
-     */
-    get thumbnailUrl(): string {
-        return this.image_paths?.thumbnail_path
-            ? `/images/${this.uid}/file?format=webp&w=800`
-            : '';
-    }
-
-    /**
-     * Get preview URL
-     */
-    get previewUrl(): string {
-        return this.image_paths?.preview_path
-            ? `/images/${this.uid}/file?format=webp`
-            : '';
-    }
-
-    /**
-     * Get original URL
-     */
-    get originalUrl(): string {
-        return this.image_paths?.original_path
-            ? `/images/${this.uid}/file`
-            : '';
-    }
 }
