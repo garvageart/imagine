@@ -8,11 +8,13 @@ export function sortCollectionImages(assets: ImageObjectData[], sort: AssetSort)
         case "name":
             return orderBy(assets, "name", sort.order);
         case "created_at":
-            return orderBy(assets, "uploaded_on", sort.order);
+            // Use created_at (always available), fallback to added_at for collection context
+            return orderBy(assets, (asset) => asset.created_at || asset.added_at, sort.order);
         case "updated_at":
-            return orderBy(assets, "updated_on", sort.order);
+            return orderBy(assets, "updated_at", sort.order);
         case "most_recent":
-            return orderBy(assets, "updated_on", sort.order);
+            // Most recent: prioritize updated_at, then added_at (for collections)
+            return orderBy(assets, (asset) => asset.updated_at || asset.added_at, sort.order);
         default:
             return assets;
     }
@@ -23,11 +25,14 @@ export function sortCollections(collections: CollectionData[], sort: AssetSort) 
         case "name":
             return orderBy(collections, "name", sort.order);
         case "created_at":
-            return orderBy(collections, "created_on", sort.order);
+            return orderBy(collections, "created_at", sort.order);
+        case "updated_at":
+            return orderBy(collections, "updated_at", sort.order);
         case "oldest":
-            return orderBy(collections, "updated_on", "asc");
+            return orderBy(collections, "created_at", "asc");
         case "most_recent":
-            return orderBy(collections, "updated_on", "desc");
+            return orderBy(collections, "updated_at", sort.order);
+            return orderBy(collections, (col) => col.updated_at || col.created_at, "desc");
         default:
             return collections;
     }
