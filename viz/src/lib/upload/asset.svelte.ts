@@ -1,4 +1,4 @@
-import { uploadRequest } from "$lib/utils/http";
+import { uploadImageWithProgress } from "$lib/api";
 import type { ImageUploadFileData, ImageUploadSuccess } from "./manager.svelte";
 
 export enum UploadState {
@@ -41,15 +41,14 @@ export class UploadImage implements UploadImageStats {
     async upload(): Promise<ImageUploadSuccess | undefined> {
         try {
             this.state = UploadState.STARTED;
-            const responseData = await uploadRequest<ImageUploadSuccess>({
+            const responseData = await uploadImageWithProgress({
                 data: this.data,
-                path: "/images",
                 onUploadProgress: this.updateProgress
             });
 
             this.state = (responseData.status === 200) || (responseData.status === 201) ? UploadState.DONE : UploadState.INVALID;
 
-            return responseData.data;
+            return responseData.data as ImageUploadSuccess;
         } catch (error) {
             this.state = UploadState.ERROR;
             console.error(error);

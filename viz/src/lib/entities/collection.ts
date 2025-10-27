@@ -1,4 +1,4 @@
-import type { APICollection, APICollectionImage } from "$lib/types/api-adapters";
+import type { APICollection, APICollectionImage } from "$lib/api/adapters";
 import type { ImageObjectData } from "./image";
 
 class CollectionData {

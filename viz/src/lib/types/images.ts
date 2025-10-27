@@ -17,7 +17,7 @@
  */
 
 import type { User } from "./users";
-import type { APIPagination } from "./api-adapters";
+import type { APIPagination } from "$lib/api/adapters";
 import type CollectionData from "$lib/entities/collection";
 
 export type SupportedImageTypes = "jpeg" | "jpg" | "png" | "tiff";

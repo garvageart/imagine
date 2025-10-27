@@ -1,4 +1,4 @@
-import type { APIImage, APIImagesResponse, APIImageMetadata, APIImagePaths } from "$lib/types/api-adapters";
+import type { APIImage, APIImagesResponse, APIImageMetadata, APIImagePaths } from "$lib/api/adapters";
 
 export class ImageObjectData {
     uid: string;
