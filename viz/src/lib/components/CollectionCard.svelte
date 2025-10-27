@@ -67,14 +67,14 @@
 <div {...props} class="coll-card" data-asset-id={collection.uid}>
 	<div class="image-container">
 		{#if collection.thumbnail}
-			<img src={collection.thumbnail?.urls.thumbnail} alt={collection.name} class="collection-image" />
+			<img src={collection.thumbnail?.thumbnailUrl} alt={collection.name} class="collection-image" />
 		{:else}
 			<div class="coll-no_thumbnail"></div>
 		{/if}
 	</div>
 	<div class="metadata">
 		<span class="coll-name" title={collection.name}>{collection.name}</span>
-		<span class="coll-created_on">{DateTime.fromJSDate(collection.created_on).toFormat("dd.MM.yyyy")}</span>
+		<span class="coll-created_at">{DateTime.fromJSDate(collection.created_at).toFormat("dd.MM.yyyy")}</span>
 		<span class="coll-image_count">{collection.image_count} {collection.image_count === 1 ? "image" : "images"}</span>
 	</div>
 </div>
