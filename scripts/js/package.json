@@ -17,8 +17,11 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
+		"@types/js-yaml": "^4.0.9",
 		"@types/node": "^22.15.21",
 		"@types/semver": "^7.7.1",
+		"js-yaml": "^4.1.0",
+		"oazapfts": "^6.3.1",
 		"tsx": "^4.20.6"
 	},
 	"dependencies": {

@@ -13,7 +13,7 @@
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
-		"gen:api:ts": "openapi-typescript ..\\api\\openapi\\openapi.yaml -o src\\lib\\types\\api.gen.ts"
+		"gen:api": "oazapfts ..\\api\\openapi\\openapi.yaml src\\lib\\api\\client.gen.ts"
 	},
 	"devDependencies": {
 		"@faker-js/faker": "^9.9.0",
@@ -27,7 +27,7 @@
 		"@types/luxon": "^3.7.1",
 		"@types/node": "^22.18.11",
 		"jsdom": "^26.1.0",
-		"openapi-typescript": "^7.10.1",
+		"oazapfts": "^6.3.1",
 		"sass": "^1.93.2",
 		"svelte": "^5.41.0",
 		"svelte-check": "^4.3.3",
@@ -45,6 +45,7 @@
 	"dependencies": {
 		"@fontsource-variable/manrope": "^5.2.8",
 		"@material-design-icons/svg": "^0.14.15",
+		"@oazapfts/runtime": "^1.0.4",
 		"esm-env-robust": "^0.0.3",
 		"hotkeys-js": "^3.13.15",
 		"idb": "^8.0.3",
