@@ -9,6 +9,14 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for UserRole.
+const (
+	UserRoleAdmin      UserRole = "admin"
+	UserRoleGuest      UserRole = "guest"
+	UserRoleSuperadmin UserRole = "superadmin"
+	UserRoleUser       UserRole = "user"
+)
+
 // Defines values for GetImageFileParamsFormat.
 const (
 	Avif GetImageFileParamsFormat = "avif"
@@ -149,6 +157,29 @@ type ImagesResponse struct {
 	Image   Image     `json:"image"`
 }
 
+// User defines model for User.
+type User struct {
+	CreatedAt time.Time `json:"created_at"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Role      UserRole  `json:"role"`
+	Uid       string    `json:"uid"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Username  string    `json:"username"`
+}
+
+// UserRole defines model for User.Role.
+type UserRole string
+
+// UserCreate defines model for UserCreate.
+type UserCreate struct {
+	Email           openapi_types.Email `json:"email"`
+	Name            string              `json:"name"`
+	Password        string              `json:"password"`
+	PasswordConfirm string              `json:"passwordConfirm"`
+}
+
 // ListCollectionsParams defines parameters for ListCollections.
 type ListCollectionsParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -197,3 +228,6 @@ type UploadImageMultipartRequestBody UploadImageMultipartBody
 
 // UploadImageByUrlTextRequestBody defines body for UploadImageByUrl for text/plain ContentType.
 type UploadImageByUrlTextRequestBody = UploadImageByUrlTextBody
+
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = UserCreate

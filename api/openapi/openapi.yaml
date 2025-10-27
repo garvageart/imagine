@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://spec.openapis.org/oas/3.0/schema/2021-09-28
 openapi: 3.0.3
 info:
-  title: Imagine Media API
+  title: Imagine API
   version: 0.1.0
   description: OpenAPI specification for the Imagine API (chi-based)
 servers:
-  - url: http://localhost:5373
+  - url: http://localhost:7770
     description: Local API
 paths:
   /ping:
@@ -23,6 +23,24 @@ paths:
                   message:
                     type: string
                 required: [message]
+
+  /user:
+    post:
+      summary: Register a new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
 
   /images:
     post:
@@ -416,3 +434,37 @@ components:
         created_by: { type: string }
         description: { type: string }
       required: [uid, name, images]
+
+    User:
+      type: object
+      properties:
+        uid: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        email: { type: string }
+        role:
+          type: string
+          enum: [user, admin, superadmin, guest]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required:
+        [
+          uid,
+          first_name,
+          last_name,
+          username,
+          email,
+          role,
+          created_at,
+          updated_at,
+        ]
+
+    UserCreate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        password: { type: string }
+        passwordConfirm: { type: string }
+      required: [name, email, password, passwordConfirm]
