@@ -96,36 +96,35 @@ if (!goGenSuccess) {
 console.log('Running go mod tidy...');
 run('go', ['mod', 'tidy']);
 
-// Generate TS interfaces
+// Generate TS API client with oazapfts
 if (existsSync(vizDir)) {
-    console.log('Generating TS interfaces in viz...');
+    console.log('Generating TypeScript API client with oazapfts...');
     const pkgJsonPath = join(vizDir, 'package.json');
 
     if (existsSync(pkgJsonPath)) {
         if (commandExists('pnpm')) {
-            const tsGenSuccess = run('pnpm', ['run', 'gen:api:ts'], vizDir);
+            const tsGenSuccess = run('pnpm', ['run', 'gen:api'], vizDir);
             if (!tsGenSuccess) {
-                console.warn('pnpm run gen:api:ts failed; trying npx fallback...');
+                console.warn('pnpm run gen:api failed; trying npx fallback...');
                 run('npx', [
-                    '--yes',
-                    'openapi-typescript',
+                    'oazapfts',
                     join('..', 'api', 'openapi', 'openapi.yaml'),
-                    '-o',
-                    join('src', 'lib', 'types', 'api.gen.ts'),
+                    join('src', 'lib', 'api', 'client.gen.ts'),
                 ], vizDir);
             }
         } else {
-            console.warn('pnpm not found; trying npx openapi-typescript...');
+            console.warn('pnpm not found; trying npx oazapfts...');
             run('npx', [
-                '--yes',
-                'openapi-typescript',
+                'oazapfts',
                 join('..', 'api', 'openapi', 'openapi.yaml'),
-                '-o',
-                join('src', 'lib', 'types', 'api.gen.ts'),
+                join('src', 'lib', 'api', 'client.gen.ts'),
             ], vizDir);
         }
     }
 }
+
+// Remove old function generation (no longer needed with oazapfts)
+// oazapfts generates both types AND functions in one file
 
 // Optional build checks
 if (options.build) {
