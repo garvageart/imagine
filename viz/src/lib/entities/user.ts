@@ -6,19 +6,19 @@ class UserData {
     last_name: string;
     username: string;
     email: string;
-    created_on: Date;
-    updated_on: Date;
     role: UserRole;
+    created_at: Date;
+    updated_at: Date;
 
-    constructor(data: UserData) {
+    constructor(data: Partial<UserData> & Pick<UserData, 'uid' | 'username' | 'email' | 'created_at' | 'updated_at'>) {
         this.uid = data.uid;
-        this.first_name = data.first_name;
-        this.last_name = data.last_name;
+        this.first_name = data.first_name ?? '';
+        this.last_name = data.last_name ?? '';
         this.username = data.username;
         this.email = data.email;
-        this.created_on = data.created_on;
-        this.updated_on = data.updated_on;
         this.role = data.role || 'user';
+        this.created_at = data.created_at;
+        this.updated_at = data.updated_at;
 
         for (const [key, value] of Object.entries(data)) {
             if (value === undefined || value === null || value === '') {

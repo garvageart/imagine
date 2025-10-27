@@ -1,4 +1,4 @@
-import type { User } from "$lib/types/users";
+import type { APICollection, APICollectionImage } from "$lib/types/api-adapters";
 import type { ImageObjectData } from "./image";
 
 class CollectionData {
@@ -7,24 +7,22 @@ class CollectionData {
     image_count: number;
     private: boolean;
     images: ImageObjectData[];
-    created_on: Date;
-    updated_on: Date;
-    created_by: User;
+    created_by?: string;
+    created_at: Date;
+    updated_at: Date;
     description: string;
-    owner: User;
     thumbnail?: ImageObjectData;
 
-    constructor(data: CollectionData) {
+    constructor(data: Partial<CollectionData> & Pick<CollectionData, 'uid' | 'name' | 'image_count' | 'created_at' | 'updated_at'>) {
         this.uid = data.uid;
         this.name = data.name;
         this.image_count = data.image_count;
-        this.private = data.private;
-        this.images = data.images;
-        this.created_on = data.created_on;
-        this.updated_on = data.updated_on;
+        this.private = data.private ?? false;
+        this.images = data.images ?? [];
         this.created_by = data.created_by;
-        this.description = data.description;
-        this.owner = data.owner;
+        this.created_at = data.created_at;
+        this.updated_at = data.updated_at;
+        this.description = data.description ?? '';
         this.thumbnail = data.thumbnail;
 
         for (const [key, value] of Object.entries(data)) {
@@ -32,6 +30,23 @@ class CollectionData {
                 console.warn(`Collection: Missing value for ${key}`);
             }
         }
+    }
+
+    /**
+     * Create a CollectionData instance from an API Collection response
+     */
+    static fromAPI(apiCollection: APICollection): CollectionData {
+        return new CollectionData({
+            uid: apiCollection.uid,
+            name: apiCollection.name,
+            image_count: apiCollection.image_count,
+            private: apiCollection.private ?? false,
+            images: [], // Images are loaded separately or from CollectionDetailResponse
+            created_by: apiCollection.created_by,
+            created_at: new Date(apiCollection.created_at),
+            updated_at: new Date(apiCollection.updated_at),
+            description: apiCollection.description ?? '',
+        });
     }
 }
 
