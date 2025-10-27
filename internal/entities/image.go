@@ -7,7 +7,10 @@ import (
 )
 
 type Image struct {
-	*gorm.Model
+	ID        uint           `json:"-" gorm:"primarykey"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 	*ImageMetadata
 	*ImagePaths
 	UID         string    `json:"uid"`

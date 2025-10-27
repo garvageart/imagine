@@ -13,7 +13,10 @@ type CollectionImage struct {
 }
 
 type Collection struct {
-	*gorm.Model
+	ID          uint              `json:"-" gorm:"primarykey"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt    `json:"-" gorm:"index"`
 	UID         string            `json:"uid"`
 	Name        string            `json:"name"`
 	ImageCount  int               `json:"image_count"`
