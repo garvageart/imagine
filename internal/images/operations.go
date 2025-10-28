@@ -23,16 +23,16 @@ func DeleteImageDir(uid string) error {
 	return os.RemoveAll(fmt.Sprintf("%s/%s", Directory, uid))
 }
 
-func GetImagePath(uid, fileName, fileType string) string {
-	return fmt.Sprintf("%s/%s/%s.%s", Directory, uid, fileName, fileType)
+func GetImagePath(uid, fileName string) string {
+	return fmt.Sprintf("%s/%s/%s", Directory, uid, fileName)
 }
 
-func ReadImage(uid, fileName, fileType string) ([]byte, error) {
-	return os.ReadFile(GetImagePath(uid, fileName, fileType))
+func ReadImage(uid, fileName string) ([]byte, error) {
+	return os.ReadFile(GetImagePath(uid, fileName))
 }
 
-func ReadFileAsGoImage(uid, fileName, fileType string) (imageData image.Image, format string, err error) {
-	file, err := os.Open(GetImagePath(uid, fileName, fileType))
+func ReadFileAsGoImage(uid, fileName string) (imageData image.Image, format string, err error) {
+	file, err := os.Open(GetImagePath(uid, fileName))
 	if err != nil {
 		return nil, "", err
 	}
@@ -46,12 +46,12 @@ func ReadFileAsGoImage(uid, fileName, fileType string) (imageData image.Image, f
 	return imageData, format, nil
 }
 
-func SaveImage(data []byte, uid, fileName, fileType string) error {
+func SaveImage(data []byte, uid, fileName string) error {
 	err := CreateImageDir(uid)
 	if err != nil {
 		return err
 	}
 
-	imagesDir := GetImagePath(uid, fileName, fileType)
+	imagesDir := GetImagePath(uid, fileName)
 	return os.WriteFile(imagesDir, data, 0644)
 }

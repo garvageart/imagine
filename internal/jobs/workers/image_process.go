@@ -54,7 +54,7 @@ func EnqueueImageProcessJob(job *ImageProcessJob) error {
 }
 
 func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image) error {
-	originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName, imgEnt.ImageMetadata.FileType)
+	originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 	if err != nil {
 		return fmt.Errorf("failed to read image: %w", err)
 	}
@@ -79,7 +79,7 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image) error
 	jobs.Logger.Info("saving thumbnail to disk", loggerFields)
 
 	// Save the thumbnail to disk
-	err = images.SaveImage(thumbData, imgEnt.Uid, fmt.Sprintf("%s-thumbnail", imgEnt.Uid), "jpeg")
+	err = images.SaveImage(thumbData, imgEnt.Uid, fmt.Sprintf("%s-thumbnail", imgEnt.Uid)+".jpeg")
 	if err != nil {
 		return fmt.Errorf("failed to save thumbnail: %w", err)
 	}
@@ -102,9 +102,11 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image) error
 		"duration": time.Since(thumbhashTimeStart).Milliseconds(),
 	}))
 
-	// Update the database with the generated thumbhash
-	err = db.Model(&entities.Image{}).Where("uid = ?", imgEnt.Uid).Update("thumbhash", images.EncodeThumbhashToString(thumbhash)).Error
-	if err != nil {
+	// Update the database with the generated thumbhash (stored inside image_metadata JSON)
+	encoded := images.EncodeThumbhashToString(thumbhash)
+	imgEnt.ImageMetadata.Thumbhash = &encoded
+
+	if err := db.Model(&entities.Image{}).Where("uid = ?", imgEnt.Uid).Update("image_metadata", imgEnt.ImageMetadata).Error; err != nil {
 		return fmt.Errorf("failed to update db image thumbhash: %w", err)
 	}
 

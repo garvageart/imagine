@@ -24,10 +24,3 @@ var (
 		}
 	}()
 )
-
-const (
-	AuthTokenCookie    = "imag-auth_token"
-	StateCookie        = "imag-state"
-	RedirectCookie     = "imag-redirect_state"
-	RefreshTokenCookie = "imag-refresh_token"
-)
