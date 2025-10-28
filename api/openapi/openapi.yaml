@@ -582,11 +582,11 @@ components:
     ImagePaths:
       type: object
       properties:
-        original_path: { type: string }
-        thumbnail_path: { type: string }
-        preview_path: { type: string }
-        raw_path: { type: string }
-      required: [original_path, thumbnail_path, preview_path]
+        original: { type: string }
+        thumbnail: { type: string }
+        preview: { type: string }
+        raw: { type: string }
+      required: [original, thumbnail, preview]
 
     ImageMetadata:
       type: object
@@ -619,7 +619,8 @@ components:
       properties:
         uid: { type: string }
         name: { type: string }
-        uploaded_by: { type: string }
+        uploaded_by:
+          $ref: "#/components/schemas/User"
         description: { type: string }
         exif:
           $ref: "#/components/schemas/ImageEXIF"
@@ -634,14 +635,25 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
       required:
-        [uid, name, private, width, height, processed, created_at, updated_at]
+        [
+          uid,
+          name,
+          private,
+          width,
+          height,
+          processed,
+          created_at,
+          updated_at,
+          image_paths,
+        ]
 
     CollectionImage:
       type: object
       properties:
         uid: { type: string }
         added_at: { type: string, format: date-time }
-        added_by: { type: string }
+        added_by:
+          $ref: "#/components/schemas/User"
       required: [uid, added_at]
 
     Collection:
@@ -655,8 +667,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CollectionImage"
-        created_by: { type: string }
+        created_by:
+          $ref: "#/components/schemas/User"
         description: { type: string }
+        thumbnail:
+          $ref: "#/components/schemas/Image"
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
       required: [uid, name, image_count, created_at, updated_at]
@@ -673,7 +688,8 @@ components:
       type: object
       properties:
         added_at: { type: string, format: date-time }
-        added_by: { type: string }
+        added_by:
+          $ref: "#/components/schemas/User"
         image:
           $ref: "#/components/schemas/Image"
       required: [added_at, image]
@@ -717,9 +733,14 @@ components:
         private: { type: boolean, nullable: true }
         images:
           $ref: "#/components/schemas/ImagesPage"
-        created_by: { type: string }
+        created_by:
+          $ref: "#/components/schemas/User"
         description: { type: string }
-      required: [uid, name, images]
+        thumbnail:
+          $ref: "#/components/schemas/Image"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [uid, name, images, created_at, updated_at]
 
     User:
       type: object
@@ -753,3 +774,41 @@ components:
         email: { type: string, format: email }
         password: { type: string }
       required: [name, email, password]
+    Session:
+      type: object
+      properties:
+        uid: { type: string }
+        token: { type: string }
+        user_uid: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+        client_id: { type: string }
+        client_name: { type: string }
+        client_ip: { type: string }
+        last_active: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        timeout: { type: integer, format: int64 }
+        user_agent: { type: string }
+        ref_id: { type: string }
+        login_ip: { type: string }
+        login_at: { type: string, format: date-time }
+        status: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [uid, token, user_uid, created_at, updated_at]
+    APIKey:
+      type: object
+      properties:
+        uid: { type: string }
+        key_hashed: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+        scopes:
+          type: array
+          items:
+            type: string
+        revoked: { type: boolean }
+        revoked_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [uid, key_hashed, created_at, updated_at]
