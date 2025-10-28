@@ -12,8 +12,9 @@ type Session struct {
 	UpdatedAt  time.Time      `json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 	Token      string         `json:"token"`
-	UID        string         `json:"uid"`
-	UserUID    string         `json:"user_id"`
+	UID        string         `json:"uid" gorm:"uniqueIndex"`
+	UserUID    string         `json:"user_uid"`
+	User       *User          `json:"user" gorm:"foreignKey:UserUID;references:Uid"`
 	ClientID   string         `json:"client_id"`
 	ClientName string         `json:"client_name"`
 	ClientIP   string         `json:"client_ip"`

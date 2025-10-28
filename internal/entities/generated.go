@@ -13,26 +13,87 @@ type Collection struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	CreatedBy   *string
+	CreatedByID *string
+	CreatedBy   *User `gorm:"foreignKey:CreatedByID;references:Uid"`
 	Description *string
 	ImageCount  int
 	Images      *[]dto.CollectionImage `gorm:"serializer:json;type:JSONB"`
 	Name        string
 	Private     *bool
-	Uid         string
+	ThumbnailID *string
+	Thumbnail   *Image `gorm:"foreignKey:ThumbnailID;references:Uid"`
+	Uid         string `gorm:"uniqueIndex"`
 }
 
 func (e Collection) DTO() dto.Collection {
 	return dto.Collection{
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
-		CreatedBy:   e.CreatedBy,
+		CreatedAt: e.CreatedAt,
+		UpdatedAt: e.UpdatedAt,
+		CreatedBy: func() *dto.User {
+			if e.CreatedBy != nil {
+				d := e.CreatedBy.DTO()
+				return &d
+			}
+			return nil
+		}(),
 		Description: e.Description,
 		ImageCount:  e.ImageCount,
 		Images:      e.Images,
 		Name:        e.Name,
 		Private:     e.Private,
-		Uid:         e.Uid,
+		Thumbnail: func() *dto.Image {
+			if e.Thumbnail != nil {
+				d := e.Thumbnail.DTO()
+				return &d
+			}
+			return nil
+		}(),
+		Uid: e.Uid,
+	}
+}
+
+// CollectionDetailResponse is a GORM entity inferred from dto.CollectionDetailResponse
+type CollectionDetailResponse struct {
+	ID          uint           `gorm:"primarykey" json:"-"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CreatedByID *string
+	CreatedBy   *User `gorm:"foreignKey:CreatedByID;references:Uid"`
+	Description *string
+	ImageCount  *int
+	Images      dto.ImagesPage `gorm:"serializer:json;type:JSONB"`
+	Name        string
+	Private     *bool
+	ThumbnailID *string
+	Thumbnail   *Image `gorm:"foreignKey:ThumbnailID;references:Uid"`
+	Uid         string `gorm:"uniqueIndex"`
+}
+
+func (e CollectionDetailResponse) DTO() dto.CollectionDetailResponse {
+	return dto.CollectionDetailResponse{
+		CreatedAt: e.CreatedAt,
+		UpdatedAt: e.UpdatedAt,
+		CreatedBy: func() *dto.User {
+			if e.CreatedBy != nil {
+				d := e.CreatedBy.DTO()
+				return &d
+			}
+			return nil
+		}(),
+		Description: e.Description,
+		ImageCount:  e.ImageCount,
+		Images:      e.Images,
+		Name:        e.Name,
+		Private:     e.Private,
+		Thumbnail: func() *dto.Image {
+			if e.Thumbnail != nil {
+				d := e.Thumbnail.DTO()
+				return &d
+			}
+			return nil
+		}(),
+		Uid: e.Uid,
 	}
 }
 
@@ -46,12 +107,13 @@ type Image struct {
 	Exif          *dto.ImageEXIF `gorm:"serializer:json;type:JSONB"`
 	Height        int32
 	ImageMetadata *dto.ImageMetadata `gorm:"serializer:json;type:JSONB"`
-	ImagePaths    *dto.ImagePaths    `gorm:"serializer:json;type:JSONB"`
+	ImagePaths    dto.ImagePaths     `gorm:"serializer:json;type:JSONB"`
 	Name          string
 	Private       bool
 	Processed     bool
-	Uid           string
-	UploadedBy    *string
+	Uid           string `gorm:"uniqueIndex"`
+	UploadedByID  *string
+	UploadedBy    *User `gorm:"foreignKey:UploadedByID;references:Uid"`
 	Width         int32
 }
 
@@ -68,8 +130,14 @@ func (e Image) DTO() dto.Image {
 		Private:       e.Private,
 		Processed:     e.Processed,
 		Uid:           e.Uid,
-		UploadedBy:    e.UploadedBy,
-		Width:         e.Width,
+		UploadedBy: func() *dto.User {
+			if e.UploadedBy != nil {
+				d := e.UploadedBy.DTO()
+				return &d
+			}
+			return nil
+		}(),
+		Width: e.Width,
 	}
 }
 
@@ -83,7 +151,7 @@ type User struct {
 	FirstName string
 	LastName  string
 	Role      dto.UserRole `gorm:"serializer:json;type:JSONB"`
-	Uid       string
+	Uid       string       `gorm:"uniqueIndex"`
 	Username  string
 }
 
