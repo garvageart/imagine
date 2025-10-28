@@ -17,6 +17,18 @@ const (
 	UserRoleUser       UserRole = "user"
 )
 
+// Defines values for InitiateOAuthParamsProvider.
+const (
+	InitiateOAuthParamsProviderGithub InitiateOAuthParamsProvider = "github"
+	InitiateOAuthParamsProviderGoogle InitiateOAuthParamsProvider = "google"
+)
+
+// Defines values for CompleteOAuthParamsProvider.
+const (
+	CompleteOAuthParamsProviderGithub CompleteOAuthParamsProvider = "github"
+	CompleteOAuthParamsProviderGoogle CompleteOAuthParamsProvider = "google"
+)
+
 // Defines values for GetImageFileParamsFormat.
 const (
 	Avif GetImageFileParamsFormat = "avif"
@@ -26,6 +38,17 @@ const (
 	Png  GetImageFileParamsFormat = "png"
 	Webp GetImageFileParamsFormat = "webp"
 )
+
+// APIKeyResponse defines model for APIKeyResponse.
+type APIKeyResponse struct {
+	ConsumerKey string `json:"consumer_key"`
+}
+
+// AddImagesResponse defines model for AddImagesResponse.
+type AddImagesResponse struct {
+	Added bool    `json:"added"`
+	Error *string `json:"error,omitempty"`
+}
 
 // Collection defines model for Collection.
 type Collection struct {
@@ -74,6 +97,11 @@ type CollectionListResponse struct {
 	Next   *string      `json:"next,omitempty"`
 	Offset int          `json:"offset"`
 	Prev   *string      `json:"prev,omitempty"`
+}
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
 // Image defines model for Image.
@@ -139,6 +167,11 @@ type ImagePaths struct {
 	ThumbnailPath string  `json:"thumbnail_path"`
 }
 
+// ImageUploadResponse defines model for ImageUploadResponse.
+type ImageUploadResponse struct {
+	Id string `json:"id"`
+}
+
 // ImagesPage defines model for ImagesPage.
 type ImagesPage struct {
 	Count  *int             `json:"count,omitempty"`
@@ -155,6 +188,18 @@ type ImagesResponse struct {
 	AddedAt time.Time `json:"added_at"`
 	AddedBy *string   `json:"added_by,omitempty"`
 	Image   Image     `json:"image"`
+}
+
+// MessageResponse defines model for MessageResponse.
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// OAuthUserData defines model for OAuthUserData.
+type OAuthUserData struct {
+	Email   openapi_types.Email `json:"email"`
+	Name    string              `json:"name"`
+	Picture string              `json:"picture"`
 }
 
 // User defines model for User.
@@ -174,11 +219,37 @@ type UserRole string
 
 // UserCreate defines model for UserCreate.
 type UserCreate struct {
-	Email           openapi_types.Email `json:"email"`
-	Name            string              `json:"name"`
-	Password        string              `json:"password"`
-	PasswordConfirm string              `json:"passwordConfirm"`
+	Email    openapi_types.Email `json:"email"`
+	Name     string              `json:"name"`
+	Password string              `json:"password"`
 }
+
+// LoginJSONBody defines parameters for Login.
+type LoginJSONBody struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
+// InitiateOAuthParams defines parameters for InitiateOAuth.
+type InitiateOAuthParams struct {
+	// Provider OAuth provider (google or github)
+	Provider InitiateOAuthParamsProvider `form:"provider" json:"provider"`
+}
+
+// InitiateOAuthParamsProvider defines parameters for InitiateOAuth.
+type InitiateOAuthParamsProvider string
+
+// CompleteOAuthParams defines parameters for CompleteOAuth.
+type CompleteOAuthParams struct {
+	// Code Authorization code from OAuth provider
+	Code string `form:"code" json:"code"`
+
+	// State State parameter for CSRF protection
+	State string `form:"state" json:"state"`
+}
+
+// CompleteOAuthParamsProvider defines parameters for CompleteOAuth.
+type CompleteOAuthParamsProvider string
 
 // ListCollectionsParams defines parameters for ListCollections.
 type ListCollectionsParams struct {
@@ -217,6 +288,12 @@ type GetImageFileParams struct {
 // GetImageFileParamsFormat defines parameters for GetImageFile.
 type GetImageFileParamsFormat string
 
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = UserCreate
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody LoginJSONBody
+
 // CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
 type CreateCollectionJSONRequestBody = CollectionCreate
 
@@ -228,6 +305,3 @@ type UploadImageMultipartRequestBody UploadImageMultipartBody
 
 // UploadImageByUrlTextRequestBody defines body for UploadImageByUrl for text/plain ContentType.
 type UploadImageByUrlTextRequestBody = UploadImageByUrlTextBody
-
-// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
-type RegisterUserJSONRequestBody = UserCreate
