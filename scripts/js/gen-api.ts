@@ -96,6 +96,14 @@ if (!goGenSuccess) {
 console.log('Running go mod tidy...');
 run('go', ['mod', 'tidy']);
 
+// Generate GORM entities that embed DTOs
+console.log('Generating GORM entities from DTOs (go run ./tools/genentities)...');
+const genEntitiesSuccess = run('go', ['run', './tools/genentities']);
+if (!genEntitiesSuccess) {
+    console.error('Failed to generate GORM entities');
+    process.exit(1);
+}
+
 // Generate TS API client with oazapfts
 if (existsSync(vizDir)) {
     console.log('Generating TypeScript API client with oazapfts...');
