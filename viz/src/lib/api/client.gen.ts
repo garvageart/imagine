@@ -18,7 +18,6 @@ export type UserCreate = {
     name: string;
     email: string;
     password: string;
-    passwordConfirm: string;
 };
 export type User = {
     uid: string;
@@ -29,6 +28,23 @@ export type User = {
     role: "user" | "admin" | "superadmin" | "guest";
     created_at: string;
     updated_at: string;
+};
+export type ErrorResponse = {
+    error: string;
+};
+export type ApiKeyResponse = {
+    consumer_key: string;
+};
+export type MessageResponse = {
+    message: string;
+};
+export type OAuthUserData = {
+    email: string;
+    name: string;
+    picture: string;
+};
+export type ImageUploadResponse = {
+    id: string;
 };
 export type CollectionImage = {
     uid: string;
@@ -138,6 +154,10 @@ export type CollectionDetailResponse = {
     created_by?: string;
     description?: string;
 };
+export type AddImagesResponse = {
+    added: boolean;
+    error?: string;
+};
 /**
  * Health ping
  */
@@ -158,11 +178,109 @@ export function registerUser(userCreate: UserCreate, opts?: Oazapfts.RequestOpts
     return oazapfts.fetchJson<{
         status: 201;
         data: User;
-    }>("/user", oazapfts.json({
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    }>("/accounts/", oazapfts.json({
         ...opts,
         method: "POST",
         body: userCreate
     }));
+}
+/**
+ * Generate an API key
+ */
+export function generateApiKey(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: ApiKeyResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/auth/apikey", {
+        ...opts
+    });
+}
+/**
+ * Login with email and password
+ */
+export function login(body: {
+    email: string;
+    password: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/auth/login", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body
+    }));
+}
+/**
+ * Initiate OAuth flow
+ */
+export function initiateOAuth(provider: "google" | "github", opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 307;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/auth/oauth${QS.query(QS.explode({
+        provider
+    }))}`, {
+        ...opts
+    });
+}
+/**
+ * Complete OAuth flow
+ */
+export function completeOAuth(provider: "google" | "github", code: string, state: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: OAuthUserData;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/auth/oauth/${encodeURIComponent(provider)}${QS.query(QS.explode({
+        code,
+        state
+    }))}`, {
+        ...opts,
+        method: "POST"
+    });
+}
+/**
+ * Get current authenticated user
+ */
+export function getCurrentUser(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: User;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>("/accounts/me", {
+        ...opts
+    });
 }
 /**
  * Upload an image (multipart)
@@ -173,9 +291,13 @@ export function uploadImage(body: {
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 201;
-        data: {
-            id: string;
-        };
+        data: ImageUploadResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>("/images", oazapfts.multipart({
         ...opts,
         method: "POST",
@@ -188,9 +310,13 @@ export function uploadImage(body: {
 export function uploadImageByUrl(body: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 201;
-        data: {
-            id: string;
-        };
+        data: ImageUploadResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>("/images/url", {
         ...opts,
         method: "POST",
@@ -228,6 +354,12 @@ export function listCollections({ limit, offset }: {
     return oazapfts.fetchJson<{
         status: 200;
         data: CollectionListResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>(`/collections${QS.query(QS.explode({
         limit,
         offset
@@ -242,6 +374,12 @@ export function createCollection(collectionCreate: CollectionCreate, opts?: Oaza
     return oazapfts.fetchJson<{
         status: 201;
         data: Collection;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>("/collections", oazapfts.json({
         ...opts,
         method: "POST",
@@ -255,6 +393,12 @@ export function getCollection(uid: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
         data: CollectionDetailResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>(`/collections/${encodeURIComponent(uid)}`, {
         ...opts
     });
@@ -269,6 +413,12 @@ export function listCollectionImages(uid: string, { limit, offset }: {
     return oazapfts.fetchJson<{
         status: 200;
         data: ImagesPage;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
     }>(`/collections/${encodeURIComponent(uid)}/images${QS.query(QS.explode({
         limit,
         offset
@@ -284,9 +434,13 @@ export function addCollectionImages(uid: string, body: {
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: {
-            added: boolean;
-        };
+        data: AddImagesResponse;
+    } | {
+        status: 400;
+        data: AddImagesResponse;
+    } | {
+        status: 404;
+        data: AddImagesResponse;
     }>(`/collections/${encodeURIComponent(uid)}/images`, oazapfts.json({
         ...opts,
         method: "PUT",

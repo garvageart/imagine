@@ -26,6 +26,7 @@
 	"database": {
 		"location": "database",
 		"username": "postgres",
-		"name": "imagine"
+		"name": "imagine",
+		"port": 5432
 	}
 }

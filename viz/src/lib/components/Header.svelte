@@ -3,7 +3,7 @@
 	import { page } from "$app/state";
 	import { CLIENT_IS_PRODUCTION } from "$lib/constants";
 	import { performSearch } from "$lib/search/execute";
-	import { search } from "$lib/states/index.svelte";
+	import { search, user } from "$lib/states/index.svelte";
 	import { VizLocalStorage } from "$lib/utils/misc";
 	import hotkeys from "hotkeys-js";
 	import { onMount } from "svelte";
@@ -107,9 +107,14 @@
 				<MaterialIcon iconName="bug_report" />
 			</button>
 		{/if}
-		<button id="account-button" class="header-button" aria-label="Account">
+		<button
+			id="account-button"
+			class="header-button"
+			aria-label="Account"
+			title={user.data?.username ? `${user.data.username} (${user.data.email})` : "Account"}
+		>
 			<figure style="height: 100%; display: flex; align-items: center; justify-content: center;">
-				<span style="font-weight: 700; font-size: 1em;">J</span>
+				<span style="font-weight: 700; font-size: 1em;">{user.data ? user.data.username[0] : "?"}</span>
 			</figure>
 		</button>
 	</div>
