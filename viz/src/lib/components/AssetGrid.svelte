@@ -51,11 +51,28 @@
 	}
 
 	$effect(() => {
-		if (!assetGridEl) {
+		if (!assetGridEl || allAssetsData.length === 0) {
 			return;
 		}
 
-		assetGridArray = buildAssetGridArray(assetGridEl);
+		const updateGridArray = () => {
+			if (!assetGridEl) return;
+			assetGridArray = buildAssetGridArray(assetGridEl);
+		};
+
+		// Use requestAnimationFrame to ensure DOM is updated
+		requestAnimationFrame(updateGridArray);
+
+		// Watch for resize changes
+		const resizeObserver = new ResizeObserver(() => {
+			requestAnimationFrame(updateGridArray);
+		});
+
+		resizeObserver.observe(assetGridEl);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
 	});
 
 	function handleImageCardSelect(asset: T, e: MouseEvent) {
@@ -178,7 +195,7 @@
 					j.element?.firstElementChild?.getAttribute("data-asset-id"))!;
 				const asset = allAssetsData.find((i: T) => i.uid === assetId)!;
 
-				if (!assetId || !asset) {
+				if ((!assetId || !asset) && j.element && allAssetsData.length > 0) {
 					if (dev) {
 						console.warn(`AssetGrid: failed to resolve asset for element at row ${j.row}, column ${j.column}`);
 					}
@@ -362,9 +379,7 @@
 	<div
 		bind:this={assetGridEl}
 		class="viz-asset-grid-container"
-		style="padding: 0em {page.url.pathname === '/' ? '1em' : '2em'}; {columnCount !== undefined && columnCount > 1
-			? `grid-template-columns: repeat(${columnCount}, minmax(15em, 1fr));`
-			: ''}"
+		style="padding: 0em {page.url.pathname === '/' ? '1em' : '2em'};"
 		use:unselectImagesOnClickOutsideAssetContainer
 	>
 		{#each allAssetsData as asset}

@@ -1,12 +1,12 @@
-import type { APIImage, APIImagesResponse, APIImageMetadata, APIImagePaths } from "$lib/api/adapters";
+import type { Image, ImagesResponse, ImageMetadata, ImagePaths } from "$lib/api/client.gen";
 
 export class ImageObjectData {
     uid: string;
     name: string;
     description?: string;
     uploaded_by?: string;
-    image_metadata?: APIImageMetadata;
-    image_paths?: APIImagePaths;
+    image_metadata?: ImageMetadata;
+    image_paths?: ImagePaths;
     private: boolean;
     width: number;
     height: number;
@@ -34,12 +34,12 @@ export class ImageObjectData {
     /**
      * Create ImageObjectData from API Image response
      */
-    static fromAPI(apiImage: APIImage): ImageObjectData {
+    static fromAPI(apiImage: Image): ImageObjectData {
         return new ImageObjectData({
             uid: apiImage.uid,
             name: apiImage.name,
             description: apiImage.description,
-            uploaded_by: apiImage.uploaded_by,
+            uploaded_by: apiImage.uploaded_by?.uid,
             image_metadata: apiImage.image_metadata,
             image_paths: apiImage.image_paths,
             private: apiImage.private,

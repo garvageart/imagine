@@ -66,10 +66,34 @@
 	// construct the views from the stored data
 	for (let i = 0; i < panelViews.length; i++) {
 		const panelViewId = panelViews[i].id;
+		const panelViewName = panelViews[i].name;
+		const panelViewPath = panelViews[i].path;
+
+		// Helper: match svelte-kit style dynamic routes like "/collections/[uid]" to concrete paths
+		function pathMatches(pattern: string | undefined, actual: string | undefined): boolean {
+			if (!pattern || !actual) return false;
+			if (pattern === actual) return true;
+			// Escape regex specials, then turn dynamic segments \[param\] into [^/]+
+			const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\[[^\]]+\\\]/g, "[^/]+");
+			const re = new RegExp("^" + escaped + "$");
+			return re.test(actual);
+		}
+
+		// Try to find by path (supports dynamic segments), then by name, then by id
+		const matchedView = views.find((view) => {
+			if (panelViewPath && view.path && pathMatches(view.path, panelViewPath)) return true;
+			return view.name === panelViewName || view.id === panelViewId;
+		});
+
+		if (!matchedView?.component) {
+			console.warn(`Could not find component for view: ${panelViewName} (id: ${panelViewId}, path: ${panelViewPath})`);
+			continue;
+		}
+
 		const v = new VizView({
 			...panelViews[i],
 			parent: keyId,
-			component: views.find((view) => view.id === panelViewId)?.component!
+			component: matchedView.component
 		});
 
 		v.isActive = panelViews[i].isActive;
@@ -322,9 +346,9 @@ for Splitpanes
 		>
 			{#await panelData}
 				<LoadingContainer />
-			{:then panelData}
-				{#if panelData}
-					<Comp data={panelData.data} />
+			{:then loadedData}
+				{#if loadedData}
+					<Comp data={loadedData.data} />
 				{:else}
 					<Comp />
 				{/if}

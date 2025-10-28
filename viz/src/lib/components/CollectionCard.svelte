@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export function openCollection(collection: CollectionData, currentContent: Content) {
+	export function openCollection(collection: Collection, currentContent: Content) {
 		if (page.url.pathname !== "/") {
 			goto(`/collections/${collection.uid}`, { state: { from: page.url.pathname, data: collection } });
 			return;
@@ -40,14 +40,22 @@
 		});
 
 		addViewToContent(view, currentParentIdx, childIndex);
-		currentParent.makeViewActive(view);
+
+		// Find the subpanel where the view was added and make it active
+		const targetContent = currentParent.childs.content[childIndex];
+		const targetSubPanel = findSubPanel("paneKeyId", targetContent.paneKeyId)?.subPanel as VizSubPanelData | undefined;
+		if (targetSubPanel) {
+			// Deactivate all views in the content and activate the new one
+			targetContent.views.forEach((v) => v.setActive(false));
+			view.setActive(true);
+			targetSubPanel.makeViewActive(view);
+		}
 	}
 </script>
 
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
-	import type CollectionData from "$lib/entities/collection";
 	import { addViewToContent, findSubPanel } from "$lib/utils/layout";
 	import VizView from "$lib/views/views.svelte";
 	import { DateTime } from "luxon";
@@ -56,9 +64,10 @@
 	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { findPanelIndex, getSubPanelParent } from "$lib/views/utils";
 	import type { SvelteHTMLElements } from "svelte/elements";
+	import { getFullImagePath, type Collection } from "$lib/api";
 
 	interface Props {
-		collection: CollectionData;
+		collection: Collection;
 	}
 
 	let { collection, ...props }: Props & SvelteHTMLElements["div"] = $props();
@@ -67,14 +76,14 @@
 <div {...props} class="coll-card" data-asset-id={collection.uid}>
 	<div class="image-container">
 		{#if collection.thumbnail}
-			<img src={collection.thumbnail?.image_paths?.thumbnail_path} alt={collection.name} class="collection-image" />
+			<img src={getFullImagePath(collection.thumbnail.image_paths.thumbnail)} alt={collection.name} class="collection-image" />
 		{:else}
 			<div class="coll-no_thumbnail"></div>
 		{/if}
 	</div>
 	<div class="metadata">
 		<span class="coll-name" title={collection.name}>{collection.name}</span>
-		<span class="coll-created_at">{DateTime.fromJSDate(collection.created_at).toFormat("dd.MM.yyyy")}</span>
+		<span class="coll-created_at">{DateTime.fromISO(collection.created_at).toFormat("dd.MM.yyyy")}</span>
 		<span class="coll-image_count">{collection.image_count} {collection.image_count === 1 ? "image" : "images"}</span>
 	</div>
 </div>

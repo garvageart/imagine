@@ -1,19 +1,46 @@
 <script lang="ts">
 	import { DateTime } from "luxon";
-	import type { ImageObjectData } from "$lib/entities/image";
+	import { getFullImagePath, type Image } from "$lib/api";
+	import { thumbHashToDataURL } from "thumbhash";
+	import { onMount } from "svelte";
 
-	let { asset }: { asset: ImageObjectData } = $props();
-	const imageDate = DateTime.fromJSDate(asset.created_at);
+	let { asset }: { asset: Image } = $props();
+	const imageDate = DateTime.fromISO(asset.created_at);
+
+	let placeholderDataURL = $state<string | undefined>();
+	let imageLoaded = $state(false);
+
+	// Generate thumbhash placeholder
+	onMount(() => {
+		if (asset.image_metadata?.thumbhash) {
+			try {
+				// Convert base64 thumbhash to Uint8Array
+				const binaryString = atob(asset.image_metadata.thumbhash);
+				const bytes = new Uint8Array(binaryString.length);
+				for (let i = 0; i < binaryString.length; i++) {
+					bytes[i] = binaryString.charCodeAt(i);
+				}
+				placeholderDataURL = thumbHashToDataURL(bytes);
+			} catch (error) {
+				console.warn("Failed to decode thumbhash:", error);
+			}
+		}
+	});
 </script>
 
 <div class="image-card" data-asset-id={asset.uid}>
 	<div class="image-container">
+		{#if placeholderDataURL && !imageLoaded}
+			<img class="image-card-placeholder" src={placeholderDataURL} alt="" aria-hidden="true" />
+		{/if}
 		<img
 			class="image-card-image"
-			src={asset.image_paths?.preview_path}
-			alt="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by}` : ''}"
-			title="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by}` : ''}"
+			class:loaded={imageLoaded}
+			src={getFullImagePath(asset.image_paths?.thumbnail)}
+			alt="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by.username}` : ''}"
+			title="{asset.name}{asset.uploaded_by ? ` by ${asset.uploaded_by.username}` : ''}"
 			loading="lazy"
+			onload={() => (imageLoaded = true)}
 		/>
 	</div>
 	<div class="image-card-meta">
@@ -47,9 +74,8 @@
 	}
 
 	.image-card img {
-		max-width: 100%;
-		min-height: 100%;
-		height: auto;
+		width: 100%;
+		height: 100%;
 		object-fit: contain;
 		display: block;
 		pointer-events: none; // prevent clicks on image (right clicking should show the to be made context menu)
@@ -88,5 +114,25 @@
 	.image-container {
 		height: 13em;
 		background-color: var(--imag-80);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		position: relative;
+	}
+
+	.image-card-placeholder {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.image-card-image {
+		opacity: 0;
+		transition: opacity 0.3s ease-in-out;
+
+		&.loaded {
+			opacity: 1;
+		}
 	}
 </style>

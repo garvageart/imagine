@@ -1,4 +1,4 @@
-import type { APICollection, APICollectionImage } from "$lib/api/adapters";
+import type { Collection } from "$lib/api/client.gen";
 import type { ImageObjectData } from "./image";
 
 class CollectionData {
@@ -35,14 +35,14 @@ class CollectionData {
     /**
      * Create a CollectionData instance from an API Collection response
      */
-    static fromAPI(apiCollection: APICollection): CollectionData {
+    static fromAPI(apiCollection: Collection): CollectionData {
         return new CollectionData({
             uid: apiCollection.uid,
             name: apiCollection.name,
             image_count: apiCollection.image_count,
             private: apiCollection.private ?? false,
             images: [], // Images are loaded separately or from CollectionDetailResponse
-            created_by: apiCollection.created_by,
+            created_by: apiCollection.created_by?.uid,
             created_at: new Date(apiCollection.created_at),
             updated_at: new Date(apiCollection.updated_at),
             description: apiCollection.description ?? '',
