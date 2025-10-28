@@ -1,22 +1,33 @@
+import { login, user, fetchCurrentUser } from "$lib/states/index.svelte.js";
+import { redirect } from '@sveltejs/kit';
+import { setFetch } from "$lib/api/fetch-context.svelte.js";
+
 export const ssr = false;
 export const csr = true;
 
-import { login } from "$lib/states/index.svelte.js";
-import { redirect } from '@sveltejs/kit';
+export async function load({ url, fetch }) {
+    // Store SvelteKit's fetch for global use
+    setFetch(fetch);
 
-export function load({ url }) {
-    if (!login.state && !url.pathname.startsWith("/auth")) {
+    // Prefer API-backed auth over cookie when available
+    if (!user.fetched && !url.pathname.startsWith('/auth')) {
+        await fetchCurrentUser();
+    }
+
+    const isAuthed = !!user.data || !!login.state;
+
+    if (!isAuthed && !url.pathname.startsWith("/auth")) {
         redirect(303, `/auth/register?continue=${url.pathname}`);
     }
 
     const queryParams = new URLSearchParams(url.search);
     const redirectURL = queryParams.get("continue")?.trim();
 
-    if (login.state && redirectURL) {
+    if (isAuthed && redirectURL) {
         redirect(303, redirectURL);
     }
 
-    if (login.state && url.pathname.startsWith("/auth")) {
+    if (isAuthed && url.pathname.startsWith("/auth")) {
         redirect(303, "/");
     }
 }

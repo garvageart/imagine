@@ -52,8 +52,7 @@
 					const response = await registerUser({
 						name: formObject.name as string,
 						email: formObject.email as string,
-						password: formObject.password as string,
-						passwordConfirm: formObject.passwordConfirm as string
+						password: formObject.password as string
 					});
 
 					if (response.status === 201) {
@@ -126,9 +125,8 @@
 	#viz-title {
 		font-family: var(--imag-code-font);
 		font-weight: 700;
-		font-size: 4em;
-		position: absolute;
-		top: 1em;
+		font-size: 3em;
+		margin: 0.5em;
 		z-index: 2;
 	}
 
@@ -147,7 +145,7 @@
 		align-items: center;
 		padding: 3rem 2rem;
 		width: 30%;
-		max-height: 60%;
+		// max-height: 60%;
 		background-color: var(--imag-bg-color);
 		box-shadow: 0 -3px 0 var(--imag-primary) inset;
 		z-index: 2;
