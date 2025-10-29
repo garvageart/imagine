@@ -26,14 +26,14 @@
 	let { data }: PageProps = $props();
 
 	const pagination = $state({
-		limit: 10,
-		offset: 0
+		limit: data.limit ?? 10,
+		offset: data.offset ?? 0
 	});
 
-	let collectionData = data.items;
+	let listOfCollectionsData = $state(data.items);
 
-	let shouldUpdate = $derived(collectionData.length > pagination.limit * pagination.offset);
-	let displayData = $derived(sortCollections(collectionData, sort));
+	let shouldUpdate = $derived(listOfCollectionsData?.length > pagination.limit * pagination.offset);
+	let displayData = $derived(sortCollections(listOfCollectionsData, sort));
 
 	let fadeOpacity = false;
 	let toolbarOpacity = $state(1);
@@ -130,7 +130,9 @@
 				<MaterialIcon iconName="add" />
 			</Button>
 		</div>
-		<span id="coll-details-floating">{collectionData.length} {collectionData.length === 1 ? "collection" : "collections"}</span>
+		<span id="coll-details-floating"
+			>{listOfCollectionsData.length} {listOfCollectionsData.length === 1 ? "collection" : "collections"}</span
+		>
 	</div>
 {/snippet}
 

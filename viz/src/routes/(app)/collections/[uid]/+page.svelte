@@ -36,6 +36,8 @@
 	import { addCollectionImages, getFullImagePath, type Image } from "$lib/api";
 	import { thumbHashToDataURL } from "thumbhash";
 	import { fade } from "svelte/transition";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte.js";
+	import { handle } from "@oazapfts/runtime";
 
 	let { data } = $props();
 	// Keyboard events
@@ -53,7 +55,7 @@
 	// Track local edits separately to avoid clobbering them on refresh
 	let localName: string | undefined = $state();
 	let localDescription: string | undefined = $state();
-	let loadedImages = $derived(loadedData.images.items.map((img) => img.image));
+	let loadedImages = $derived(loadedData.images?.items?.map((img) => img.image) ?? []);
 
 	// Lightbox
 	let lightboxImage: Image | undefined = $state();
@@ -72,8 +74,8 @@
 	// Pagination
 	// NOTE: This might be moved to a settings thing and this could just be default
 	const pagination = $state({
-		limit: 25,
-		offset: 0
+		limit: data.images.limit ?? 25,
+		offset: data.images.offset ?? 0
 	});
 
 	// the searchValue hides the loading indicator when searching since we're
@@ -110,10 +112,7 @@
 	let displayData = $derived(
 		searchValue.trim()
 			? sortCollectionImages(searchData, sort)
-			: sortCollectionImages(
-					loadedData.images.items.map((img) => img.image),
-					sort
-				)
+			: sortCollectionImages(loadedData.images?.items?.map((img) => img.image) ?? [], sort)
 	);
 
 	// Grid props
@@ -127,6 +126,27 @@
 			lightboxImage = asset;
 		}
 	});
+
+	async function handleCollectionUpload() {
+		// allowed image types will come from the config but for now just hardcode
+		const controller = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+		controller.openFileHolder();
+		const uploadedImages = await controller.uploadImage();
+
+		const response = await addCollectionImages(loadedData.uid, {
+			uids: uploadedImages.map((img) => img.uid)
+		});
+
+		if (response.data.added) {
+			toastState.addToast({
+				message: `Added photos to collection`,
+				type: "success",
+				timeout: 3000
+			});
+
+			await invalidateAll();
+		}
+	}
 
 	hotkeys("esc", (e) => {
 		lightboxImage = undefined;
@@ -175,9 +195,22 @@
 {/snippet}
 
 {#snippet searchInputSnippet()}
-	{#if displayData.length > 0}
-		<SearchInput style="margin: 0em 1em;" bind:value={searchValue} />
-	{/if}
+	<SearchInput style="margin: 0em 1em;" bind:value={searchValue} />
+	<div id="coll-tools">
+		<Button
+			id="upload_to_collection"
+			class="toolbar-button"
+			style="font-size: 0.8rem; background-color: var(--imag-80);"
+			title="Upload to Collection"
+			aria-label="Upload to Collection"
+			onclick={() => {
+				handleCollectionUpload();
+			}}
+		>
+			Upload
+			<MaterialIcon iconName="upload" />
+		</Button>
+	</div>
 {/snippet}
 
 {#snippet noAssetsSnippet()}
@@ -188,20 +221,7 @@
 			style="padding: 2em 8em; display: flex; align-items: center; justify-content: center;"
 			title="Select Photos"
 			aria-label="Select Photos"
-			onclick={async () => {
-				// allowed image types will come from the config but for now just hardcode
-				const controller = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
-				controller.openFileHolder();
-				const uploadedImages = await controller.uploadImage();
-
-				const response = await addCollectionImages(loadedData.uid, {
-					uids: uploadedImages.map((img) => img.uid)
-				});
-
-				if (response.data.added) {
-					await invalidateAll();
-				}
-			}}
+			onclick={async () => handleCollectionUpload()}
 		>
 			Select Photos
 			<MaterialIcon iconName="add" style="font-size: 2em;" />
@@ -351,6 +371,14 @@
 		font-weight: 400;
 		height: 2rem;
 		padding: 0.3rem inherit;
+	}
+
+	#coll-tools {
+		display: flex;
+		align-items: center;
+		height: 100%;
+		position: absolute;
+		right: 2rem;
 	}
 
 	:global(.lightbox-image) {
