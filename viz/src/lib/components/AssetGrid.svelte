@@ -393,12 +393,12 @@
 		box-sizing: border-box;
 		margin: 2em 0em;
 		display: grid;
-		gap: 1em;
+		gap: 0.5em;
 		width: 100%;
 		max-width: 100%;
 		text-overflow: clip;
 		justify-content: center;
-		grid-template-columns: repeat(auto-fit, minmax(15em, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
 	}
 
 	.asset-card {

@@ -21,7 +21,7 @@
 	.viz-toolbar-container {
 		z-index: 1;
 		padding: 0.5em 2em;
-		background-color: rgba(39, 51, 74, 0.9);
+		background-color: var(--imag-100);
 		backdrop-filter: blur(5px);
 		border-bottom: 1px solid var(--imag-60);
 		min-height: 4em;

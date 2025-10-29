@@ -8,9 +8,9 @@
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
         box-shadow: 0 1.5px 0 var(--imag-primary) inset,
-                1.5px 0 0 var(--imag-primary) inset,
-                -1.5px 0 0 var(--imag-primary) inset,
-                0 -1.5px 0 var(--imag-primary) inset;
+            1.5px 0 0 var(--imag-primary) inset,
+            -1.5px 0 0 var(--imag-primary) inset,
+            0 -1.5px 0 var(--imag-primary) inset;
         z-index: 10;
 
         &.with__scrollbar {
@@ -97,8 +97,9 @@
     -webkit-box-sizing: border-box;
     outline: 2px;
     outline-offset: -2px;
-    outline-style: dashed;
-    outline-color: var(--imag-primary);
+    outline-style: solid;
+    outline-color: var(--imag-secondary);
+    border-radius: 0.25rem;
     background-color: rgba(212, 214, 219, 0.2);
     z-index: 899;
     transition: all 0.2s ease-in-out
