@@ -53,7 +53,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
 			return true
 		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS", "DELETE"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "OPTIONS", "DELETE"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "x-imagine-key"},
 		ExposedHeaders:   []string{"Set-Cookie"},
 		AllowCredentials: true,

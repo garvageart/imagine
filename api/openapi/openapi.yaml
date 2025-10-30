@@ -187,6 +187,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/session:
+    get:
+      summary: Get current session information
+      operationId: getCurrentSession
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /accounts/me:
     get:
       summary: Get current authenticated user
@@ -393,6 +411,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CollectionDetailResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      summary: Update collection
+      operationId: updateCollection
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionUpdate"
+      responses:
+        "200":
+          description: Collection updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collection"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -683,6 +742,15 @@ components:
         private: { type: boolean, nullable: true }
         description: { type: string }
       required: [name]
+
+    CollectionUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        thumbnailUID: { type: string }
+        description: { type: string }
+        private: { type: boolean }
+        ownerUID: { type: string }
 
     ImagesResponse:
       type: object

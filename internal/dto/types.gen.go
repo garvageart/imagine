@@ -103,6 +103,15 @@ type CollectionListResponse struct {
 	Prev   *string      `json:"prev,omitempty"`
 }
 
+// CollectionUpdate defines model for CollectionUpdate.
+type CollectionUpdate struct {
+	Description  *string `json:"description,omitempty"`
+	Name         *string `json:"name,omitempty"`
+	OwnerUID     *string `json:"ownerUID,omitempty"`
+	Private      *bool   `json:"private,omitempty"`
+	ThumbnailUID *string `json:"thumbnailUID,omitempty"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -206,6 +215,27 @@ type OAuthUserData struct {
 	Picture string              `json:"picture"`
 }
 
+// Session defines model for Session.
+type Session struct {
+	ClientId   *string    `json:"client_id,omitempty"`
+	ClientIp   *string    `json:"client_ip,omitempty"`
+	ClientName *string    `json:"client_name,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	LastActive *time.Time `json:"last_active,omitempty"`
+	LoginAt    *time.Time `json:"login_at,omitempty"`
+	LoginIp    *string    `json:"login_ip,omitempty"`
+	RefId      *string    `json:"ref_id,omitempty"`
+	Status     *int       `json:"status,omitempty"`
+	Timeout    *int64     `json:"timeout,omitempty"`
+	Token      string     `json:"token"`
+	Uid        string     `json:"uid"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	User       *User      `json:"user,omitempty"`
+	UserAgent  *string    `json:"user_agent,omitempty"`
+	UserUid    string     `json:"user_uid"`
+}
+
 // User defines model for User.
 type User struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -300,6 +330,9 @@ type LoginJSONRequestBody LoginJSONBody
 
 // CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
 type CreateCollectionJSONRequestBody = CollectionCreate
+
+// UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
+type UpdateCollectionJSONRequestBody = CollectionUpdate
 
 // AddCollectionImagesJSONRequestBody defines body for AddCollectionImages for application/json ContentType.
 type AddCollectionImagesJSONRequestBody AddCollectionImagesJSONBody

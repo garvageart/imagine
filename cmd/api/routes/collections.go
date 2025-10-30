@@ -239,6 +239,51 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, result)
 	})
 
+	router.Patch("/{uid}", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+		var update dto.CollectionUpdate
+		var collection entities.Collection
+
+		err := render.DecodeJSON(req.Body, &update)
+		if err != nil {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			return
+		}
+
+		err = db.Transaction(func(tx *gorm.DB) error {
+			dbTx := tx.Preload("Thumbnail").Preload("CreatedBy").First(&collection, "uid = ?", uid)
+			if dbTx.Error != nil {
+				return dbTx.Error
+			}
+
+			updateCollectionFromDTO(&collection, update)
+
+			if err := tx.Save(&collection).Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				return
+			}
+
+			libhttp.ServerError(res, req, err, logger, nil,
+				"Failed to update collection",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, collection.DTO())
+	})
+
 	router.Get("/{uid}/images", func(res http.ResponseWriter, req *http.Request) {
 		uid := chi.URLParam(req, "uid")
 		limit, err := strconv.Atoi(req.URL.Query().Get("limit"))
@@ -378,4 +423,27 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 // Helper function to create a string pointer
 func ptrString(s string) *string {
 	return &s
+}
+
+// updateCollectionFromDTO updates collection entity fields from a CollectionUpdate DTO
+func updateCollectionFromDTO(collection *entities.Collection, update dto.CollectionUpdate) {
+	if update.Name != nil {
+		collection.Name = *update.Name
+	}
+	if update.Description != nil {
+		collection.Description = update.Description
+	}
+	if update.Private != nil {
+		collection.Private = update.Private
+	}
+	if update.ThumbnailUID != nil {
+		if *update.ThumbnailUID == "" {
+			collection.ThumbnailID = nil
+		} else {
+			collection.ThumbnailID = update.ThumbnailUID
+		}
+	}
+	if update.OwnerUID != nil {
+		collection.CreatedByID = update.OwnerUID
+	}
 }

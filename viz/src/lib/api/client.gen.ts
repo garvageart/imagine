@@ -43,6 +43,25 @@ export type OAuthUserData = {
     name: string;
     picture: string;
 };
+export type Session = {
+    uid: string;
+    token: string;
+    user_uid: string;
+    user?: User;
+    client_id?: string;
+    client_name?: string;
+    client_ip?: string;
+    last_active?: string;
+    expires_at?: string;
+    timeout?: number;
+    user_agent?: string;
+    ref_id?: string;
+    login_ip?: string;
+    login_at?: string;
+    status?: number;
+    created_at: string;
+    updated_at: string;
+};
 export type ImageUploadResponse = {
     id: string;
 };
@@ -158,6 +177,13 @@ export type CollectionDetailResponse = {
     created_at: string;
     updated_at: string;
 };
+export type CollectionUpdate = {
+    name?: string;
+    thumbnailUID?: string;
+    description?: string;
+    "private"?: boolean;
+    ownerUID?: string;
+};
 export type AddImagesResponse = {
     added: boolean;
     error?: string;
@@ -270,6 +296,20 @@ export function completeOAuth(provider: "google" | "github", code: string, state
     }))}`, {
         ...opts,
         method: "POST"
+    });
+}
+/**
+ * Get current session information
+ */
+export function getCurrentSession(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: Session;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>("/auth/session", {
+        ...opts
     });
 }
 /**
@@ -406,6 +446,28 @@ export function getCollection(uid: string, opts?: Oazapfts.RequestOpts) {
     }>(`/collections/${encodeURIComponent(uid)}`, {
         ...opts
     });
+}
+/**
+ * Update collection
+ */
+export function updateCollection(uid: string, collectionUpdate: CollectionUpdate, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: Collection;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/collections/${encodeURIComponent(uid)}`, oazapfts.json({
+        ...opts,
+        method: "PATCH",
+        body: collectionUpdate
+    }));
 }
 /**
  * List images in a collection
