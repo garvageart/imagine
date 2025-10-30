@@ -57,6 +57,9 @@ export class UploadImage implements UploadImageStats {
             });
 
             this.state = (responseData.status === 200) || (responseData.status === 201) ? UploadState.DONE : UploadState.INVALID;
+            if (responseData.status !== 200 && responseData.status !== 201) {
+                throw new Error(`Upload failed with status ${responseData.status}`);
+            }
 
             toastState.addToast({
                 message: this.state === UploadState.DONE ? `Uploaded ${this.data.filename} successfully.` : `Failed to upload ${this.data.filename}.`,
@@ -72,7 +75,7 @@ export class UploadImage implements UploadImageStats {
                 message: `Error uploading ${this.data.filename}.`,
                 type: 'error',
                 dismissible: true,
-                timeout: 5000
+                timeout: 2000
             });
             return undefined;
         }

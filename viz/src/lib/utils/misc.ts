@@ -151,3 +151,12 @@ export function arrayHasDuplicates(arr: any[]): { hasDuplicates: boolean, duplic
         duplicates: []
     };
 }
+
+export function normalizeBase64(str: string) {
+    let normalized = str.replace(/-/g, "+").replace(/_/g, "/");
+    const padding = normalized.length % 4;
+    if (padding) {
+        normalized += "=".repeat(4 - padding);
+    }
+    return normalized;
+};

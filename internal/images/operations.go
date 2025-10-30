@@ -8,11 +8,11 @@ import (
 )
 
 func EncodeThumbhashToString(data []byte) string {
-	return base64.RawURLEncoding.EncodeToString(data)
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 func DecodeThumbhashString(encoded string) ([]byte, error) {
-	return base64.RawURLEncoding.DecodeString(encoded)
+	return base64.StdEncoding.DecodeString(encoded)
 }
 
 func CreateImageDir(uid string) error {

@@ -54,6 +54,7 @@ export default class UploadManager {
 
         this.fileHolder.setAttribute("type", "file");
         this.fileHolder.setAttribute("accept", allowedMimeTypesString);
+        this.fileHolder.multiple = true;
     }
 
     /**
