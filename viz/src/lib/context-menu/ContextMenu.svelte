@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { tick } from "svelte";
 	import ContextMenuItem from "./ContextMenuItem.svelte";
+	import type { MaterialSymbol } from "material-symbols";
 
 	// Public item model
 	export type MenuItem = {
@@ -14,7 +15,7 @@
 		disabled?: boolean;
 		danger?: boolean;
 		separator?: boolean;
-		icon?: string; // optional icon name/class
+		icon?: MaterialSymbol; // optional icon name/class
 		shortcut?: string; // optional keyboard shortcut label
 	};
 
@@ -240,7 +241,7 @@
 		color: var(--imag-text-color);
 		overflow: hidden;
 		flex-direction: column;
-		border-radius: 6px;
+		border-radius: 0.3em;
 		box-shadow:
 			0 10px 30px rgba(0, 0, 0, 0.35),
 			0 2px 8px rgba(0, 0, 0, 0.3);
@@ -248,11 +249,12 @@
 
 	ul {
 		margin: 0;
-		padding: 4px;
+		padding: 0px;
 	}
+
 	.separator {
 		height: 1px;
 		margin: 4px 6px;
-		background: #3a3a3a;
+		background: var(--imag-40);
 	}
 </style>

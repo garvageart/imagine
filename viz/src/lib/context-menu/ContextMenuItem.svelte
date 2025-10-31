@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { MenuItem } from "./ContextMenu.svelte";
+	import MaterialIcon from "../components/MaterialIcon.svelte";
 
 	interface Props {
 		item: MenuItem;
@@ -11,7 +12,10 @@
 	let { item, index = 0, active = false, onselect }: Props = $props();
 
 	function onClick(e: MouseEvent) {
-		if (item.disabled || item.separator) return;
+		if (item.disabled || item.separator) {
+			return;
+		}
+
 		onselect?.({ item, index, event: e });
 	}
 </script>
@@ -26,7 +30,7 @@
 		onclick={onClick}
 	>
 		{#if item.icon}
-			<span class="icon" aria-hidden="true">{item.icon}</span>
+			<MaterialIcon class="icon" iconName={item.icon} weight={300} />
 		{/if}
 		<span class="label">{item.label}</span>
 		{#if item.shortcut}
@@ -49,7 +53,7 @@
 	}
 
 	li button:hover {
-		background-color: #3f3f3f;
+		background-color: var(--imag-60);
 	}
 
 	li > button {
@@ -59,30 +63,22 @@
 		align-items: center;
 		font-size: 0.9rem;
 		font-weight: 500;
-		font-family: "Switzer-Variable", system-ui, sans-serif;
-		padding: 0.5rem 0.6rem;
+		padding: 0.1rem 0.6rem;
 		text-align: left;
 		width: 100%;
 		border: 0px;
-		color: var(--almost-white);
-		background-color: var(--almost-black);
+		color: var(--imag-text-color);
+		background-color: var(--imag-100);
 		cursor: pointer;
-		border-radius: 6px;
 	}
 
 	li > button.disabled {
-		color: #7a7a7a;
+		color: var(--imag-70);
 		cursor: default;
 	}
 
 	li > button.disabled:hover {
-		background-color: var(--almost-black);
-	}
-
-	.icon {
-		opacity: 0.85;
-		width: 1rem;
-		text-align: center;
+		background-color: var(--imag-20);
 	}
 
 	.shortcut {

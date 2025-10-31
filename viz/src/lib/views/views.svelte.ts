@@ -6,19 +6,28 @@ import { preloadData } from "$app/navigation";
 // and doesn't share state with anyone i guess??
 let idCount = 1;
 
-class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
+export interface SerializedVizView {
     name: string;
     opticalCenterFix?: number;
-    component: C;
     id: number;
     parent?: string;
-    isActive = $state(false);
+    isActive: boolean;
+    path?: string;
+}
+
+class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
+    name = $state<string>("");
+    opticalCenterFix = $state<number | undefined>(undefined);
+    component: C;
+    id = $state<number>(0);
+    parent = $state<string | undefined>(undefined);
+    isActive = $state<boolean>(false);
     public viewData?: {
         type: "loaded";
         status: number;
         data: C extends Component<infer P, any, any> ? (P extends { data: infer D; } ? D : any) : any;
-    } = $state(undefined);
-    path?: string;
+    };
+    path = $state<string | undefined>(undefined);
 
     constructor(opts: {
         name: string;
@@ -27,6 +36,7 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
         opticalCenterFix?: number;
         path?: string;
         id?: number;
+        isActive?: boolean;
     }) {
         this.name = opts.name;
         this.component = opts.component;
@@ -34,6 +44,7 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
         this.parent = opts.parent;
         this.opticalCenterFix = opts.opticalCenterFix ?? 0.5;
         this.id = opts.id !== undefined ? opts.id : idCount++;
+        this.isActive = opts.isActive ?? false;
 
         if (this.path) {
             if (this.viewData) {
@@ -60,6 +71,41 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
             this.viewData = result as any;
             return result;
         }
+    }
+
+    /**
+     * Serializes the view to a plain object for localStorage
+     * Excludes component and viewData which cannot be serialized
+     */
+    toJSON(): SerializedVizView {
+        return {
+            name: this.name,
+            opticalCenterFix: this.opticalCenterFix,
+            id: this.id,
+            parent: this.parent,
+            isActive: this.isActive,
+            path: this.path
+        };
+    }
+
+    /**
+     * Creates a VizView instance from serialized data and a component lookup
+     * @param serialized The serialized view data from localStorage
+     * @param component The component to use for this view
+     */
+    static fromJSON<C extends Component<any, any, any> = Component<any, any, any>>(
+        serialized: SerializedVizView,
+        component: C
+    ): VizView<C> {
+        return new VizView({
+            name: serialized.name,
+            component: component,
+            parent: serialized.parent,
+            opticalCenterFix: serialized.opticalCenterFix,
+            path: serialized.path,
+            id: serialized.id,
+            isActive: serialized.isActive
+        });
     }
 }
 
