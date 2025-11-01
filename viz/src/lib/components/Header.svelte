@@ -90,15 +90,15 @@
 		bind:value={search.value}
 		bind:element={search.element}
 		{performSearch}
-		style="width: 30%;"
+		style="width: 30%; border-color: var(--imag-100); height: 1.5em;"
 	/>
 	<div class="header-button-container">
 		<button id="upload-button" class="header-button" aria-label="Upload" onclick={handleUpload}>
 			<MaterialIcon iconName="upload" iconStyle="sharp" />
-			<span style="font-size: 0.9rem; font-weight: 500;"> Upload </span>
+			<span style="font-size: 0.75rem; font-weight: 500;"> Upload </span>
 		</button>
 		{#if dev || !CLIENT_IS_PRODUCTION}
-			<button class="header-button" aria-label="Toggle Debug Mode" onclick={() => (devEnabled = !devEnabled)}>
+			<button id="debug-button" class="header-button" aria-label="Toggle Debug Mode" onclick={() => (devEnabled = !devEnabled)}>
 				{#if devEnabled}
 					<span class="debug-mode-text">ON</span>
 				{:else}
@@ -114,7 +114,7 @@
 			title={user.data?.username ? `${user.data.username} (${user.data.email})` : "Account"}
 		>
 			<figure style="height: 100%; display: flex; align-items: center; justify-content: center;">
-				<span style="font-weight: 700; font-size: 1em;">{user.data ? user.data.username[0] : "?"}</span>
+				<span style="font-weight: 700; font-size: 0.8em;">{user.data ? user.data.username[0] : "?"}</span>
 			</figure>
 		</button>
 	</div>
@@ -123,8 +123,8 @@
 <style lang="scss">
 	header {
 		background-color: var(--imag-bg-color);
-		max-height: 3em;
-		padding: 1em 1em;
+		max-height: 2em;
+		padding: 0.1em 0.8em;
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--imag-60);
@@ -136,17 +136,19 @@
 	#viz-title {
 		font-family: var(--imag-code-font);
 		font-weight: 700;
-		font-size: 1.2em;
+		font-size: 1em;
 		position: absolute;
-		left: 1em;
+		left: 0.8em;
 	}
 
 	#account-button {
-		height: 2rem;
-		width: 2rem;
+		height: 1.4rem;
+		width: 1.4rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		border-radius: 10em;
+		outline: 1px solid var(--imag-60);
 	}
 
 	figure {
@@ -159,15 +161,15 @@
 	}
 
 	#upload-button {
-		margin-right: 2em;
+		margin-right: 1.5em;
 		color: var(--imag-text-color);
-		font-size: 0.9rem;
-		padding: 0.3em 0.6em;
+		font-size: 0.8rem;
+		padding: 0.25em 0.5em;
 	}
 
 	.header-button-container {
 		position: absolute;
-		right: 1em;
+		right: 0.8em;
 		display: flex;
 		align-items: center;
 	}
@@ -176,22 +178,23 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--imag-100);
-		border-radius: 4em;
-		padding: 0.2em 0.5em;
-		font-size: 1rem;
+		border-radius: 10em;
+		padding: 0.15em 0.4em;
+		font-size: 0.85rem;
 		color: var(--imag-text-color);
-		margin-right: 1em;
+		margin-right: 0.6em;
 		cursor: pointer;
 
 		&:focus {
 			box-shadow: 0px 0px 0px 1.5px inset var(--imag-primary);
 			outline: none;
-			background-color: var(--imag-80);
+			background-color: var(--imag-90);
+			border-radius: 4em;
 		}
 
 		&:hover {
-			background-color: var(--imag-90);
+			background-color: var(--imag-100);
+			// outline: 1px solid var(--imag-60);
 		}
 
 		&:active {
@@ -200,10 +203,10 @@
 	}
 
 	.debug-mode-text {
-		margin-right: 0.5em;
+		margin-right: 0.4em;
 		font-family: var(--imag-code-font);
 		font-weight: bold;
-		font-size: 0.9em;
+		font-size: 0.8em;
 		color: var(--imag-text-color);
 	}
 </style>

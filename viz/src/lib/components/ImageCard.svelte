@@ -65,7 +65,7 @@
 
 <style lang="scss">
 	.image-card {
-		max-height: 20em;
+		max-height: 25em;
 		background-color: var(--imag-100);
 		padding: 0.8em;
 		border-radius: 0.5em;

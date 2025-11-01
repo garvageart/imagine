@@ -43,8 +43,6 @@
 			}
 		}
 
-		console.log(existingView, existingContent, existingParentPanel);
-
 		if (existingView && existingContent && existingParentPanel) {
 			// Deactivate all views in the content and activate the existing one
 			existingContent.views.forEach((v) => v.setActive(false));
@@ -60,14 +58,15 @@
 
 		addViewToContent(view, currentParentIdx, childIndex);
 
-		// Find the subpanel where the view was added and make it active
-		const targetContent = currentParent.childs.content[childIndex];
-		const targetSubPanel = findSubPanel("paneKeyId", targetContent.paneKeyId)?.subPanel as VizSubPanelData | undefined;
-		if (targetSubPanel) {
+		// Find the parent subpanel and make the new view active
+		const parentSubPanel = layoutState.tree[currentParentIdx];
+		const targetContent = parentSubPanel.childs.content[childIndex];
+
+		if (parentSubPanel) {
 			// Deactivate all views in the content and activate the new one
-			targetContent.views.forEach((v) => v.setActive(false));
+			targetContent.views.forEach((v: VizView) => v.setActive(false));
 			view.setActive(true);
-			targetSubPanel.makeViewActive(view);
+			parentSubPanel.makeViewActive(view);
 		}
 	}
 </script>

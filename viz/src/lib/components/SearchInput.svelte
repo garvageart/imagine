@@ -75,8 +75,8 @@
 		border-top-right-radius: 0%;
 		border-bottom-right-radius: 0%;
 		height: 100%;
-		padding: 0.2em 0.5em;
-		font-size: 1rem;
+		padding: 0.15em 0.4em;
+		font-size: 0.85rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -110,12 +110,11 @@
 		overflow: hidden;
 		&:focus {
 			border-color: var(--imag-80);
-			height: 1.3em;
 		}
 	}
 
 	.search-input {
-		font-size: 0.9em;
+		font-size: 0.8em;
 		background-color: var(--imag-bg-color);
 		color: var(--imag-text-color);
 		outline: none;
@@ -124,7 +123,7 @@
 		height: 100%;
 		border-top-left-radius: 0%;
 		border-bottom-left-radius: 0%;
-		padding: 0 0.7em;
+		padding: 0 0.5em;
 		font-family: var(--imag-font-family);
 
 		&::placeholder {
@@ -145,8 +144,8 @@
 		border: none;
 		outline: none;
 		height: 100%;
-		padding: 0.2em 0.5em;
-		font-size: 1.2rem;
+		padding: 0.15em 0.4em;
+		font-size: 1rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;

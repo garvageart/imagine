@@ -28,17 +28,25 @@
 	import { views } from "$lib/layouts/views";
 	import LoadingContainer from "../LoadingContainer.svelte";
 	import { isElementScrollable } from "$lib/utils/dom";
-	import { findSubPanel, generateKeyId } from "$lib/utils/layout";
+	import { findSubPanel, generateKeyId, isVizSubPanelData } from "$lib/utils/layout";
 	import { goto } from "$app/navigation";
 	import ContextMenu, { type MenuItem } from "$lib/context-menu/ContextMenu.svelte";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import VizSubPanelData, { Content as ContentClass } from "$lib/layouts/subpanel.svelte";
+	import {
+		cleanupEmptyPanels,
+		duplicateView,
+		normalizePanelSizes,
+		removeEmptyContent,
+		splitPanelHorizontally,
+		splitPanelVertically
+	} from "$lib/layouts/panel-operations";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;
 	}
 
-	if (window.debug) {
+	if (dev || window.debug) {
 		measureComponentRenderTimes();
 	}
 
@@ -63,6 +71,25 @@
 	const children = allProps.children;
 	const keyId = allProps.paneKeyId ?? generateKeyId();
 	const minSize = allProps.minSize ?? 10;
+
+	// pane size overrides when locked to prevent resizing
+	let paneMinSize: number | undefined = $state(minSize);
+	let paneMaxSize: number | undefined = $state(allProps.maxSize);
+
+	$effect(() => {
+		const res = findSubPanel("paneKeyId", keyId);
+		if (res && isVizSubPanelData(res.subPanel) && res.subPanel.locked) {
+			// Prefer the internalSubPanelContainer.size, fallback to panel size, then minSize
+			const lockedSize = res.subPanel.childs?.internalSubPanelContainer?.size ?? res.subPanel.size ?? minSize;
+			paneMinSize = lockedSize ?? minSize;
+			paneMaxSize = lockedSize ?? paneMinSize;
+			console.debug("[Viz] panel", keyId, "locked -> size", paneMinSize);
+		} else {
+			paneMinSize = minSize;
+			paneMaxSize = allProps.maxSize;
+			console.debug("[Viz] panel", keyId, "unlocked -> min", paneMinSize, "max", paneMaxSize);
+		}
+	});
 
 	// Helper: match svelte-kit style dynamic routes like "/collections/[uid]" to concrete paths
 	function pathMatches(pattern: string | undefined, actual: string | undefined): boolean {
@@ -129,6 +156,13 @@
 	const storedActiveView = $derived(panelViews.find((view) => view.isActive === true));
 	let activeView = $derived(storedActiveView ?? panelViews[0]);
 	let panelData = $derived(activeView.viewData ?? activeView?.getComponentData());
+
+	function isPanelLocked(): boolean {
+		const result = findSubPanel("paneKeyId", keyId)?.subPanel;
+		if (!result) return false;
+		if (isVizSubPanelData(result)) return result.locked;
+		return false;
+	}
 
 	let subPanelContentElement: HTMLDivElement | undefined = $state();
 	let subPanelContentFocused = $state(false);
@@ -208,6 +242,11 @@
 	});
 
 	function tabDragable(node: HTMLElement, data: TabData) {
+		// Prevent tab dragging when panel is locked
+		if (isPanelLocked()) {
+			return { destroy: () => {} };
+		}
+
 		return tabDropper.draggable(node, data);
 	}
 
@@ -219,7 +258,14 @@
 		return tabDropper.tabDrop(node);
 	}
 
-	function headerDraggable(node: HTMLElement) {}
+	function headerDraggable(node: HTMLElement) {
+		if (isPanelLocked()) {
+			return { destroy: () => {} };
+		}
+
+		// If header dragging is implemented later, return its destroy here.
+		return { destroy: () => {} };
+	}
 
 	function subPanelDrop(node: HTMLElement, data: TabData) {
 		return tabDropper.subPanelDropInside(node, data);
@@ -270,6 +316,7 @@
 	 * Closes a specific tab/view
 	 */
 	function closeTab(view: VizView) {
+		if (isPanelLocked()) return;
 		const index = panelViews.findIndex((v) => v.id === view.id);
 		if (index === -1) {
 			return;
@@ -289,37 +336,13 @@
 			if (currentContent) {
 				currentContent.views = panelViews;
 
-				// If this content group is now empty, remove it
-				if (currentContent.views.length === 0) {
-					currentPanel.childs.content.splice(childIndex, 1);
-
-					// Normalize sizes for remaining content groups
-					if (currentPanel.childs.content.length > 0) {
-						const subSize = 100 / currentPanel.childs.content.length;
-						currentPanel.childs.content.forEach((content) => {
-							content.size = subSize;
-						});
-					}
-				}
-
-				// Update the panel's views array
+				// Clean up empty content and panels
+				removeEmptyContent(currentPanel, childIndex);
 				currentPanel.views = currentPanel.childs.content.flatMap((c) => c.views);
 
-				// If the entire panel is now empty, remove it
 				if (currentPanel.views.length === 0) {
 					layoutState.tree.splice(parentIndex, 1);
-
-					// Normalize sizes for remaining panels
-					if (layoutState.tree.length > 1) {
-						const sizePerPanel = 100 / layoutState.tree.length;
-						layoutState.tree.forEach((panel) => {
-							panel.size = sizePerPanel;
-							panel.childs.internalSubPanelContainer.size = sizePerPanel;
-						});
-					} else if (layoutState.tree.length === 1) {
-						layoutState.tree[0].size = 100;
-						layoutState.tree[0].childs.internalSubPanelContainer.size = 100;
-					}
+					normalizePanelSizes(layoutState.tree);
 				}
 			}
 		}
@@ -336,6 +359,7 @@
 	 * Closes all tabs except the specified one
 	 */
 	function closeOtherTabs(exceptView: VizView) {
+		if (isPanelLocked()) return;
 		panelViews = panelViews.filter((v) => v.id === exceptView.id);
 
 		const subPanel = findSubPanel("paneKeyId", keyId)?.subPanel;
@@ -352,6 +376,7 @@
 	 * Closes all tabs to the right of the specified tab
 	 */
 	function closeTabsToRight(view: VizView) {
+		if (isPanelLocked()) return;
 		const index = panelViews.findIndex((v) => v.id === view.id);
 		if (index === -1 || index === panelViews.length - 1) return;
 
@@ -366,7 +391,7 @@
 		}
 
 		// If active view was closed, activate the rightmost remaining tab
-		if (closedActiveView) {
+		if (closedActiveView && panelViews.length) {
 			makeViewActive(panelViews[panelViews.length - 1]);
 		}
 	}
@@ -375,6 +400,7 @@
 	 * Closes all tabs in this panel
 	 */
 	function closeAllTabs() {
+		if (isPanelLocked()) return;
 		panelViews = [];
 
 		const subPanel = findSubPanel("paneKeyId", keyId)?.subPanel;
@@ -387,146 +413,144 @@
 	 * Splits the current panel and moves a view to a new panel on the right
 	 */
 	function splitRight(view: VizView) {
+		if (isPanelLocked()) return;
 		const result = findSubPanel("paneKeyId", keyId);
 		if (!result) return;
 
 		const { parentIndex } = result;
 
-		// Create a new view instance with the same properties but a new ID
-		const newView = new VizView({
-			name: view.name,
-			component: view.component,
-			path: view.path,
-			opticalCenterFix: view.opticalCenterFix,
-			isActive: true
-		});
+		// Create a new view instance and split the panel
+		const newView = duplicateView(view);
+		const newPanel = splitPanelVertically(layoutState.tree, parentIndex, newView);
 
-		// Calculate the size for the current panel and new panel
-		// Split the available space equally
-		const currentPanel = layoutState.tree[parentIndex];
-		const currentSize = currentPanel.size ?? 50;
-		const newSize = currentSize / 2;
-
-		// Update current panel size
-		currentPanel.size = newSize;
-		currentPanel.childs.internalSubPanelContainer.size = newSize;
-
-		// Create new panel with the duplicated view
-		const newPanel = new VizSubPanelData({
-			content: [
-				new ContentClass({
-					views: [newView]
-				})
-			],
-			size: newSize
-		});
-
-		newView.parent = newPanel.childs.content[0].paneKeyId;
-
-		// Insert the new panel after the current panel
-		layoutState.tree.splice(parentIndex + 1, 0, newPanel);
-
-		// Activate the new view
-		newView.setActive(true);
+		if (newPanel) {
+			newView.setActive(true);
+		}
 	}
 
 	/**
 	 * Splits the current panel and moves a view to a new content group below within the same parent
 	 */
 	function splitDown(view: VizView) {
+		if (isPanelLocked()) return;
 		const result = findSubPanel("paneKeyId", keyId);
 		if (!result) return;
 
 		const { parentIndex } = result;
-
-		// Create a new view instance with the same properties but a new ID
-		const newView = new VizView({
-			name: view.name,
-			component: view.component,
-			path: view.path,
-			opticalCenterFix: view.opticalCenterFix,
-			isActive: true
-		});
-
-		// Create new content group with the duplicated view
-		const newContent = new ContentClass({
-			views: [newView]
-		});
-
-		newView.parent = newContent.paneKeyId;
-
-		// Add the new content group to the parent panel's content array
 		const currentPanel = layoutState.tree[parentIndex];
-		currentPanel.childs.content.push(newContent);
 
-		// Normalize sizes for all content groups in the panel
-		const subSize = 100 / currentPanel.childs.content.length;
-		currentPanel.childs.content.forEach((content) => {
-			content.size = subSize;
-		});
+		// Create a new view instance and split horizontally
+		const newView = duplicateView(view);
+		const newContent = splitPanelHorizontally(currentPanel, newView);
 
-		// Update the panel's views array
-		currentPanel.views = currentPanel.childs.content.flatMap((c) => c.views);
-
-		// Activate the new view
-		newView.setActive(true);
+		if (newContent) {
+			newView.setActive(true);
+		}
 	}
 
 	/**
 	 * Moves a view to an existing panel group
 	 */
 	function moveToPanel(view: VizView, direction: "left" | "right" | "up" | "down") {
-		const result = findSubPanel("paneKeyId", keyId);
+		if (isPanelLocked()) return;
+		// Resolve the location of the view by its parent id to be precise
+		const viewParentId = view.parent ?? keyId;
+		const result = findSubPanel("paneKeyId", viewParentId);
 		if (!result) return;
 
-		const { parentIndex, isChild, childIndex } = result;
-
-		// Remove the view from current panel
-		const viewIndex = panelViews.findIndex((v) => v.id === view.id);
-		if (viewIndex !== -1) {
-			panelViews.splice(viewIndex, 1);
+		if (dev || window.debug) {
+			const layoutSummary = layoutState.tree.map((p) => ({
+				paneKeyId: p.paneKeyId,
+				contentCount: p.childs?.content?.length ?? 0
+			}));
+			console.debug("[Viz] moveToPanel start", { viewId: view.id, viewParent: view.parent, result, layoutSummary, direction });
 		}
 
-		// Update the current panel's views array
+		let { parentIndex, isChild, childIndex } = result;
 		const currentPanel = layoutState.tree[parentIndex];
-		currentPanel.views = currentPanel.childs.content.flatMap((c) => c.views);
 
+		// If findSubPanel returned the top-level panel (isChild === false), determine which content group contains this view
+		if (!isChild) {
+			const foundIdx = currentPanel.childs?.content?.findIndex((c) => c.views.some((v) => v.id === view.id)) ?? -1;
+			if (foundIdx === -1) {
+				// Nothing to move
+				return;
+			}
+			childIndex = foundIdx;
+			isChild = true;
+		}
+
+		const currentContent = currentPanel.childs.content[childIndex];
+
+		// Remove the view from current content group
+		if (currentContent) {
+			const viewIdx = currentContent.views.findIndex((v) => v.id === view.id);
+			if (viewIdx !== -1) {
+				currentContent.views.splice(viewIdx, 1);
+			}
+		}
+
+		if (dev || window.debug) {
+			const layoutSummary2 = layoutState.tree.map((p) => ({
+				paneKeyId: p.paneKeyId,
+				contentCount: p.childs?.content?.length ?? 0
+			}));
+			console.debug("[Viz] moveToPanel after removal", {
+				viewId: view.id,
+				parentIndex,
+				childIndex,
+				isChild,
+				currentContentCount: currentPanel.childs.content.length,
+				layoutSummary2
+			});
+		}
+
+		// Determine target panel/content group
 		let targetPanelIndex = parentIndex;
 		let targetContentIndex = childIndex;
 
-		if (direction === "left" || direction === "up") {
-			if (direction === "left" && isChild && childIndex > 0) {
-				targetContentIndex = childIndex - 1;
-			} else if (direction === "up" && parentIndex > 0) {
+		const resolvedChildIndex = isChild
+			? childIndex
+			: (currentPanel.childs?.content?.findIndex((c) => c.views.some((v) => v.id === view.id)) ?? -1);
+
+		if (direction === "left") {
+			if (resolvedChildIndex > 0) {
+				targetPanelIndex = parentIndex;
+				targetContentIndex = resolvedChildIndex - 1;
+			} else if (parentIndex > 0) {
+				// move into the previous panel's rightmost content group
 				targetPanelIndex = parentIndex - 1;
-				targetContentIndex = 0;
+				const prevPanel = layoutState.tree[targetPanelIndex];
+				targetContentIndex = Math.max(0, (prevPanel.childs?.content?.length ?? 1) - 1);
 			}
-		} else {
-			if (direction === "right" && isChild) {
-				const parentPanel = layoutState.tree[parentIndex];
-				if (childIndex < parentPanel.childs.content.length - 1) {
-					targetContentIndex = childIndex + 1;
-				}
-			} else if (direction === "down" && parentIndex < layoutState.tree.length - 1) {
+		} else if (direction === "right") {
+			if (resolvedChildIndex !== -1 && resolvedChildIndex < (currentPanel.childs?.content?.length ?? 0) - 1) {
+				targetPanelIndex = parentIndex;
+				targetContentIndex = resolvedChildIndex + 1;
+			} else if (parentIndex < layoutState.tree.length - 1) {
+				// move into the next panel's leftmost content group
 				targetPanelIndex = parentIndex + 1;
 				targetContentIndex = 0;
 			}
+		} else if (direction === "up" && parentIndex > 0) {
+			targetPanelIndex = parentIndex - 1;
+			targetContentIndex = 0;
+		} else if (direction === "down" && parentIndex < layoutState.tree.length - 1) {
+			targetPanelIndex = parentIndex + 1;
+			targetContentIndex = 0;
 		}
 
-		// Add view to target panel
+		// Add view to target content group
 		const targetPanel = layoutState.tree[targetPanelIndex];
-		if (targetPanel.childs.content[targetContentIndex]) {
-			const targetContent = targetPanel.childs.content[targetContentIndex];
+		const targetContent = targetPanel?.childs?.content?.[targetContentIndex];
+		if (targetContent) {
 			targetContent.views.push(view);
-
-			// Update parent reference
 			view.parent = targetContent.paneKeyId;
-
-			// Update target panel's views array
 			targetPanel.views = targetPanel.childs.content.flatMap((c) => c.views);
-
 			view.setActive(true);
 		}
+
+		cleanupEmptyPanels(layoutState.tree);
 	}
 
 	/**
@@ -543,7 +567,61 @@
 		const isLastTab = viewIndex === panelViews.length - 1;
 		const isOnlyTab = panelViews.length === 1;
 
+		// Determine move availability by resolving the view's actual parent
+		const viewParentId = view.parent ?? keyId;
+		const viewLoc = findSubPanel("paneKeyId", viewParentId);
+		let canMoveLeft = false,
+			canMoveRight = false,
+			canMoveUp = false,
+			canMoveDown = false;
+
+		if (viewLoc) {
+			const { parentIndex, childIndex, isChild } = viewLoc as any;
+			const currentPanel = layoutState.tree[parentIndex];
+
+			// Use the isChild flag: when isChild is true, childIndex is the content index.
+			// When isChild is false, the paneKey matched a top-level panel and we must search its content groups.
+			const resolvedChildIndex = isChild
+				? childIndex
+				: (currentPanel.childs?.content?.findIndex((c) => c.views.some((v) => v.id === view.id)) ?? -1);
+
+			canMoveLeft = resolvedChildIndex > 0;
+			// Allow moving left/right into adjacent panels as well as sibling content groups
+			canMoveRight = resolvedChildIndex !== -1 && resolvedChildIndex < (currentPanel.childs?.content?.length ?? 0) - 1;
+			// If there is no sibling to the left/right, but there is a panel to the left/right,
+			// treat that as a valid move target too.
+			if (!canMoveLeft && parentIndex > 0) {
+				canMoveLeft = true;
+			}
+			if (!canMoveRight && parentIndex < layoutState.tree.length - 1) {
+				canMoveRight = true;
+			}
+			// Respect top-level split orientation: only allow up/down when layoutTree.horizontal is true
+			const panelsAreStacked = !!layoutTree.horizontal;
+			canMoveUp = panelsAreStacked && parentIndex > 0;
+			canMoveDown = panelsAreStacked && parentIndex < layoutState.tree.length - 1;
+		}
+
 		contextMenuItems = [
+			{
+				id: isPanelLocked() ? "unlock-panel" : "lock-panel",
+				label: isPanelLocked() ? "Unlock Panel" : "Lock Panel",
+				action: () => {
+					const result = findSubPanel("paneKeyId", keyId)?.subPanel;
+					if (result && isVizSubPanelData(result)) {
+						result.locked = !result.locked;
+						console.debug("[Viz] toggled lock for", keyId, "now", result.locked);
+					}
+					showContextMenu = false;
+				},
+				icon: isPanelLocked() ? "lock_open" : "lock",
+				danger: false
+			},
+			{
+				id: "separator-lock",
+				label: "",
+				separator: true
+			},
 			{
 				id: "close",
 				label: "Close Tab",
@@ -591,25 +669,29 @@
 				id: "move-left",
 				label: "Move to Left Group",
 				action: () => moveToPanel(view, "left"),
-				icon: "arrow_back"
+				icon: "arrow_back",
+				disabled: !canMoveLeft
 			},
 			{
 				id: "move-right",
 				label: "Move to Right Group",
 				action: () => moveToPanel(view, "right"),
-				icon: "arrow_forward"
+				icon: "arrow_forward",
+				disabled: !canMoveRight
 			},
 			{
 				id: "move-up",
 				label: "Move to Above Group",
 				action: () => moveToPanel(view, "up"),
-				icon: "arrow_upward"
+				icon: "arrow_upward",
+				disabled: !canMoveUp
 			},
 			{
 				id: "move-down",
 				label: "Move to Below Group",
 				action: () => moveToPanel(view, "down"),
-				icon: "arrow_downward"
+				icon: "arrow_downward",
+				disabled: !canMoveDown
 			},
 			{
 				id: "separator3",
@@ -646,7 +728,7 @@
 
 <ContextMenu bind:showMenu={showContextMenu} items={contextMenuItems} anchor={contextMenuAnchor} />
 
-<Pane class={className} {minSize} {...allProps} {id} paneKeyId={keyId}>
+<Pane class={className} {...allProps} {id} paneKeyId={keyId} minSize={paneMinSize} maxSize={paneMaxSize}>
 	<!--
 TODO:
 Make the header draggable too. Use the same drag functions. If we're dragging
@@ -655,7 +737,7 @@ for Splitpanes
 	-->
 	{#if panelViews.length > 0}
 		<div
-			class="viz-sub_panel-header"
+			class="viz-sub_panel-header {isPanelLocked() ? 'locked' : ''}"
 			role="tablist"
 			tabindex="0"
 			use:headerDraggable
@@ -717,6 +799,11 @@ for Splitpanes
 					<MaterialIcon iconName="refresh" />
 				</button>
 			{/if}
+			{#if isPanelLocked()}
+				<button class="viz-lock-indicator" aria-label="Panel locked" title="Panel is locked">
+					<MaterialIcon iconName="lock" />
+				</button>
+			{/if}
 		</div>
 	{/if}
 	{#if activeView?.component}
@@ -753,6 +840,23 @@ for Splitpanes
 </Pane>
 
 <style lang="scss">
+	.viz-sub_panel-header.locked {
+		opacity: 0.7;
+		pointer-events: auto; /* still accept clicks for context menu */
+	}
+
+	.viz-lock-indicator {
+		position: absolute;
+		right: 0.5em;
+		top: 0.25em;
+		background: transparent;
+		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.25em;
+		cursor: default;
+	}
 	#viz-debug-button {
 		position: absolute;
 		right: 0;

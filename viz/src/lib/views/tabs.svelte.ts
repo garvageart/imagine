@@ -4,7 +4,7 @@ import { sleep, swapArrayElements } from "../utils/misc";
 import VizView from "./views.svelte";
 import { dev } from "$app/environment";
 import { views } from "$lib/layouts/views";
-import { cleanupSubPanels, findChildIndex, findPanelIndex, getSubPanelParent } from "./utils";
+import { cleanupEmptyPanels, normalizeContentSizes, normalizePanelSizes, createPanelWithView, splitPanelVertically, splitPanelHorizontally } from "$lib/layouts/panel-operations";
 import type { DropPosition } from "./types";
 import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
 import { isTabData } from "$lib/utils/layout";
@@ -85,35 +85,7 @@ class TabOps {
         this.panelViews = panelViews;
     }
 
-    /**
-     * Finds the index of a panel in the given layout by its pane key ID.
-     *
-     * @param {VizSubPanel[]} layout The layout to search in.
-     * @param {string|undefined} paneKeyId The pane key ID to search for.
-     * @returns {number} The index of the panel in the layout, or -1 if not found.
-     */
-    private _findPanelIndex = findPanelIndex;
-
-    /**
-     * Finds the index of a child subpanel in the given child structure by its pane key ID.
-     *
-     * @param {{internalSubPanelContainer: Omit<VizSubPanel, "childs" | "children" | "$$events" | "$$slots" | "header" | "views">; internalPanelContainer: Omit<ComponentProps<typeof Splitpanes>, "children" | "$$events" | "$$slots">; subPanel: Omit<VizSubPanel, "childs">[]} | undefined} childs The child structure to search in.
-     * @param {string|undefined} paneKeyId The pane key ID to search for.
-     * @returns {number} The index of the child subpanel in the child structure, or -1 if not found.
-     */
-    private _findChildIndex = findChildIndex;
-
-
-    /**
-     * Retrieves the pane key ID of the parent panel for a given subpanel identified by its pane key ID.
-     *
-     * @param {VizSubPanel[]} layout - The layout containing panels and their subpanels.
-     * @param {string | undefined} paneKeyId - The pane key ID of the subpanel to find the parent for.
-     * @returns {string | null} The pane key ID of the parent panel, or null if not found.
-     */
-    private _getSubPanelParent = getSubPanelParent;
-
-    private _cleanupSubPanels = cleanupSubPanels;
+    // ...existing code...
 
     /**
      * Moves a tab to a new child subpanel.
@@ -128,7 +100,7 @@ class TabOps {
         let srcChildIdx = -1;
 
         if (srcParentIdx !== -1) {
-            srcChildIdx = this._findChildIndex(layout[srcParentIdx].childs, state.view.parent);
+            srcChildIdx = layout[srcParentIdx].childs.content.findIndex(sub => sub.paneKeyId === state.view.parent);
         }
 
         let dstParentIdx = layout.findIndex(
@@ -158,7 +130,7 @@ class TabOps {
                 layout[srcParentIdx].childs.content.splice(srcChildIdx, 1);
             }
 
-            const dstChildIdx = this._findChildIndex(layout[dstParentIdx].childs, nodeParentId);
+            const dstChildIdx = layout[dstParentIdx].childs.content.findIndex(sub => sub.paneKeyId === nodeParentId);
             if (dstChildIdx !== -1) {
                 layout[dstParentIdx].childs.content[dstChildIdx].views.push(movedView);
             }
@@ -226,10 +198,10 @@ class TabOps {
 
             const layout = layoutState.tree;
 
-            const srcParent = this._getSubPanelParent(layout, state.view.parent);
-            const dstParent = this._getSubPanelParent(layout, nodeParentId);
+            const srcParent = layout.find(panel => panel.childs.content?.some(sub => sub.paneKeyId === state.view.parent));
+            const dstParent = layout.find(panel => panel.childs.content?.some(sub => sub.paneKeyId === nodeParentId));
 
-            const parentIdx = this._findPanelIndex(layout, srcParent!);
+            const parentIdx = layout.findIndex(panel => panel === srcParent);
             const childs = layout[parentIdx]?.childs;
 
             const tab = childs.content.find(panel => panel.views.find(view => view.id === state.view.id))?.views.find(view => view.id === state.view.id);
@@ -362,8 +334,10 @@ class TabOps {
         const state = JSON.parse(data) as TabData;
 
         const layout = layoutState.tree;
-        const dstParentKeyId = this._getSubPanelParent(layout, activeViewData.view.parent!)!;
-        const srcParentKeyId = this._getSubPanelParent(layout, state.view.parent!);
+        const dstParentPanel = layout.find(panel => panel.childs.content?.some(sub => sub.paneKeyId === activeViewData.view.parent));
+        const srcParentPanel = layout.find(panel => panel.childs.content?.some(sub => sub.paneKeyId === state.view.parent));
+        const dstParentKeyId = dstParentPanel?.paneKeyId!;
+        const srcParentKeyId = srcParentPanel?.paneKeyId!;
         const srcSubPanelIdx = layoutState.tree.find(p => p.paneKeyId === srcParentKeyId)?.childs.content.findIndex(sub => sub.paneKeyId === state.view.parent!)!;
         const srcSubPanel = layoutState.tree.find(p => p.paneKeyId === srcParentKeyId)?.childs.content[srcSubPanelIdx]!;
 
@@ -373,43 +347,10 @@ class TabOps {
 
         // Do some basic cleaning up and size normalization after moving the view
         // before the `svelte-splitpanes` handles the actual sizing after resize
-        const cleanUpSubPanels = () => {
-            views.splice(viewToMove!, 1);
-            if (views.length === 0) {
-                if (window.debug === true) {
-                    console.log(`empty subpanel ${srcSubPanel.paneKeyId}. removing it`);
-                }
-                layoutState.tree.find(p => p.paneKeyId === srcParentKeyId)?.childs.content.splice(srcSubPanelIdx, 1);
-            }
-
-            // Normalize sizes for all subpanels in every panel's childs.content
-            layout.forEach(panel => {
-                if (panel.childs && Array.isArray(panel.childs.content) && panel.childs.content.length > 0) {
-                    const subSize = 100 / panel.childs.content.length;
-                    panel.childs.content.forEach(sub => {
-                        sub.size = subSize;
-                    });
-                }
-            });
-
-            const srcPanelIdx = layout.findIndex(p => p.paneKeyId === srcParentKeyId);
-            if (srcPanelIdx !== -1 && layout[srcPanelIdx].childs.content.length === 0) {
-                layout.splice(srcPanelIdx, 1);
-            }
-
-            // Normalize sizes if more than one panel remains
-            if (layout.length > 1) {
-                const sizePerPanel = 100 / layout.length;
-                layout.forEach(panel => {
-                    panel.childs.internalSubPanelContainer.size = sizePerPanel;
-                });
-            } else if (layout.length === 1) {
-                if (window.debug === true) {
-                    console.log(`one panel ${layout[0].paneKeyId} left, setting maximum size to 100`);
-                }
-                layout[0].childs.internalSubPanelContainer.size = 100;
-            }
-        };
+        // Remove the view from its source subpanel
+        views.splice(viewToMove!, 1);
+        // Use utility to cleanup empty content/panels and normalize sizes
+        cleanupEmptyPanels(layoutState.tree);
 
         switch (dropZone.dropPosition) {
             case "left":
@@ -417,7 +358,7 @@ class TabOps {
                     content: [new Content({ views: [state.view] })]
                 });
                 layoutState.tree.splice(
-                    this._findPanelIndex(layoutState.tree, dstParentKeyId),
+                    layoutState.tree.findIndex(panel => panel.paneKeyId === dstParentKeyId),
                     0,
                     newSubPanel
                 );
@@ -427,18 +368,19 @@ class TabOps {
                 const newSubPanelRight = new VizSubPanelData({
                     content: [new Content({ views: [state.view] })]
                 });
-                const index = this._findPanelIndex(layoutState.tree, dstParentKeyId);
+                const index = layoutState.tree.findIndex(panel => panel.paneKeyId === dstParentKeyId);
 
                 if (index === layoutState.tree.length - 1) {
                     layoutState.tree.push(newSubPanelRight);
                 } else {
                     layoutState.tree.splice(
-                        index,
+                        index + 1,
                         0,
                         newSubPanelRight
                     );
                 }
-
+                // Normalize panel sizes so new panel is visible
+                normalizePanelSizes(layoutState.tree);
                 break;
             case "top":
                 layoutState.tree.find((panel) => panel.paneKeyId === dstParentKeyId)?.childs.content.splice(0, 0, new Content({ views: [state.view] }));
@@ -451,7 +393,7 @@ class TabOps {
                 return;
         }
 
-        cleanUpSubPanels();
+        // All cleanup and normalization handled by utility
 
         if (window.debug) {
             console.log("Creating panel from:", srcParentKeyId);

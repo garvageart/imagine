@@ -10,6 +10,12 @@ export function generateKeyId(length = 10): string {
 }
 
 /**
+ * Type guard for VizSubPanelData instances returned by findSubPanel().
+ */
+export function isVizSubPanelData(obj: any): obj is VizSubPanelData {
+    return obj instanceof VizSubPanelData;
+}
+/**
  * Returns a flattened array of all subpanels in the layout. This is useful if you want to iterate over all subpanels
  * in the layout for any reason.
  *

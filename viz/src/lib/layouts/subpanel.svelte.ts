@@ -14,6 +14,7 @@ interface VizSubPanelDataOptions {
     minSize?: number;
     maxSize?: number;
     class?: string;
+    locked?: boolean;
 }
 
 interface ContentOptions {
@@ -123,6 +124,7 @@ class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | 
     minSize: number;
     maxSize: number;
     class?: string | undefined;
+    locked: boolean = false;
 
     constructor(opts: VizSubPanelDataOptions) {
         this.paneKeyId = opts.keyId ?? generateKeyId(16);
@@ -131,7 +133,7 @@ class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | 
         this.minSize = opts.minSize ?? 10;
         this.maxSize = opts.maxSize ?? 100;
         this.class = opts.class;
-
+        this.locked = opts.locked ?? false;
         const internalPanelKeyId = generateKeyId(16);
 
         this.childs = {
@@ -172,6 +174,32 @@ class VizSubPanelData implements Omit<ComponentProps<typeof Pane>, "children" | 
         }
     }
 
+    toJSON() {
+        return {
+            id: this.id,
+            keyId: this.paneKeyId,
+            size: this.size,
+            minSize: this.minSize,
+            maxSize: this.maxSize,
+            class: this.class,
+            content: this.childs.content,
+            locked: this.locked
+        };
+    }
+
+    static fromJSON(json: any) {
+        const panel = new VizSubPanelData({
+            id: json.id,
+            keyId: json.keyId,
+            content: json.content,
+            size: json.size,
+            minSize: json.minSize,
+            maxSize: json.maxSize,
+            class: json.class,
+            locked: json.locked
+        });
+        return panel;
+    }
 
     /**
      * Updates the active view of a subpanel based on the given key ID.

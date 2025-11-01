@@ -101,17 +101,23 @@
 	}
 
 	$effect(() => {
-		// looool proxies don't save properly in JSON.stringify lmao
+		// Properly serialize the layout tree including views using their toJSON method
 		const layoutToSave = layoutState.tree.map((panel) => {
 			// Access deep properties to ensure reactivity tracks them
 			const childsCopy = {
 				...panel.childs,
 				content: panel.childs.content.map((content) => ({
 					...content,
-					views: content.views.map((view) => ({
-						...view,
-						isActive: view.isActive // explicitly access to track changes
-					}))
+					views: content.views.map((view) => {
+						// Use toJSON method if available (VizView instances), otherwise spread
+						if (view && typeof view.toJSON === "function") {
+							return view.toJSON();
+						}
+						return {
+							...view,
+							isActive: view.isActive
+						};
+					})
 				}))
 			};
 
