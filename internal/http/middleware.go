@@ -117,6 +117,28 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 	}
 }
 
+// AdminMiddleware requires that the request context contains an authenticated
+// user with role "admin" or "superadmin". It assumes AuthMiddleware has run
+// earlier in the chain to populate the user in context.
+func AdminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, ok := UserFromContext(r)
+		if !ok || user == nil {
+			render.Status(r, http.StatusUnauthorized)
+			render.JSON(w, r, dto.ErrorResponse{Error: "unauthenticated"})
+			return
+		}
+
+		if user.Role != "admin" && user.Role != "superadmin" {
+			render.Status(r, http.StatusForbidden)
+			render.JSON(w, r, dto.ErrorResponse{Error: "forbidden"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // getAPIKeyFromRequest checks common header locations for an API key
 func getAPIKeyFromRequest(r *http.Request) string {
 	// Prefer Authorization: Bearer <key>
