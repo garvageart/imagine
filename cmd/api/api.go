@@ -103,6 +103,8 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 
 	libvips.SetLogging(libvipsLogHandler, libvipsLogLevel)
 
+	server.SSEBroker = libhttp.NewSSEBroker()
+
 	// Public routes (no auth required)
 	router.Mount("/auth", routes.AuthRouter(dbClient, logger))
 	router.Mount("/accounts", routes.AccountsRouter(dbClient, logger))
@@ -110,35 +112,17 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		jsonResponse := map[string]any{"message": "pong"}
 		render.JSON(res, req, jsonResponse)
 	})
-
+	
 	// Protected routes (auth required)
 	router.Group(func(r chi.Router) {
 		r.Use(libhttp.AuthMiddleware(server.Database.Client, logger))
+		router.Mount("/events", routes.EventsRouter(dbClient, logger, server.SSEBroker))
 		r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
 		r.Mount("/images", routes.ImagesRouter(dbClient, logger))
 	})
 
-	// TODO: only admin can do a healthcheck
-	router.Post("/healthcheck", func(res http.ResponseWriter, req *http.Request) {
-		result := dbClient.Exec("SELECT 1")
-		if result.Error != nil {
-			res.WriteHeader(http.StatusInternalServerError)
-			render.JSON(res, req, map[string]string{"error": "healthcheck failed"})
-			return
-		}
-
-		randomPositiveMessage := []string{
-			"all love and peace ",
-			"take care of yourself",
-			"love is in the air",
-			"support open source <3",
-		}
-
-		loveMessage := randomPositiveMessage[utils.RandomInt(0, len(randomPositiveMessage)-1)]
-
-		res.WriteHeader(http.StatusOK)
-		render.JSON(res, req, map[string]string{"message": "ok", "status": loveMessage})
-	})
+	router.Mount("/admin", routes.AdminRouter(dbClient, logger))
+	router.Mount("/jobs", routes.JobsRouter(dbClient, logger))
 
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
 
@@ -211,6 +195,8 @@ func main() {
 	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)
-	jobWorkers := workers.NewImageWorker(client)
-	jobs.RunJobQueue(jobWorkers)
+
+	imageWorker := workers.NewImageWorker(client, server.SSEBroker)
+	xmpWorker := workers.NewXMPWorker(logger, server.SSEBroker)
+	jobs.RunJobQueue(imageWorker, xmpWorker)
 }
