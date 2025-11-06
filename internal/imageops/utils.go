@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
 	"time"
 
 	libvips "imagine/internal/imageops/vips"
@@ -116,12 +117,80 @@ func ConvertEXIFDateTime(exifDateTime string) *time.Time {
 		return nil
 	}
 
-	const exifLayout = "2006:01:02 15:04:05"
+	// Trim whitespace and common surrounding tokens
+	s := strings.TrimSpace(exifDateTime)
 
-	t, err := time.Parse(exifLayout, exifDateTime)
-	if err != nil {
-		return nil
+	// Common EXIF/date formats we want to accept. Try them in order.
+	layouts := []string{
+		// Standard EXIF layout
+		"2006:01:02 15:04:05",
+		// Some tools use dash separators
+		"2006-01-02 15:04:05",
+		// RFC3339 / ISO formats
+		time.RFC3339,
+		"2006:01:02T15:04:05Z07:00",
+		"2006-01-02T15:04:05Z07:00",
+		// Without timezone designator
+		"2006:01:02 15:04:05-07:00",
+		"2006-01-02 15:04:05-07:00",
 	}
 
-	return &t
+	// Some EXIF values might include extra annotations like "2006:01:02 15:04:05 (some text)".
+	// Strip trailing parenthetical content if present.
+	if idx := strings.Index(s, " ("); idx > 0 {
+		s = strings.TrimSpace(s[:idx])
+	}
+
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return &t
+		}
+	}
+
+	// As a last resort, try to parse only the date portion if time.Parse fails
+	// e.g., "2006:01:02" or "2006-01-02"
+	dateOnlyLayouts := []string{"2006:01:02", "2006-01-02"}
+	for _, l := range dateOnlyLayouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return &t
+		}
+	}
+
+	return nil
 }
+
+// WarmupAllOps forces libvips to instantiate a set of commonly-used
+// operations so the corresponding modules/plugins are loaded eagerly.
+// Call this after SetLogging (so libvips logs are routed) and after
+// Startup (Startup is called internally by HasOperation). This reduces
+// first-request latency by avoiding lazy loading when the operation is
+// first used.
+func WarmupAllOps() {
+	// ensure vips is started
+	libvips.Startup(nil)
+
+	ops := []string{
+		// common loaders/savers and ops that trigger plugin loading
+		"jpegload", "jpegload_buffer", "jpegsave", "jpegsave_buffer",
+		"pngload", "pngsave", "pngsave_buffer",
+		"webpload", "webpsave",
+		"gifload", "gifload_buffer", "gifsave", "gifsave_buffer",
+		"heifload", "heifload_buffer", "heifsave", "heifsave_buffer",
+		"jxlload", "jxlload_buffer", "jxlsave", "jxlsave_buffer",
+		"jp2kload", "jp2kload_buffer", "jp2ksave", "jp2ksave_buffer",
+		"magickload", "magickload_buffer", "magicksave",
+		"pdfload", "pdfload_buffer",
+		"openslideload", "openslideload_source",
+		"tiffload", "tiffsave",
+		"fitsload",
+		// a few generic/core ops to exercise vips core
+		"resize", "thumbnail", "dzsave", "dzsave_buffer",
+	}
+
+	for _, name := range ops {
+		// HasOperation will call Startup if needed and will invoke
+		// vips_operation_new which causes the plugin that provides
+		// the operation to be loaded.
+		_ = libvips.HasOperation(name)
+	}
+}	

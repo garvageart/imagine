@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/hex"
+	"fmt"
 	"imagine/internal/crypto"
 	"imagine/internal/dto"
 	"imagine/internal/entities"
@@ -31,6 +32,13 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if create.Name == "" || create.Password == "" || string(create.Email) == "" {
 			render.Status(req, http.StatusBadRequest)
 			render.JSON(res, req, dto.ErrorResponse{Error: "required fields are missing"})
+			return
+		}
+
+		var existingUser entities.User
+		if err := db.Where("email = ?", create.Email).First(&existingUser).Error; err == nil {
+			render.Status(req, http.StatusConflict)
+			render.JSON(res, req, dto.ErrorResponse{Error: "user already exists"})
 			return
 		}
 
@@ -112,6 +120,17 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			if !ok || user == nil {
 				render.Status(req, http.StatusUnauthorized)
 				render.JSON(res, req, dto.ErrorResponse{Error: "not authenticated"})
+				return
+			}
+
+			// Compute ETag based on user's UpdatedAt and UID and support conditional
+			// requests for bandwidth savings.
+			etag := fmt.Sprintf("W/\"%d-%s\"", user.UpdatedAt.UnixNano(), user.Uid)
+			res.Header().Set("Cache-Control", "private, max-age=60, must-revalidate")
+			res.Header().Set("ETag", etag)
+
+			if match := req.Header.Get("If-None-Match"); match == etag {
+				res.WriteHeader(http.StatusNotModified)
 				return
 			}
 

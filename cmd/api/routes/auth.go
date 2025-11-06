@@ -319,5 +319,28 @@ func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, actualUserData)
 	})
 
+	router.Post("/logout", func(res http.ResponseWriter, req *http.Request) {
+		if cookie, err := req.Cookie(libhttp.AuthTokenCookie); err == nil && cookie.Value != "" {
+			// don't fail the logout if DB delete errors
+			tx := db.Where("token = ?", cookie.Value).Delete(&entities.Session{})
+			if tx.Error != nil {
+				logger.Warn("failed to delete session on logout", slog.String("request_id", libhttp.GetRequestID(req)), slog.Any("error", tx.Error))
+			}
+
+			// Invalidate any in-memory cache for this session token so other requests
+			// don't continue using a now-deleted session until their cache entry expires.
+			libhttp.ClearSessionCache(cookie.Value)
+		}
+
+		// clear anything related to auth in the browser. even stuff that may linger
+		libhttp.ClearCookie(libhttp.AuthTokenCookie, res)
+		libhttp.ClearCookie(libhttp.StateCookie, res)
+		libhttp.ClearCookie(libhttp.RedirectCookie, res)
+		libhttp.ClearCookie(libhttp.RefreshTokenCookie, res)
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.MessageResponse{Message: "Logged out"})
+	})
+
 	return router
 }

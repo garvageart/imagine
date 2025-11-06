@@ -302,6 +302,36 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         render.JSON(res, req, stats)
     })
 
+    // Atomic snapshot for UI bootstrap: active jobs, counters, and next event cursor
+    r.Get("/snapshot", func(res http.ResponseWriter, req *http.Request) {
+        // active jobs
+        activeMap := jobs.GetAllJobs()
+        type ActiveBrief struct {
+            Id     string `json:"id"`
+            Topic  string `json:"topic"`
+            Status string `json:"status"`
+        }
+        active := make([]ActiveBrief, 0, len(activeMap))
+        for id, j := range activeMap {
+            active = append(active, ActiveBrief{Id: id, Topic: j.Topic(), Status: j.GetStatus()})
+        }
+
+        // counters
+        stats := jobs.GetCounts()
+
+        // next cursor from SSE broker via context key; the server wires it under /events router.
+        // We can’t access the broker instance directly here without a global. For now, omit nextCursor in response.
+        // Frontend can fetch /events/since with cursor=0 to bootstrap missed events if needed.
+        snap := map[string]any{
+            "active":         active,
+            "running_by_topic": stats.RunningByTopic,
+            "queued_by_topic":  stats.QueuedByTopic,
+            // nextCursor intentionally omitted due to scope isolation
+        }
+        render.Status(req, http.StatusOK)
+        render.JSON(res, req, snap)
+    })
+
     r.Get("/", func(res http.ResponseWriter, req *http.Request) {
         items := []dto.JobInfo{
             {Id: "thumbnailGeneration", Topic: "Thumbnail Generation", Status: "idle"},

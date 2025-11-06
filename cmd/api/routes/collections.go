@@ -284,6 +284,39 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, collection.DTO())
 	})
 
+	router.Delete("/{uid}", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+
+		err := db.Transaction(func(tx *gorm.DB) error {
+			var collection entities.Collection
+			if err := tx.First(&collection, "uid = ?", uid).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Delete(&collection).Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				return
+			}
+
+			libhttp.ServerError(res, req, err, logger, nil,
+				"Failed to delete collection",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		res.WriteHeader(http.StatusNoContent)
+	})
+
 	router.Get("/{uid}/images", func(res http.ResponseWriter, req *http.Request) {
 		uid := chi.URLParam(req, "uid")
 		limit, err := strconv.Atoi(req.URL.Query().Get("limit"))
@@ -416,6 +449,80 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.Status(req, http.StatusOK)
 		render.JSON(res, req, dto.AddImagesResponse{Added: true})
 	})
+
+	router.Delete("/{uid}/images", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+		var body struct {
+			UIDs []string `json:"uids"`
+		}
+
+		if err := render.DecodeJSON(req.Body, &body); err != nil {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.AddImagesResponse{Added: false, Error: ptrString("invalid request body")})
+			return
+		}
+
+		err := db.Transaction(func(tx *gorm.DB) error {
+			var collection entities.Collection
+			if err := tx.First(&collection, "uid = ?", uid).Error; err != nil {
+				return err
+			}
+
+			var images []dto.CollectionImage
+			if collection.Images != nil {
+				images = *collection.Images
+			}
+
+			if len(images) == 0 || len(body.UIDs) == 0 {
+				collection.ImageCount = len(images)
+				return tx.Save(&collection).Error
+			}
+
+			toRemove := make(map[string]struct{}, len(body.UIDs))
+			for _, u := range body.UIDs {
+				toRemove[u] = struct{}{}
+			}
+
+			j := 0
+			for i := 0; i < len(images); i++ {
+				img := images[i]
+				if _, found := toRemove[img.Uid]; !found {
+					images[j] = img
+					j++
+				}
+			}
+
+			if j == 0 {
+				collection.Images = nil
+			} else {
+				tmp := make([]dto.CollectionImage, j)
+				copy(tmp, images[:j])
+				collection.Images = &tmp
+			}
+			collection.ImageCount = j
+
+			return tx.Save(&collection).Error
+		})
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.DeleteImagesResponse{Deleted: false, Error: ptrString("collection not found")})
+				return
+			}
+
+			libhttp.ServerError(res, req, err, logger, nil,
+				"Failed to remove images from collection",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.DeleteImagesResponse{Deleted: true})
+	})
+
+	
 
 	return router
 }

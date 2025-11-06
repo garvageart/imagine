@@ -147,6 +147,52 @@ func CollectionDetailResponseFromDTO(d dto.CollectionDetailResponse) CollectionD
 	}
 }
 
+// DownloadToken is a GORM entity inferred from dto.DownloadToken
+type DownloadToken struct {
+	ID            uint           `gorm:"primarykey" json:"-"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	AllowDownload bool
+	AllowEmbed    bool
+	Description   *string
+	ExpiresAt     *time.Time
+	ImageUids     []string `gorm:"serializer:json;type:JSONB"`
+	Password      *string
+	ShowMetadata  bool
+	Uid           string `gorm:"uniqueIndex"`
+}
+
+func (e DownloadToken) DTO() dto.DownloadToken {
+	return dto.DownloadToken{
+		CreatedAt:     e.CreatedAt,
+		UpdatedAt:     e.UpdatedAt,
+		AllowDownload: e.AllowDownload,
+		AllowEmbed:    e.AllowEmbed,
+		Description:   e.Description,
+		ExpiresAt:     e.ExpiresAt,
+		ImageUids:     e.ImageUids,
+		Password:      e.Password,
+		ShowMetadata:  e.ShowMetadata,
+		Uid:           e.Uid,
+	}
+}
+
+func DownloadTokenFromDTO(d dto.DownloadToken) DownloadToken {
+	return DownloadToken{
+		CreatedAt:     d.CreatedAt,
+		UpdatedAt:     d.UpdatedAt,
+		AllowDownload: d.AllowDownload,
+		AllowEmbed:    d.AllowEmbed,
+		Description:   d.Description,
+		ExpiresAt:     d.ExpiresAt,
+		ImageUids:     d.ImageUids,
+		Password:      d.Password,
+		ShowMetadata:  d.ShowMetadata,
+		Uid:           d.Uid,
+	}
+}
+
 // Image is a GORM entity inferred from dto.Image
 type Image struct {
 	ID            uint           `gorm:"primarykey" json:"-"`

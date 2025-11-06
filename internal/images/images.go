@@ -36,4 +36,25 @@ var (
 		}
 		return dir
 	}()
+	
+	TrashDirectory = func() string {
+		cfg, err := config.ReadConfig()
+		if err != nil {
+			panic(err)
+		}
+		baseDir := cfg.GetString("base_directory")
+		if strings.TrimSpace(baseDir) == "" {
+			panic("base directory is not set in config")
+		}
+
+		trash := baseDir + "/trash"
+
+		if _, err := os.Stat(trash); os.IsNotExist(err) {
+			err := os.MkdirAll(trash, os.ModePerm)
+			if err != nil {
+				panic(err)
+			}
+		}
+		return trash
+	}()
 )

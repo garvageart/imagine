@@ -205,6 +205,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/logout:
+    post:
+      summary: Logout current session
+      operationId: logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized (no active session)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /accounts/me:
     get:
       summary: Get current authenticated user
@@ -224,6 +248,35 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /images:
+    get:
+      summary: List all images with pagination
+      operationId: listImages
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+          description: Number of images per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Page offset (0-based)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImagesPage"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Upload an image (multipart)
       operationId: uploadImage
@@ -247,6 +300,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImageUploadResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete multiple asset UID directories (soft move to trash or force delete)
+      operationId: deleteImagesBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uids:
+                  type: array
+                  items:
+                    type: string
+                force:
+                  type: boolean
+              required: [uids]
+      responses:
+        "200":
+          description: Deletion results (all succeeded)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAssetsResponse"
+        "207":
+          description: Partial success (some failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAssetsResponse"
         "400":
           description: Bad request
           content:
@@ -294,6 +389,7 @@ paths:
   /images/{uid}/file:
     get:
       summary: Get a processed image file
+      description: Retrieve an image, optionally transformed. Use download=1 with a token for authenticated downloads. Supports password protection and embed controls.
       operationId: getImageFile
       parameters:
         - in: path
@@ -301,35 +397,122 @@ paths:
           required: true
           schema:
             type: string
+          description: Image UID
         - in: query
           name: format
           schema:
             type: string
             enum: [webp, png, jpg, jpeg, avif, heif]
+          description: Output format for transformation
         - in: query
           name: w
           schema:
             type: integer
             minimum: 0
+          description: Width for transformation
         - in: query
           name: h
           schema:
             type: integer
             minimum: 0
+          description: Height for transformation
         - in: query
           name: quality
           schema:
             type: integer
             minimum: 0
             maximum: 100
+          description: Quality for transformation (0-100)
+        - in: query
+          name: download
+          schema:
+            type: string
+            enum: ["1"]
+          description: Set to "1" to force download mode (requires token)
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Download token (required when download=1)
+        - in: query
+          name: password
+          schema:
+            type: string
+          description: Password for password-protected tokens (optional)
       responses:
         "200":
           description: Image bytes
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment header with filename
+            ETag:
+              schema:
+                type: string
+              description: Image checksum or transform signature
+            Cache-Control:
+              schema:
+                type: string
+              description: Caching directives
           content:
             image/*:
               schema:
                 type: string
                 format: binary
+        "304":
+          description: Not Modified (ETag match, only for non-download requests)
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (invalid/expired token or incorrect password)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (downloads not allowed or embedding not permitted for this token)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /images/{uid}/download:
+    get:
+      summary: Create short-lived download token and redirect
+      description: Creates a 5-minute download token and redirects to /images/{uid}/file?download=1&token=...
+      operationId: quickDownloadImage
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+          description: Image UID
+      responses:
+        "302":
+          description: Redirect to /images/{uid}/file with token
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Target URL with download=1 and token query params
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error (failed to create token)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /collections:
     get:
@@ -464,6 +647,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete a collection
+      operationId: deleteCollection
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content (collection deleted)
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /collections/{uid}/images:
     get:
@@ -544,6 +751,139 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AddImagesResponse"
+    delete:
+      summary: Remove images from a collection
+      operationId: deleteCollectionImages
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uids:
+                  type: array
+                  items:
+                    type: string
+              required: [uids]
+      responses:
+        "200":
+          description: Images removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteImagesResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteImagesResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteImagesResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /download:
+    post:
+      summary: Download a set of images as a ZIP (requires token)
+      description: Download images using a token from /download/sign. Supports password-protected tokens and embed controls.
+      operationId: downloadImages
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Download token from /download/sign (required)
+        - in: query
+          name: password
+          required: false
+          schema:
+            type: string
+          description: Password if the token is password-protected (optional)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DownloadRequest"
+      responses:
+        "200":
+          description: ZIP archive
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (invalid/expired token or incorrect password)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (downloads not allowed or embedding not permitted)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /download/sign:
+    post:
+      summary: Create a download token with optional access controls
+      description: Generate a persistent download token for a set of images with configurable permissions and optional password protection
+      operationId: signDownload
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignDownloadRequest"
+      responses:
+        "200":
+          description: Download token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadToken"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /admin/healthcheck:
     post:
@@ -1195,6 +1535,147 @@ components:
         error:
           type: string
       required: [added]
+
+    DeleteImagesResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        error:
+          type: string
+      required: [deleted]
+
+    DeleteAssetsResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              uid:
+                type: string
+              deleted:
+                type: boolean
+              error:
+                type: string
+            required: [uid, deleted]
+        message:
+          type: string
+      required: [results]
+
+    SignedExportResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        expires:
+          type: integer
+        sig:
+          type: string
+      required: [url, sig]
+
+    DownloadRequest:
+      type: object
+      properties:
+        uids:
+          type: array
+          items:
+            type: string
+        filename:
+          type: string
+      required: [uids]
+
+    SignDownloadRequest:
+      type: object
+      description: Request to create a download token
+      properties:
+        uids:
+          type: array
+          items:
+            type: string
+          description: Array of image UIDs to include in the download token
+        expires_in:
+          type: integer
+          description: Time in seconds until the token expires (0 for no expiry, default 900 = 15 minutes)
+        allow_download:
+          type: boolean
+          description: Allow downloads using this token (default true)
+          default: true
+        allow_embed:
+          type: boolean
+          description: Allow embedding images on external sites (default false to prevent hotlinking)
+          default: false
+        show_metadata:
+          type: boolean
+          description: Include EXIF and other metadata in responses (default true)
+          default: true
+        password:
+          type: string
+          description: Optional password protection for the token (will be bcrypt hashed)
+        description:
+          type: string
+          maxLength: 500
+          description: Optional description of this share/download link
+
+    DownloadToken:
+      type: object
+      description: Persistent download token with granular access controls
+      properties:
+        uid:
+          type: string
+          maxLength: 128
+          description: 64-character hex token that serves as both unique identifier and authorization key
+        image_uids:
+          type: array
+          items:
+            type: string
+          description: Array of authorized image UIDs
+        allow_download:
+          type: boolean
+          description: Whether downloads are permitted with this token
+          default: true
+        allow_embed:
+          type: boolean
+          description: Whether embedding on external sites is allowed (false prevents hotlinking)
+          default: false
+        show_metadata:
+          type: boolean
+          description: Whether to include EXIF and metadata in responses
+          default: true
+        password:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: Optional bcrypt hash of password (null if no password protection)
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Optional description of this download link
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this token expires (null for no expiry)
+        created_at:
+          type: string
+          format: date-time
+          description: When this token was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When this token was last updated
+      required:
+        [
+          uid,
+          image_uids,
+          allow_download,
+          allow_embed,
+          show_metadata,
+          created_at,
+          updated_at,
+        ]
 
     APIKeyResponse:
       type: object

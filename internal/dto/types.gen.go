@@ -46,6 +46,11 @@ const (
 	Webp GetImageFileParamsFormat = "webp"
 )
 
+// Defines values for GetImageFileParamsDownload.
+const (
+	N1 GetImageFileParamsDownload = "1"
+)
+
 // APIKeyResponse defines model for APIKeyResponse.
 type APIKeyResponse struct {
 	ConsumerKey string `json:"consumer_key"`
@@ -117,6 +122,61 @@ type CollectionUpdate struct {
 	OwnerUID     *string `json:"ownerUID,omitempty"`
 	Private      *bool   `json:"private,omitempty"`
 	ThumbnailUID *string `json:"thumbnailUID,omitempty"`
+}
+
+// DeleteAssetsResponse defines model for DeleteAssetsResponse.
+type DeleteAssetsResponse struct {
+	Message *string `json:"message,omitempty"`
+	Results []struct {
+		Deleted bool    `json:"deleted"`
+		Error   *string `json:"error,omitempty"`
+		Uid     string  `json:"uid"`
+	} `json:"results"`
+}
+
+// DeleteImagesResponse defines model for DeleteImagesResponse.
+type DeleteImagesResponse struct {
+	Deleted bool    `json:"deleted"`
+	Error   *string `json:"error,omitempty"`
+}
+
+// DownloadRequest defines model for DownloadRequest.
+type DownloadRequest struct {
+	Filename *string  `json:"filename,omitempty"`
+	Uids     []string `json:"uids"`
+}
+
+// DownloadToken Persistent download token with granular access controls
+type DownloadToken struct {
+	// AllowDownload Whether downloads are permitted with this token
+	AllowDownload bool `json:"allow_download"`
+
+	// AllowEmbed Whether embedding on external sites is allowed (false prevents hotlinking)
+	AllowEmbed bool `json:"allow_embed"`
+
+	// CreatedAt When this token was created
+	CreatedAt time.Time `json:"created_at"`
+
+	// Description Optional description of this download link
+	Description *string `json:"description"`
+
+	// ExpiresAt When this token expires (null for no expiry)
+	ExpiresAt *time.Time `json:"expires_at"`
+
+	// ImageUids Array of authorized image UIDs
+	ImageUids []string `json:"image_uids"`
+
+	// Password Optional bcrypt hash of password (null if no password protection)
+	Password *string `json:"password"`
+
+	// ShowMetadata Whether to include EXIF and metadata in responses
+	ShowMetadata bool `json:"show_metadata"`
+
+	// Uid 64-character hex token that serves as both unique identifier and authorization key
+	Uid string `json:"uid"`
+
+	// UpdatedAt When this token was last updated
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // EnqueueImageProcessRequest defines model for EnqueueImageProcessRequest.
@@ -334,6 +394,30 @@ type Session struct {
 	UserUid    string     `json:"user_uid"`
 }
 
+// SignDownloadRequest Request to create a download token
+type SignDownloadRequest struct {
+	// AllowDownload Allow downloads using this token (default true)
+	AllowDownload *bool `json:"allow_download,omitempty"`
+
+	// AllowEmbed Allow embedding images on external sites (default false to prevent hotlinking)
+	AllowEmbed *bool `json:"allow_embed,omitempty"`
+
+	// Description Optional description of this share/download link
+	Description *string `json:"description,omitempty"`
+
+	// ExpiresIn Time in seconds until the token expires (0 for no expiry, default 900 = 15 minutes)
+	ExpiresIn *int `json:"expires_in,omitempty"`
+
+	// Password Optional password protection for the token (will be bcrypt hashed)
+	Password *string `json:"password,omitempty"`
+
+	// ShowMetadata Include EXIF and other metadata in responses (default true)
+	ShowMetadata *bool `json:"show_metadata,omitempty"`
+
+	// Uids Array of image UIDs to include in the download token
+	Uids *[]string `json:"uids,omitempty"`
+}
+
 // User defines model for User.
 type User struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -389,6 +473,11 @@ type ListCollectionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// DeleteCollectionImagesJSONBody defines parameters for DeleteCollectionImages.
+type DeleteCollectionImagesJSONBody struct {
+	Uids []string `json:"uids"`
+}
+
 // ListCollectionImagesParams defines parameters for ListCollectionImages.
 type ListCollectionImagesParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -400,10 +489,34 @@ type AddCollectionImagesJSONBody struct {
 	Uids []string `json:"uids"`
 }
 
+// DownloadImagesParams defines parameters for DownloadImages.
+type DownloadImagesParams struct {
+	// Token Download token from /download/sign (required)
+	Token string `form:"token" json:"token"`
+
+	// Password Password if the token is password-protected (optional)
+	Password *string `form:"password,omitempty" json:"password,omitempty"`
+}
+
 // GetEventHistoryParams defines parameters for GetEventHistory.
 type GetEventHistoryParams struct {
 	// Limit Maximum number of events to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// DeleteImagesBulkJSONBody defines parameters for DeleteImagesBulk.
+type DeleteImagesBulkJSONBody struct {
+	Force *bool    `json:"force,omitempty"`
+	Uids  []string `json:"uids"`
+}
+
+// ListImagesParams defines parameters for ListImages.
+type ListImagesParams struct {
+	// Limit Number of images per page
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Page offset (0-based)
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // UploadImageMultipartBody defines parameters for UploadImage.
@@ -417,14 +530,33 @@ type UploadImageByUrlTextBody = string
 
 // GetImageFileParams defines parameters for GetImageFile.
 type GetImageFileParams struct {
-	Format  *GetImageFileParamsFormat `form:"format,omitempty" json:"format,omitempty"`
-	W       *int                      `form:"w,omitempty" json:"w,omitempty"`
-	H       *int                      `form:"h,omitempty" json:"h,omitempty"`
-	Quality *int                      `form:"quality,omitempty" json:"quality,omitempty"`
+	// Format Output format for transformation
+	Format *GetImageFileParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+
+	// W Width for transformation
+	W *int `form:"w,omitempty" json:"w,omitempty"`
+
+	// H Height for transformation
+	H *int `form:"h,omitempty" json:"h,omitempty"`
+
+	// Quality Quality for transformation (0-100)
+	Quality *int `form:"quality,omitempty" json:"quality,omitempty"`
+
+	// Download Set to "1" to force download mode (requires token)
+	Download *GetImageFileParamsDownload `form:"download,omitempty" json:"download,omitempty"`
+
+	// Token Download token (required when download=1)
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+
+	// Password Password for password-protected tokens (optional)
+	Password *string `form:"password,omitempty" json:"password,omitempty"`
 }
 
 // GetImageFileParamsFormat defines parameters for GetImageFile.
 type GetImageFileParamsFormat string
+
+// GetImageFileParamsDownload defines parameters for GetImageFile.
+type GetImageFileParamsDownload string
 
 // UpdateJobTypeConcurrencyJSONBody defines parameters for UpdateJobTypeConcurrency.
 type UpdateJobTypeConcurrencyJSONBody struct {
@@ -443,14 +575,26 @@ type CreateCollectionJSONRequestBody = CollectionCreate
 // UpdateCollectionJSONRequestBody defines body for UpdateCollection for application/json ContentType.
 type UpdateCollectionJSONRequestBody = CollectionUpdate
 
+// DeleteCollectionImagesJSONRequestBody defines body for DeleteCollectionImages for application/json ContentType.
+type DeleteCollectionImagesJSONRequestBody DeleteCollectionImagesJSONBody
+
 // AddCollectionImagesJSONRequestBody defines body for AddCollectionImages for application/json ContentType.
 type AddCollectionImagesJSONRequestBody AddCollectionImagesJSONBody
+
+// DownloadImagesJSONRequestBody defines body for DownloadImages for application/json ContentType.
+type DownloadImagesJSONRequestBody = DownloadRequest
+
+// SignDownloadJSONRequestBody defines body for SignDownload for application/json ContentType.
+type SignDownloadJSONRequestBody = SignDownloadRequest
 
 // BroadcastSSEEventJSONRequestBody defines body for BroadcastSSEEvent for application/json ContentType.
 type BroadcastSSEEventJSONRequestBody = SSEBroadcastRequest
 
 // SendToSSEClientJSONRequestBody defines body for SendToSSEClient for application/json ContentType.
 type SendToSSEClientJSONRequestBody = SSEBroadcastRequest
+
+// DeleteImagesBulkJSONRequestBody defines body for DeleteImagesBulk for application/json ContentType.
+type DeleteImagesBulkJSONRequestBody DeleteImagesBulkJSONBody
 
 // UploadImageMultipartRequestBody defines body for UploadImage for multipart/form-data ContentType.
 type UploadImageMultipartRequestBody UploadImageMultipartBody

@@ -17,6 +17,7 @@ import (
 	"imagine/internal/db"
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
+	"imagine/internal/imageops"
 	libvips "imagine/internal/imageops/vips"
 	"imagine/internal/jobs"
 	"imagine/internal/jobs/workers"
@@ -55,7 +56,8 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "OPTIONS", "DELETE"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "x-imagine-key"},
-		ExposedHeaders:   []string{"Set-Cookie"},
+		// Expose Content-Disposition so client JS can read filenames from responses across origins
+		ExposedHeaders:   []string{"Set-Cookie", "Content-Disposition"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -102,6 +104,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	}
 
 	libvips.SetLogging(libvipsLogHandler, libvipsLogLevel)
+	imageops.WarmupAllOps()
 
 	server.SSEBroker = libhttp.NewSSEBroker()
 
@@ -119,8 +122,10 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		router.Mount("/events", routes.EventsRouter(dbClient, logger, server.SSEBroker))
 		r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
 		r.Mount("/images", routes.ImagesRouter(dbClient, logger))
+		r.Mount("/download", routes.DownloadRouter(dbClient, logger))
 	})
 
+	// Admin routes (auth + admin required)
 	router.Mount("/admin", routes.AdminRouter(dbClient, logger))
 	router.Mount("/jobs", routes.JobsRouter(dbClient, logger))
 
@@ -191,7 +196,7 @@ func main() {
 	}
 
 	// Lmao I hate this
-	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.User{})
+	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.User{}, entities.DownloadToken{})
 	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)

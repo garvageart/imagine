@@ -62,14 +62,6 @@ export type Session = {
     created_at: string;
     updated_at: string;
 };
-export type ImageUploadResponse = {
-    id: string;
-};
-export type CollectionImage = {
-    uid: string;
-    added_at: string;
-    added_by?: User;
-};
 export type ImageExif = {
     exif_version?: string;
     make?: string;
@@ -125,6 +117,36 @@ export type Image = {
     created_at: string;
     updated_at: string;
 };
+export type ImagesResponse = {
+    added_at: string;
+    added_by?: User;
+    image: Image;
+};
+export type ImagesPage = {
+    href?: string;
+    prev?: string;
+    next?: string;
+    limit: number;
+    offset: number;
+    count?: number;
+    items: ImagesResponse[];
+};
+export type ImageUploadResponse = {
+    id: string;
+};
+export type DeleteAssetsResponse = {
+    results: {
+        uid: string;
+        deleted: boolean;
+        error?: string;
+    }[];
+    message?: string;
+};
+export type CollectionImage = {
+    uid: string;
+    added_at: string;
+    added_by?: User;
+};
 export type Collection = {
     uid: string;
     name: string;
@@ -151,20 +173,6 @@ export type CollectionCreate = {
     "private"?: boolean | null;
     description?: string;
 };
-export type ImagesResponse = {
-    added_at: string;
-    added_by?: User;
-    image: Image;
-};
-export type ImagesPage = {
-    href?: string;
-    prev?: string;
-    next?: string;
-    limit: number;
-    offset: number;
-    count?: number;
-    items: ImagesResponse[];
-};
 export type CollectionDetailResponse = {
     uid: string;
     name: string;
@@ -187,6 +195,52 @@ export type CollectionUpdate = {
 export type AddImagesResponse = {
     added: boolean;
     error?: string;
+};
+export type DeleteImagesResponse = {
+    deleted: boolean;
+    error?: string;
+};
+export type DownloadRequest = {
+    uids: string[];
+    filename?: string;
+};
+export type SignDownloadRequest = {
+    /** Array of image UIDs to include in the download token */
+    uids?: string[];
+    /** Time in seconds until the token expires (0 for no expiry, default 900 = 15 minutes) */
+    expires_in?: number;
+    /** Allow downloads using this token (default true) */
+    allow_download?: boolean;
+    /** Allow embedding images on external sites (default false to prevent hotlinking) */
+    allow_embed?: boolean;
+    /** Include EXIF and other metadata in responses (default true) */
+    show_metadata?: boolean;
+    /** Optional password protection for the token (will be bcrypt hashed) */
+    password?: string;
+    /** Optional description of this share/download link */
+    description?: string;
+};
+export type DownloadToken = {
+    /** 64-character hex token that serves as both unique identifier and authorization key */
+    uid: string;
+    /** Array of authorized image UIDs */
+    image_uids: string[];
+    /** Whether downloads are permitted with this token */
+    allow_download: boolean;
+    /** Whether embedding on external sites is allowed (false prevents hotlinking) */
+    allow_embed: boolean;
+    /** Whether to include EXIF and metadata in responses */
+    show_metadata: boolean;
+    /** Optional bcrypt hash of password (null if no password protection) */
+    password?: string | null;
+    /** Optional description of this download link */
+    description?: string | null;
+    /** When this token expires (null for no expiry) */
+    expires_at?: string | null;
+    /** When this token was created */
+    created_at: string;
+    /** When this token was last updated */
+    updated_at: string;
 };
 export type JobInfo = {
     id: string;
@@ -383,6 +437,24 @@ export function getCurrentSession(opts?: Oazapfts.RequestOpts) {
     });
 }
 /**
+ * Logout current session
+ */
+export function logout(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/auth/logout", {
+        ...opts,
+        method: "POST"
+    });
+}
+/**
  * Get current authenticated user
  */
 export function getCurrentUser(opts?: Oazapfts.RequestOpts) {
@@ -393,6 +465,26 @@ export function getCurrentUser(opts?: Oazapfts.RequestOpts) {
         status: 401;
         data: ErrorResponse;
     }>("/accounts/me", {
+        ...opts
+    });
+}
+/**
+ * List all images with pagination
+ */
+export function listImages({ limit, offset }: {
+    limit?: number;
+    offset?: number;
+} = {}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: ImagesPage;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/images${QS.query(QS.explode({
+        limit,
+        offset
+    }))}`, {
         ...opts
     });
 }
@@ -419,6 +511,31 @@ export function uploadImage(body: {
     }));
 }
 /**
+ * Delete multiple asset UID directories (soft move to trash or force delete)
+ */
+export function deleteImagesBulk(body: {
+    uids: string[];
+    force?: boolean;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: DeleteAssetsResponse;
+    } | {
+        status: 207;
+        data: DeleteAssetsResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/images", oazapfts.json({
+        ...opts,
+        method: "DELETE",
+        body
+    }));
+}
+/**
  * Upload an image by URL
  */
 export function uploadImageByUrl(body: string, opts?: Oazapfts.RequestOpts) {
@@ -440,21 +557,54 @@ export function uploadImageByUrl(body: string, opts?: Oazapfts.RequestOpts) {
 /**
  * Get a processed image file
  */
-export function getImageFile(uid: string, { format, w, h, quality }: {
+export function getImageFile(uid: string, { format, w, h, quality, download, token, password }: {
     format?: "webp" | "png" | "jpg" | "jpeg" | "avif" | "heif";
     w?: number;
     h?: number;
     quality?: number;
+    download?: "1";
+    token?: string;
+    password?: string;
 } = {}, opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchBlob<{
+    return oazapfts.fetchJson<{
         status: 200;
         data: Blob;
+    } | {
+        status: 304;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
     }>(`/images/${encodeURIComponent(uid)}/file${QS.query(QS.explode({
         format,
         w,
         h,
-        quality
+        quality,
+        download,
+        token,
+        password
     }))}`, {
+        ...opts
+    });
+}
+/**
+ * Create short-lived download token and redirect
+ */
+export function quickDownloadImage(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 302;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/images/${encodeURIComponent(uid)}/download`, {
         ...opts
     });
 }
@@ -540,6 +690,23 @@ export function updateCollection(uid: string, collectionUpdate: CollectionUpdate
     }));
 }
 /**
+ * Delete a collection
+ */
+export function deleteCollection(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 204;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/collections/${encodeURIComponent(uid)}`, {
+        ...opts,
+        method: "DELETE"
+    });
+}
+/**
  * List images in a collection
  */
 export function listCollectionImages(uid: string, { limit, offset }: {
@@ -581,6 +748,79 @@ export function addCollectionImages(uid: string, body: {
         ...opts,
         method: "PUT",
         body
+    }));
+}
+/**
+ * Remove images from a collection
+ */
+export function deleteCollectionImages(uid: string, body: {
+    uids: string[];
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: DeleteImagesResponse;
+    } | {
+        status: 400;
+        data: DeleteImagesResponse;
+    } | {
+        status: 404;
+        data: DeleteImagesResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/collections/${encodeURIComponent(uid)}/images`, oazapfts.json({
+        ...opts,
+        method: "DELETE",
+        body
+    }));
+}
+/**
+ * Download a set of images as a ZIP (requires token)
+ */
+export function downloadImages(token: string, downloadRequest: DownloadRequest, { password }: {
+    password?: string;
+} = {}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: Blob;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/download${QS.query(QS.explode({
+        token,
+        password
+    }))}`, oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: downloadRequest
+    }));
+}
+/**
+ * Create a download token with optional access controls
+ */
+export function signDownload(signDownloadRequest?: SignDownloadRequest, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: DownloadToken;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/download/sign", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: signDownloadRequest
     }));
 }
 /**

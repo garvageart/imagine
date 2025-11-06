@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"slices"
 	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,11 +26,13 @@ import (
 
 	"imagine/internal/dto"
 	"imagine/internal/entities"
+	"imagine/internal/downloads"
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
 	libvips "imagine/internal/imageops/vips"
 	"imagine/internal/images"
 	"imagine/internal/jobs/workers"
+	libos "imagine/internal/os"
 	"imagine/internal/uid"
 )
 
@@ -75,42 +80,7 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 		logger.Debug("exif data", slog.Any("data", exifData), slog.Int("length", len(exifData)))
 	}
 
-	// Build ImageEXIF using normalized keys and cleaned values
-	// Try common aliases where applicable (e.g., ISO vs ISOSpeedRatings)
-	exif := dto.ImageEXIF{
-		Model:            imageops.FindExif(exifData, "Model"),
-		Make:             imageops.FindExif(exifData, "Make"),
-		ExifVersion:      imageops.FindExif(exifData, "ExifVersion"),
-		DateTime:         imageops.FindExif(exifData, "DateTime", "ModifyDate"),
-		DateTimeOriginal: imageops.FindExif(exifData, "DateTimeOriginal"),
-		ModifyDate:       imageops.FindExif(exifData, "ModifyDate", "DateTime"),
-		Iso:              imageops.FindExif(exifData, "ISO", "ISOSpeedRatings"),
-		FocalLength:      imageops.FindExif(exifData, "FocalLength"),
-		ExposureTime:     imageops.FindExif(exifData, "ExposureTime"),
-		Aperture:         imageops.FindExif(exifData, "ApertureValue", "FNumber", "Aperture"),
-		Flash:            imageops.FindExif(exifData, "Flash"),
-		WhiteBalance:     imageops.FindExif(exifData, "WhiteBalance"),
-		LensModel:        imageops.FindExif(exifData, "LensModel"),
-		Rating:           imageops.FindExif(exifData, "Rating"),
-		Orientation:      imageops.FindExif(exifData, "Orientation"),
-		Software:         imageops.FindExif(exifData, "Software"),
-		Longitude:        imageops.FindExif(exifData, "GPSLongitude", "Longitude"),
-		Latitude:         imageops.FindExif(exifData, "GPSLatitude", "Latitude"),
-	}
-
-	// Derive a simple Resolution (e.g., "300x300 DPI") from X/YResolution if available
-	xRes := imageops.FindExif(exifData, "XResolution")
-	yRes := imageops.FindExif(exifData, "YResolution")
-	if xRes != nil && yRes != nil {
-		resStr := fmt.Sprintf("%sx%s DPI", *xRes, *yRes)
-		exif.Resolution = &resStr
-	}
-
-	createdDate := imageops.FindExif(exifData, "DateTimeOriginal")
-	modDate := imageops.FindExif(exifData, "ModifyDate")
-
-	fileCreatedAt := imageops.ConvertEXIFDateTime(*createdDate)
-	fileModifiedAt := imageops.ConvertEXIFDateTime(*modDate)
+	exif, fileCreatedAt, fileModifiedAt := imageops.BuildImageEXIF(exifData)
 
 	var keywords []string
 	keywordsPtr := imageops.FindExif(exifData, "Keywords", "Subject")
@@ -125,8 +95,8 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 		OriginalFileName: &fileName,
 		FileType:         string(libvipsImg.Format()),
 		ColorSpace:       imageops.GetColourSpaceString(libvipsImg),
-		FileModifiedAt:   *fileModifiedAt,
-		FileCreatedAt:    *fileCreatedAt,
+		FileModifiedAt:   fileModifiedAt,
+		FileCreatedAt:    fileCreatedAt,
 		Keywords:         &keywords,
 		Label:            &label,
 	}
@@ -160,8 +130,88 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 	return &allImageData, nil
 }
 
+// moveDirWithFallback attempts to rename src->dst. If rename fails (e.g., cross-device),
+// it copies the directory contents to dst and removes the src directory.
+func moveDirWithFallback(src, dst string) error {
+	return libos.MoveDirWithFallback(src, dst)
+}
+
 func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
+
+	// List images with pagination
+	router.Get("/", func(res http.ResponseWriter, req *http.Request) {
+		limitStr := req.URL.Query().Get("limit")
+		offsetStr := req.URL.Query().Get("offset")
+
+		limit := 25
+		offset := 0
+
+		if limitStr != "" {
+			if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+
+		if offsetStr != "" {
+			if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
+				offset = parsed
+			}
+		}
+
+		var total int64
+		var images []entities.Image
+
+		if err := db.WithContext(req.Context()).Transaction(func(tx *gorm.DB) error {
+			// Count non-deleted images
+			if err := tx.Model(&entities.Image{}).
+				Where("deleted_at IS NULL").
+				Count(&total).Error; err != nil {
+				return err
+			}
+
+			// Fetch non-deleted images
+			if err := tx.Preload("UploadedBy").
+				Where("deleted_at IS NULL").
+				Order("created_at DESC, uid DESC").
+				Limit(limit).
+				Offset(offset * limit).
+				Find(&images).Error; err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to fetch images"})
+			return
+		}
+
+		items := make([]dto.ImagesResponse, len(images))
+		for i, img := range images {
+			items[i] = dto.ImagesResponse{
+				AddedAt: img.CreatedAt,
+				AddedBy: func() *dto.User {
+					if img.UploadedBy != nil {
+						d := img.UploadedBy.DTO()
+						return &d
+					}
+					return nil
+				}(),
+				Image: img.DTO(),
+			}
+		}
+
+		count := int(total)
+		response := dto.ImagesPage{
+			Limit:  limit,
+			Offset: offset,
+			Count:  &count,
+			Items:  items,
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, response)
+	})
 
 	// TODO: Get param values to serve the original file in different
 	// formats, resolutions and sizes
@@ -174,7 +224,8 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		heightParam := req.FormValue("h")
 		qualityParam := req.FormValue("quality")
 
-		tx := db.Model(&entities.Image{}).Where("uid = ?", uid)
+		// Explicitly exclude soft-deleted images
+		tx := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid)
 		var imgEnt entities.Image
 		result := tx.Preload("UploadedBy").First(&imgEnt)
 		if result.Error != nil {
@@ -188,7 +239,10 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
-		if len(req.Form) == 0 {
+		// If no transform parameters are present, serve the original image.
+		// Previously this checked len(req.Form) which treated any query param
+		// (including download=1) as a transform request and caused parse errors.
+		if formatParam == "" && widthParam == "" && heightParam == "" && qualityParam == "" {
 			imageData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 			if err != nil {
 				render.Status(req, http.StatusInternalServerError)
@@ -201,17 +255,65 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum) // Use checksum as ETag
 			res.Header().Set("Content-Type", "image/"+imgEnt.ImageMetadata.FileType)
 			res.Header().Set("Content-Length", strconv.Itoa(len(imageData)))
+			res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
 
-			// Check if client has cached version
+		// If this is a download request, validate token details
+		// For non-download requests allow normal 304/NotModified behavior.
+		if req.FormValue("download") == "1" {
+			// Validate opaque token with password support
+			token := req.URL.Query().Get("token")
+			password := req.URL.Query().Get("password")
+
+			if token == "" {
+				render.Status(req, http.StatusBadRequest)
+				render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
+				return
+			}
+
+			uids, tokenEntity, ok := downloads.ValidateTokenWithPassword(db, token, password)
+			if !ok {
+				if tokenEntity != nil && tokenEntity.Password != nil {
+					render.Status(req, http.StatusUnauthorized)
+					render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
+					return
+				}
+				render.Status(req, http.StatusUnauthorized)
+				render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
+				return
+			}
+
+			// Check if downloads are allowed
+			if !tokenEntity.AllowDownload {
+				render.Status(req, http.StatusForbidden)
+				render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
+				return
+			}
+
+			// Validate embed access (prevents hotlinking if AllowEmbed is false)
+			if !downloads.ValidateEmbedAccess(tokenEntity, req) {
+				render.Status(req, http.StatusForbidden)
+				render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
+				return
+			}
+
+			// Ensure token is valid for this UID
+			allowed := slices.Contains(uids, uid)
+			if !allowed {
+				render.Status(req, http.StatusUnauthorized)
+				render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
+				return
+			}
+		} else {
 			if match := req.Header.Get("If-None-Match"); match == imgEnt.ImageMetadata.Checksum {
 				res.WriteHeader(http.StatusNotModified)
 				return
 			}
-
-			res.WriteHeader(http.StatusOK)
-			res.Write(imageData)
-			return
 		}
+
+		res.WriteHeader(http.StatusOK)
+		res.Write(imageData)
+		return
+	}
 
 		width, wErr := strconv.ParseInt(widthParam, 10, 64)
 		height, hErr := strconv.ParseInt(heightParam, 10, 64)
@@ -264,6 +366,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err = libvipsImg.Resize(float64(width)/float64(libvipsImg.Width()), &libvips.ResizeOptions{
 			Kernel: libvips.KernelLanczos3,
 		})
+
 		if err != nil {
 			logger.Error("failed to resize image", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
@@ -313,11 +416,59 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		res.Header().Set("Content-Type", "image/"+formatParam)
 		res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", time.Hour*24*365/time.Second))
 		res.Header().Set("ETag", transformETag)
+		res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
 
-		// Check if client has cached version
-		if match := req.Header.Get("If-None-Match"); match == transformETag {
-			res.WriteHeader(http.StatusNotModified)
-			return
+		// If this is a download request, validate token with details
+		// For non-download requests allow normal 304/NotModified behavior.
+		if req.FormValue("download") == "1" {
+			// Validate opaque token with password support
+			token := req.URL.Query().Get("token")
+			password := req.URL.Query().Get("password")
+
+			if token == "" {
+				render.Status(req, http.StatusBadRequest)
+				render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
+				return
+			}
+
+			uids, tokenEntity, ok := downloads.ValidateTokenWithPassword(db, token, password)
+			if !ok {
+				if tokenEntity != nil && tokenEntity.Password != nil {
+					render.Status(req, http.StatusUnauthorized)
+					render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
+					return
+				}
+				render.Status(req, http.StatusUnauthorized)
+				render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
+				return
+			}
+
+			// Check if downloads are allowed
+			if !tokenEntity.AllowDownload {
+				render.Status(req, http.StatusForbidden)
+				render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
+				return
+			}
+
+			// Validate embed access (prevents hotlinking if AllowEmbed is false)
+			if !downloads.ValidateEmbedAccess(tokenEntity, req) {
+				render.Status(req, http.StatusForbidden)
+				render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
+				return
+			}
+
+			// Ensure token is valid for this UID
+			allowed := slices.Contains(uids, uid)
+			if !allowed {
+				render.Status(req, http.StatusUnauthorized)
+				render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
+				return
+			}
+		} else {
+			if match := req.Header.Get("If-None-Match"); match == transformETag {
+				res.WriteHeader(http.StatusNotModified)
+				return
+			}
 		}
 
 		if err != nil {
@@ -330,6 +481,24 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		res.Header().Set("Content-Length", strconv.Itoa(len(imageData)))
 		res.WriteHeader(http.StatusOK)
 		res.Write(imageData)
+	})
+
+	// Dedicated download route: creates a short-lived signed redirect to the
+	// file endpoint with download=1 so clients (or browsers) can follow a URL
+	// that forces a download and is authorized by HMAC signature.
+	router.Get("/{uid}/download", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+
+		// Create a short-lived opaque token and redirect to the file URL
+		token, err := downloads.CreateToken(db, []string{uid}, 5*time.Minute)
+		if err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create download token"})
+			return
+		}
+
+		redirectURL := fmt.Sprintf("/images/%s/file?download=1&token=%s", uid, token)
+		http.Redirect(res, req, redirectURL, http.StatusFound)
 	})
 
 	router.Post("/", func(res http.ResponseWriter, req *http.Request) {
@@ -566,6 +735,135 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		render.Status(req, http.StatusCreated)
 		render.JSON(res, req, dto.ImageUploadResponse{Id: imageEntity.Uid})
+	})
+
+	router.Delete("/", func(res http.ResponseWriter, req *http.Request) {
+		var body struct {
+			Uids  []string `json:"uids"`
+			Force bool     `json:"force,omitempty"`
+		}
+
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.DeleteAssetsResponse{Results: nil})
+			return
+		}
+
+		if len(body.Uids) == 0 {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.DeleteAssetsResponse{Results: nil})
+			return
+		}
+
+		libDir := images.Directory
+		trashDir := images.TrashDirectory
+
+		if !body.Force {
+			if err := os.MkdirAll(trashDir, 0755); err != nil {
+				render.Status(req, http.StatusInternalServerError)
+				render.JSON(res, req, dto.DeleteAssetsResponse{Results: nil})
+				return
+			}
+		}
+
+		resultsArr := make([]map[string]any, 0, len(body.Uids))
+		var anyFailed bool
+
+		for _, id := range body.Uids {
+			src := filepath.Join(libDir, id)
+			var deleted bool
+			var errMsg *string
+
+			if body.Force {
+				// Force delete: Remove from DB permanently and delete files
+				if err := db.Unscoped().Where("uid = ?", id).Delete(&entities.Image{}).Error; err != nil {
+					logger.Error("failed to hard delete from DB", slog.String("uid", id), slog.Any("error", err))
+					e := err.Error()
+					errMsg = &e
+					deleted = false
+					anyFailed = true
+				} else if err := os.RemoveAll(src); err != nil {
+					logger.Error("failed to force delete asset dir", slog.String("uid", id), slog.Any("error", err))
+					e := err.Error()
+					errMsg = &e
+					deleted = false
+					anyFailed = true
+				} else {
+					deleted = true
+				}
+			} else {
+				// Soft delete: Set DeletedAt in DB and move files to trash
+				if err := db.Where("uid = ?", id).Delete(&entities.Image{}).Error; err != nil {
+					logger.Error("failed to soft delete from DB", slog.String("uid", id), slog.Any("error", err))
+					e := err.Error()
+					errMsg = &e
+					deleted = false
+					anyFailed = true
+				} else {
+					dst := filepath.Join(trashDir, id)
+					if err := moveDirWithFallback(src, dst); err != nil {
+						logger.Error("failed to move asset to trash", slog.String("uid", id), slog.Any("error", err))
+						e := err.Error()
+						errMsg = &e
+						deleted = false
+						anyFailed = true
+					} else {
+						deleted = true
+					}
+				}
+			}
+
+			entry := map[string]any{
+				"uid":     id,
+				"deleted": deleted,
+			}
+			if errMsg != nil {
+				entry["error"] = *errMsg
+			}
+			resultsArr = append(resultsArr, entry)
+		}
+
+		var msg *string
+		if anyFailed {
+			m := fmt.Sprintf("failed to delete/move ids: %s", func() string {
+				var failed []string
+				for _, r := range resultsArr {
+					if d, ok := r["deleted"].(bool); ok && !d {
+						if uid, ok := r["uid"].(string); ok {
+							failed = append(failed, uid)
+						}
+					}
+				}
+				return strings.Join(failed, ",")
+			}())
+			msg = &m
+		}
+
+		tmp := map[string]any{"results": resultsArr}
+		if msg != nil {
+			tmp["message"] = *msg
+		}
+
+		b, _ := json.Marshal(tmp)
+		var resp dto.DeleteAssetsResponse
+		if err := json.Unmarshal(b, &resp); err != nil {
+			if anyFailed {
+				render.Status(req, http.StatusMultiStatus)
+			} else {
+				render.Status(req, http.StatusOK)
+			}
+			render.JSON(res, req, tmp)
+			return
+		}
+
+		if anyFailed {
+			render.Status(req, http.StatusMultiStatus)
+			render.JSON(res, req, resp)
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, resp)
 	})
 
 	return router

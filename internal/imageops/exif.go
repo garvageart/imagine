@@ -3,7 +3,9 @@ package imageops
 import (
 	"fmt"
 	"strings"
+    "time"
 
+    "imagine/internal/dto"
 	exif "github.com/dsoprea/go-exif/v3"
 	exifcommon "github.com/dsoprea/go-exif/v3/common"
 )
@@ -110,4 +112,71 @@ func FindExif(exifData map[string]string, keys ...string) *string {
 		return nil
 	}
 	return &val
+}
+
+
+// BuildImageEXIF normalizes libvips EXIF map into a dto.ImageEXIF and returns
+// parsed created/modified times (with sensible fallbacks).
+func BuildImageEXIF(exifData map[string]string) (dto.ImageEXIF, time.Time, time.Time) {
+    var out dto.ImageEXIF
+    if len(exifData) == 0 {
+        return out, time.Time{}, time.Time{}
+    }
+
+    out = dto.ImageEXIF{
+        Model:            FindExif(exifData, "Model"),
+        Make:             FindExif(exifData, "Make"),
+        ExifVersion:      FindExif(exifData, "ExifVersion"),
+        DateTime:         FindExif(exifData, "DateTime", "ModifyDate"),
+        DateTimeOriginal: FindExif(exifData, "DateTimeOriginal"),
+        ModifyDate:       FindExif(exifData, "ModifyDate", "DateTime"),
+        Iso:              FindExif(exifData, "ISO", "ISOSpeedRatings"),
+        FocalLength:      FindExif(exifData, "FocalLength"),
+        ExposureTime:     FindExif(exifData, "ExposureTime"),
+        Aperture:         FindExif(exifData, "ApertureValue", "FNumber", "Aperture"),
+        Flash:            FindExif(exifData, "Flash"),
+        WhiteBalance:     FindExif(exifData, "WhiteBalance"),
+        LensModel:        FindExif(exifData, "LensModel"),
+        Rating:           FindExif(exifData, "Rating"),
+        Orientation:      FindExif(exifData, "Orientation"),
+        Software:         FindExif(exifData, "Software"),
+        Longitude:        FindExif(exifData, "GPSLongitude", "Longitude"),
+        Latitude:         FindExif(exifData, "GPSLatitude", "Latitude"),
+    }
+
+    // Derive resolution from X/Y if present
+    xRes := FindExif(exifData, "XResolution")
+    yRes := FindExif(exifData, "YResolution")
+    if xRes != nil && yRes != nil {
+        resStr := fmt.Sprintf("%sx%s DPI", *xRes, *yRes)
+        out.Resolution = &resStr
+    }
+
+    // Parse dates with fallback logic
+    var fileCreatedAt time.Time
+    var fileModifiedAt time.Time
+
+    if cd := FindExif(exifData, "DateTimeOriginal"); cd != nil {
+        if t := ConvertEXIFDateTime(*cd); t != nil {
+            fileCreatedAt = *t
+        }
+    }
+
+    if md := FindExif(exifData, "ModifyDate"); md != nil {
+        if t := ConvertEXIFDateTime(*md); t != nil {
+            fileModifiedAt = *t
+        }
+    }
+
+    now := time.Now()
+    if fileCreatedAt.IsZero() && fileModifiedAt.IsZero() {
+        fileCreatedAt = now
+        fileModifiedAt = now
+    } else if fileCreatedAt.IsZero() && !fileModifiedAt.IsZero() {
+        fileCreatedAt = fileModifiedAt
+    } else if !fileCreatedAt.IsZero() && fileModifiedAt.IsZero() {
+        fileModifiedAt = fileCreatedAt
+    }
+
+    return out, fileCreatedAt, fileModifiedAt
 }

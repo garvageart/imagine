@@ -2,8 +2,10 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -14,6 +16,64 @@ import (
 	"imagine/internal/dto"
 	"imagine/internal/entities"
 )
+
+// Simple in-memory session->user cache to avoid DB lookups on every request.
+// This is intentionally short-lived and best-effort. For multi-instance
+// deployments prefer a centralized cache (Redis) to share invalidations.
+type sessionCacheEntry struct {
+	user      *entities.User
+	expiresAt time.Time
+}
+
+var (
+	sessionCacheMu sync.RWMutex
+	sessionCache   = make(map[string]*sessionCacheEntry)
+	// Default maximum time to cache an authenticated session locally.
+	// Keep small to reduce window where revocations aren't seen.
+	sessionCacheTTL = 60 * time.Second
+)
+
+// SetSessionCache stores a user for a session token. expiresAt will be the
+// minimum of the session's server-side expiry (if provided) and now+TTL.
+func SetSessionCache(token string, user *entities.User, serverExpires *time.Time) {
+	sessionCacheMu.Lock()
+	defer sessionCacheMu.Unlock()
+
+	expiry := time.Now().Add(sessionCacheTTL)
+	if serverExpires != nil && !serverExpires.IsZero() {
+		if serverExpires.Before(expiry) {
+			expiry = *serverExpires
+		}
+	}
+
+	sessionCache[token] = &sessionCacheEntry{user: user, expiresAt: expiry}
+}
+
+// GetSessionCache returns cached user for token if present and not expired.
+func GetSessionCache(token string) (*entities.User, bool) {
+	sessionCacheMu.RLock()
+	entry, ok := sessionCache[token]
+	sessionCacheMu.RUnlock()
+	if !ok || entry == nil {
+		return nil, false
+	}
+
+	if time.Now().After(entry.expiresAt) {
+		sessionCacheMu.Lock()
+		delete(sessionCache, token)
+		sessionCacheMu.Unlock()
+		return nil, false
+	}
+
+	return entry.user, true
+}
+
+// ClearSessionCache removes a cached entry — used during logout or explicit revocation.
+func ClearSessionCache(token string) {
+	sessionCacheMu.Lock()
+	defer sessionCacheMu.Unlock()
+	delete(sessionCache, token)
+}
 
 // context keys
 type ctxKey string
@@ -80,38 +140,73 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 				return
 			}
 
+			// Try in-memory cache first to avoid a DB roundtrip for every request.
+			// If the cache misses, fall back to DB lookup and populate the cache.
 			var sess entities.Session
-			if err := db.Where("token = ?", cookie.Value).First(&sess).Error; err != nil {
-				// clear auth cookie
-				ClearCookie(AuthTokenCookie, w)
-				ClearCookie(StateCookie, w)
+			var userPtr *entities.User
+
+			if u, ok := GetSessionCache(cookie.Value); ok {
+				// Use cached user — attach pointer to context.
+				userPtr = u
+			} else {
+				if err := db.Where("token = ?", cookie.Value).First(&sess).Error; err != nil {
+					// clear auth cookie
+					ClearCookie(AuthTokenCookie, w)
+					ClearCookie(StateCookie, w)
+					render.Status(r, http.StatusUnauthorized)
+					render.JSON(w, r, dto.ErrorResponse{Error: "invalid session"})
+					return
+				}
+
+				if sess.ExpiresAt != nil && !sess.ExpiresAt.IsZero() && time.Now().After(*sess.ExpiresAt) {
+					render.Status(r, http.StatusUnauthorized)
+					render.JSON(w, r, dto.ErrorResponse{Error: "session expired"})
+					return
+				}
+
+				if sess.UserUid == "" {
+					render.Status(r, http.StatusUnauthorized)
+					render.JSON(w, r, dto.ErrorResponse{Error: "user missing"})
+					return
+				}
+
+				var user entities.User
+				if err := db.Where("uid = ?", sess.UserUid).First(&user).Error; err != nil {
+					render.Status(r, http.StatusUnauthorized)
+					render.JSON(w, r, dto.ErrorResponse{Error: "user not found"})
+					return
+				}
+
+				// Attach to request context and cache the resolved user for short time.
+				userPtr = &user
+				SetSessionCache(cookie.Value, userPtr, sess.ExpiresAt)
+			}
+
+			// Attach the resolved user pointer to the request context.
+			if userPtr == nil {
+				// Defensive: if for some reason we don't have a user, treat as unauthenticated.
 				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "invalid session"})
+				render.JSON(w, r, dto.ErrorResponse{Error: "not authenticated"})
 				return
 			}
 
-			if sess.ExpiresAt != nil && !sess.ExpiresAt.IsZero() && time.Now().After(*sess.ExpiresAt) {
-				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "session expired"})
-				return
+			r = WithUser(r, userPtr)
+
+			// For authenticated GET requests, expose a short-lived user-version so
+			// clients can avoid re-fetching user details if they haven't changed.
+			// We set ETag and an opt-in X-User-Version header, but we avoid an
+			// automatic 304 here because many endpoints don't return the user
+			// representation; handlers that do want to perform conditional
+			// responses can compare If-None-Match themselves.
+			if r.Method == http.MethodGet {
+				if u, ok := UserFromContext(r); ok && u != nil {
+					etag := fmt.Sprintf("W/\"%d-%s\"", u.UpdatedAt.UnixNano(), u.Uid)
+					w.Header().Set("Cache-Control", "private, max-age=60, must-revalidate")
+					w.Header().Set("ETag", etag)
+					w.Header().Set("X-User-Version", etag)
+				}
 			}
 
-			var user entities.User
-			if sess.UserUid == "" {
-				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "user missing"})
-				return
-			}
-
-			err = db.Where("uid = ?", sess.UserUid).First(&user).Error
-
-			if err != nil {
-				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "user not found"})
-				return
-			}
-
-			r = WithUser(r, &user)
 			next.ServeHTTP(w, r)
 		})
 	}

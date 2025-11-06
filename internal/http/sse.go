@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
+	"sync/atomic"
 )
 
 // SSEClient represents a connected SSE client
@@ -22,6 +24,11 @@ type SSEBroker struct {
 	unregister chan *SSEClient
 	broadcast  chan *SSEMessage
 	mu         sync.RWMutex
+
+	lastID     uint64
+	history    []SSERecord
+	historyMu  sync.RWMutex
+	historyMax int
 }
 
 // SSEMessage represents a message to be sent via SSE
@@ -29,6 +36,15 @@ type SSEMessage struct {
 	Event    string
 	Data     any
 	ClientID string // If empty, broadcast to all
+	ID       uint64 // Monotonic id for SSE 'id:' field
+}
+
+// SSERecord is a stored history record
+type SSERecord struct {
+	ID        uint64      `json:"id"`
+	Timestamp time.Time   `json:"timestamp"`
+	Event     string      `json:"event"`
+	Data      any `json:"data"`
 }
 
 // NewSSEBroker creates and starts a new SSE broker
@@ -38,6 +54,8 @@ func NewSSEBroker() *SSEBroker {
 		register:   make(chan *SSEClient),
 		unregister: make(chan *SSEClient),
 		broadcast:  make(chan *SSEMessage, 100),
+		history:    make([]SSERecord, 0, 512),
+		historyMax: 512,
 	}
 	go broker.run()
 	return broker
@@ -74,12 +92,16 @@ func (b *SSEBroker) run() {
 
 // broadcastToAll sends a message to all connected clients
 func (b *SSEBroker) broadcastToAll(eventType string, data any) {
+	// Assign id and append to history once for this broadcast
+	id := atomic.AddUint64(&b.lastID, 1)
+	b.appendHistory(id, eventType, data)
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
 
-	message := formatSSEMessage(eventType, jsonData)
+	message := formatSSEMessage(eventType, id, jsonData)
 
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -103,12 +125,16 @@ func (b *SSEBroker) sendToClient(clientID, eventType string, data any) {
 		return
 	}
 
+	// Assign id and append to history for this event as well
+	id := atomic.AddUint64(&b.lastID, 1)
+	b.appendHistory(id, eventType, data)
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
 
-	message := formatSSEMessage(eventType, jsonData)
+	message := formatSSEMessage(eventType, id, jsonData)
 
 	select {
 	case client.Channel <- message:
@@ -194,7 +220,8 @@ func (b *SSEBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"message":  "Connected to SSE stream",
 	}
 	jsonData, _ := json.Marshal(connectionData)
-	fmt.Fprintf(w, "%s", formatSSEMessage("connected", jsonData))
+	// Emit connected with synthetic id (doesn't increase lastID)
+	fmt.Fprintf(w, "%s", formatSSEMessage("connected", 0, jsonData))
 	w.Write([]byte("retry: 10000\n\n"))
 	flusher.Flush()
 
@@ -208,7 +235,7 @@ func (b *SSEBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			w.Write(formatSSEMessage("ping", []byte("{}")))
+			w.Write(formatSSEMessage("ping", 0, []byte("{}")))
 			flusher.Flush()
 		case msg, ok := <-client.Channel:
 			if !ok {
@@ -221,6 +248,55 @@ func (b *SSEBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // formatSSEMessage formats data in SSE protocol format
-func formatSSEMessage(eventType string, data []byte) []byte {
+func formatSSEMessage(eventType string, id uint64, data []byte) []byte {
+	// Include id if non-zero so clients can use Last-Event-ID semantics
+	if id > 0 {
+		return fmt.Appendf(nil, "id: %s\nevent: %s\ndata: %s\n\n", strconv.FormatUint(id, 10), eventType, data)
+	}
 	return fmt.Appendf(nil, "event: %s\ndata: %s\n\n", eventType, data)
 }
+
+// appendHistory appends to in-memory history with max length
+func (b *SSEBroker) appendHistory(id uint64, eventType string, data any) {
+	b.historyMu.Lock()
+	b.history = append(b.history, SSERecord{ID: id, Timestamp: time.Now(), Event: eventType, Data: data})
+	if len(b.history) > b.historyMax {
+		// drop oldest
+		drop := len(b.history) - b.historyMax
+		if drop < 0 { drop = 0 }
+		b.history = b.history[drop:]
+	}
+	b.historyMu.Unlock()
+}
+
+// GetRecent returns the most recent up to limit records
+func (b *SSEBroker) GetRecent(limit int) []SSERecord {
+	b.historyMu.RLock()
+	defer b.historyMu.RUnlock()
+	n := len(b.history)
+	if limit <= 0 || limit > n {
+		limit = n
+	}
+	out := make([]SSERecord, limit)
+	copy(out, b.history[n-limit:])
+	return out
+}
+
+// Since returns records with id > cursor up to limit
+func (b *SSEBroker) Since(cursor uint64, limit int) []SSERecord {
+	b.historyMu.RLock()
+	defer b.historyMu.RUnlock()
+	out := make([]SSERecord, 0, limit)
+	for _, rec := range b.history {
+		if rec.ID > cursor {
+			out = append(out, rec)
+			if limit > 0 && len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out
+}
+
+// LastID returns the last assigned event id
+func (b *SSEBroker) LastID() uint64 { return atomic.LoadUint64(&b.lastID) }
