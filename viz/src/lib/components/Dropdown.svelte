@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type DropdownOption<T> = {
+	export type DropdownOption = {
 		title: string;
 		icon?: MaterialSymbol;
 		disabled?: boolean;
@@ -14,27 +14,46 @@
 
 	interface Props {
 		class?: string;
-		options: DropdownOption<T>[];
-		selectedOption?: DropdownOption<T>;
+		options: DropdownOption[];
+		/** If provided, shows this as the current selection and displays a check icon next to it in the menu */
+		selectedOption?: DropdownOption;
 		showMenu?: boolean;
-		controlable?: boolean;
-		title: string;
+		/** Button text when no selection (or for action menus that don't track selection) */
+		title?: string;
+		/** Icon to show on the button */
 		icon?: MaterialSymbol;
-		onSelect?: (option: DropdownOption<T>) => void;
+		/** Called when an option is selected */
+		onSelect?: (option: DropdownOption) => void;
+		/** If true, show check icons for selected option. Set to false for action menus. Default: true */
+		showSelectionIndicator?: boolean;
+		/** Horizontal alignment of the menu relative to the button: 'left' or 'right' */
+		align?: "left" | "right";
+		/** Debug: forward to ContextMenu to render overlays and logs */
+		debug?: boolean;
 	}
 
-	let { options, selectedOption = $bindable(options[0]), showMenu = $bindable(false), title, icon, onSelect }: Props = $props();
+	let {
+		options,
+		selectedOption = $bindable(),
+		showMenu = $bindable(false),
+		title,
+		icon,
+		onSelect,
+		showSelectionIndicator = true,
+		align = "left",
+		debug = false,
+		class: className
+	}: Props = $props();
 
 	let buttonEl: HTMLElement | null = $state(null);
-	let menuAnchor: HTMLElement | { x: number; y: number } | null = $state(null);
-
+	let containerEl: HTMLElement | null = $state(null);
 	// Build MenuItem array for ContextMenu
 	function buildMenuItems(): MenuItem[] {
 		return options.map((opt, idx) => ({
 			id: `opt-${idx}`,
 			label: opt.title,
-			// prefer explicit option icon, otherwise show a check for the selected option
-			icon: opt.icon ?? (isEqual(selectedOption, opt) ? ("check" as any) : undefined),
+			// Show option's icon if provided, or check mark if this is the selected option (when showSelectionIndicator is true)
+			icon: opt.icon ?? (showSelectionIndicator && isEqual(selectedOption, opt) ? ("check" as any) : undefined),
 			disabled: opt.disabled,
 			action: (e) => handleOptionSelect(opt as any)
 		}));
@@ -42,9 +61,11 @@
 
 	let menuItems: MenuItem[] = $state([]);
 
-	function handleOptionSelect(option: DropdownOption<T>) {
+	function handleOptionSelect(option: DropdownOption) {
 		onSelect?.(option);
-		selectedOption = option;
+		if (showSelectionIndicator) {
+			selectedOption = option;
+		}
 		showMenu = false;
 	}
 </script>
@@ -56,17 +77,20 @@
 		}
 	}}
 	onclick={(e) => {
-		if (!document.querySelector(".viz-dropdown-container")?.contains(e.target as Node)) {
+		if (!containerEl?.contains(e.target as Node)) {
 			showMenu = false;
 		}
 	}}
+	onresize={() => {
+		/* ContextMenu handles collisions */
+	}}
 />
 
-<div class="viz-dropdown-container">
+<div class="viz-dropdown-container" bind:this={containerEl}>
 	<button
-		class="viz-dropdown-button"
+		class="viz-dropdown-button {className}"
 		bind:this={buttonEl}
-		onclick={() => {
+		onclick={async () => {
 			menuItems = buildMenuItems();
 			if (showMenu) {
 				showMenu = false;
@@ -74,7 +98,6 @@
 				showMenu = true;
 			}
 		}}
-		{title}
 	>
 		{#if selectedOption}
 			<span class="viz-dropdown-icon">
@@ -88,15 +111,21 @@
 				{selectedOption.title}
 			</p>
 		{:else}
-			<p class="viz-dropdown-title">
-				{title}
-			</p>
+			{#if icon}
+				<span class="viz-dropdown-icon">
+					<MaterialIcon iconName={icon} />
+				</span>
+			{/if}
+			{#if title}
+				<p class="viz-dropdown-title">
+					{title}
+				</p>
+			{/if}
 		{/if}
 	</button>
 
-	<div class="dropdown-menu-container">
-		<ContextMenu bind:showMenu items={menuItems} />
-	</div>
+	<!-- Render menu without a positioned wrapper; ContextMenu uses fixed coords anchored to button -->
+	<ContextMenu bind:showMenu items={menuItems} anchor={buttonEl as HTMLElement} offsetY={0} {align} {debug} />
 </div>
 
 <style lang="scss">
@@ -105,16 +134,11 @@
 		display: inline-block;
 	}
 
-	.dropdown-menu-container {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		z-index: 1000;
-	}
-
 	.viz-dropdown-title {
 		margin: 0em 0.2rem;
-		text-wrap: nowrap;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.viz-dropdown-button {
@@ -122,7 +146,7 @@
 		align-items: center;
 		padding: 0.5em 0.5em;
 		border-radius: 10em;
-		text-wrap: nowrap;
+		white-space: nowrap;
 		cursor: pointer;
 
 		&:focus {

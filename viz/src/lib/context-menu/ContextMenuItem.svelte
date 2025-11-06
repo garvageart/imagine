@@ -94,10 +94,7 @@
 		display: flex;
 		list-style-type: none;
 		width: 100%;
-	}
-
-	li button:hover {
-		background-color: var(--imag-60);
+		position: relative;
 	}
 
 	li > button {
@@ -107,27 +104,34 @@
 		align-items: center;
 		font-size: 0.9rem;
 		font-weight: 500;
-		padding: 0.2rem 0.6rem;
+		padding: 0.25rem 0.75rem;
 		text-align: left;
 		width: 100%;
 		border: 0px;
 		color: var(--imag-text-color);
 		background-color: var(--imag-100);
 		cursor: pointer;
+		transition: background-color 0.1s ease;
+	}
+
+	li > button:hover {
+		background-color: var(--imag-90);
 	}
 
 	li > button.disabled {
 		color: var(--imag-70);
 		cursor: default;
+		opacity: 0.5;
 	}
 
 	li > button.disabled:hover {
-		background-color: var(--imag-20);
+		background-color: var(--imag-100);
 	}
 
 	.shortcut {
 		opacity: 0.6;
 		font-size: 0.8em;
+		margin-left: auto;
 	}
 
 	.submenu {
@@ -136,15 +140,16 @@
 		left: calc(100% - 6px);
 		top: 0.15rem;
 		background: var(--imag-100);
-		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-		border-radius: 0.2rem;
+		box-shadow:
+			0 10px 30px rgba(0, 0, 0, 0.35),
+			0 2px 8px rgba(0, 0, 0, 0.3);
+		border-radius: 0.5rem;
+		overflow: hidden;
 		z-index: 995;
 		box-sizing: border-box;
-		/* ensure submenu has a sensible minimum width matching the parent menu */
 		min-width: 10rem;
 	}
 
-	/* Reset list styles inside submenu to remove bullets and gaps */
 	.submenu ul {
 		margin: 0;
 		padding: 0;
@@ -156,7 +161,6 @@
 		list-style: none;
 	}
 
-	/* Make submenu buttons stretch to full submenu width and match parent button styles */
 	.submenu ul li > button {
 		display: grid;
 		grid-template-columns: auto 1fr auto;
@@ -164,7 +168,7 @@
 		align-items: center;
 		font-size: 0.9rem;
 		font-weight: 500;
-		padding: 0.2rem 0.6rem;
+		padding: 0.25rem 0.75rem;
 		text-align: left;
 		width: 100%;
 		border: 0px;
@@ -172,14 +176,26 @@
 		background-color: var(--imag-100);
 		cursor: pointer;
 		box-sizing: border-box;
+		transition: background-color 0.1s ease;
+	}
+
+	.submenu ul li > button:hover {
+		background-color: var(--imag-90);
+	}
+
+	.submenu ul li > button.disabled {
+		color: var(--imag-70);
+		cursor: default;
+		opacity: 0.5;
+	}
+
+	.submenu ul li > button.disabled:hover {
+		background-color: var(--imag-100);
 	}
 
 	.submenu-arrow {
 		opacity: 0.7;
 		margin-left: 0.5rem;
-	}
-
-	li {
-		position: relative;
+		font-size: 0.9em;
 	}
 </style>
