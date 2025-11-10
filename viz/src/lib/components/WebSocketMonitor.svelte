@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
-	import { createSSEConnection, getSSEStats, getEventHistory } from "$lib/api/sse";
+	import { createWSConnection, type WSClient } from "$lib/api/websocket";
+	import { getWsStats, getEventsSince } from "$lib/api";
 
 	interface Props {
 		autoConnect?: boolean;
@@ -10,15 +11,15 @@
 
 	let { autoConnect = true, showHistory = true, maxEvents = 50 }: Props = $props();
 
-	interface SSEEvent {
+	interface WSEvent {
 		timestamp: Date;
 		event: string;
 		data: any;
 	}
 
-	let eventSource: EventSource | null = null;
+	let wsClient: WSClient | null = null;
 	let connected = $state(false);
-	let events: SSEEvent[] = $state([]);
+	let events: WSEvent[] = $state([]);
 	let stats = $state({
 		connectedClients: 0,
 		totalEvents: 0,
@@ -40,10 +41,10 @@
 	};
 
 	function connect() {
-		if (eventSource) return;
+		if (wsClient) return;
 
-		eventSource = createSSEConnection(
-			(event, data) => {
+		wsClient = createWSConnection(
+			(event: string, data: any) => {
 				switch (event) {
 					case "connected":
 						handleConnected(data);
@@ -65,22 +66,23 @@
 						break;
 				}
 			},
-			(error) => {
-				console.error("SSE error:", error);
+			(error: Event) => {
+				console.error("WebSocket error:", error);
+				connected = false;
+			},
+			() => {
+				connected = true;
+			},
+			() => {
 				connected = false;
 			}
 		);
-
-		// Reflect connection state quickly
-		eventSource.onopen = () => {
-			connected = true;
-		};
 	}
 
 	function disconnect() {
-		if (eventSource) {
-			eventSource.close();
-			eventSource = null;
+		if (wsClient) {
+			wsClient.close();
+			wsClient = null;
 			connected = false;
 		}
 	}
@@ -141,8 +143,8 @@
 
 	async function loadStats() {
 		try {
-			const response = await getSSEStats();
-			if (response.status === 200 && response.data) {
+			const response = await getWsStats();
+			if (response.data && "connectedClients" in response.data) {
 				stats.connectedClients = response.data.connectedClients || 0;
 			}
 		} catch (e) {
@@ -152,9 +154,9 @@
 
 	async function loadHistory() {
 		try {
-			const response = await getEventHistory(20);
-			if (response.status === 200 && response.data?.events) {
-				events = response.data.events.map((e) => ({
+			const response = await getEventsSince({ limit: 20 });
+			if (response.data && "events" in response.data) {
+				events = response.data.events.map((e: any) => ({
 					timestamp: new Date(e.timestamp),
 					event: e.event,
 					data: e.data
@@ -184,9 +186,9 @@
 	});
 </script>
 
-<div class="sse-monitor">
+<div class="ws-monitor">
 	<div class="monitor-header">
-		<h3>Real-time Events</h3>
+		<h3>Real-time Events (WebSocket)</h3>
 		<div class="status {connected ? 'connected' : 'disconnected'}">
 			<span class="indicator"></span>
 			{connected ? "Connected" : "Disconnected"}
@@ -253,11 +255,11 @@
 </div>
 
 <style>
-	.sse-monitor {
-		background: var(--imag-100, #ffffff);
+	.ws-monitor {
+		background: var(--card-bg, #1f2937);
 		border-radius: 8px;
-		padding: 1.25rem;
-		border: 1px solid rgba(0, 0, 0, 0.06);
+		padding: 1rem;
+		color: var(--text-primary, #f3f4f6);
 	}
 
 	.monitor-header {
@@ -265,11 +267,13 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid var(--border-color, #374151);
 	}
 
 	.monitor-header h3 {
 		margin: 0;
-		font-size: 1.1rem;
+		font-size: 1.25rem;
 		font-weight: 600;
 	}
 
@@ -277,20 +281,20 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 4px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		padding: 0.375rem 0.75rem;
-		border-radius: 20px;
 	}
 
 	.status.connected {
-		background: #d1fae5;
-		color: #065f46;
+		background: rgba(16, 185, 129, 0.1);
+		color: #10b981;
 	}
 
 	.status.disconnected {
-		background: #fee2e2;
-		color: #991b1b;
+		background: rgba(239, 68, 68, 0.1);
+		color: #ef4444;
 	}
 
 	.indicator {
@@ -300,50 +304,35 @@
 		background: currentColor;
 	}
 
-	.status.connected .indicator {
-		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-	}
-
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
-	}
-
 	.stats-bar {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
 		gap: 1rem;
 		margin-bottom: 1rem;
-		padding: 0.75rem;
-		background: var(--imag-95, #f9fafb);
-		border-radius: 6px;
 	}
 
 	.stat {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		flex: 1;
+		gap: 0.25rem;
+		text-align: center;
 	}
 
 	.stat-value {
 		font-size: 1.5rem;
 		font-weight: 700;
-		color: var(--imag-primary, #3b82f6);
+		color: var(--accent-color, #3b82f6);
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: var(--imag-60, #6b7280);
-		margin-top: 0.25rem;
+		color: var(--text-secondary, #9ca3af);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.progress-section {
-		background: var(--imag-95, #f9fafb);
+		background: var(--bg-secondary, #111827);
 		padding: 1rem;
 		border-radius: 6px;
 		margin-bottom: 1rem;
@@ -352,39 +341,37 @@
 	.progress-info {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
 		margin-bottom: 0.5rem;
 	}
 
 	.job-name {
-		font-weight: 500;
 		font-size: 0.875rem;
+		font-weight: 500;
 	}
 
 	.progress-percent {
-		font-weight: 700;
-		color: var(--imag-primary, #3b82f6);
+		font-size: 0.875rem;
+		color: var(--accent-color, #3b82f6);
+		font-weight: 600;
 	}
 
 	.progress-bar {
-		width: 100%;
-		height: 24px;
-		background: #e5e7eb;
-		border-radius: 12px;
+		height: 8px;
+		background: var(--bg-tertiary, #1f2937);
+		border-radius: 4px;
 		overflow: hidden;
+		margin-bottom: 0.5rem;
 	}
 
 	.progress-fill {
 		height: 100%;
-		background: linear-gradient(90deg, #3b82f6, #2563eb);
+		background: linear-gradient(90deg, #3b82f6, #10b981);
 		transition: width 0.3s ease;
-		border-radius: 12px;
 	}
 
 	.progress-step {
-		margin-top: 0.5rem;
-		font-size: 0.875rem;
-		color: var(--imag-60, #6b7280);
+		font-size: 0.75rem;
+		color: var(--text-secondary, #9ca3af);
 	}
 
 	.controls {
@@ -395,70 +382,70 @@
 
 	button {
 		padding: 0.5rem 1rem;
-		border-radius: 6px;
 		border: none;
+		border-radius: 4px;
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition: all 120ms ease;
+		transition: all 0.2s;
 	}
 
 	.btn-primary {
-		background: var(--imag-primary, #3b82f6);
+		background: var(--accent-color, #3b82f6);
 		color: white;
 	}
 
 	.btn-primary:hover {
-		background: var(--imag-primary-dark, #2563eb);
+		background: #2563eb;
 	}
 
 	.btn-secondary {
-		background: var(--imag-90, #e5e7eb);
-		color: var(--imag-text-color, #1f2937);
+		background: var(--bg-secondary, #374151);
+		color: var(--text-primary, #f3f4f6);
 	}
 
 	.btn-secondary:hover {
-		background: var(--imag-80, #d1d5db);
+		background: #4b5563;
 	}
 
 	.event-list {
 		max-height: 400px;
 		overflow-y: auto;
-		border: 1px solid var(--imag-90, #e5e7eb);
-		border-radius: 6px;
-		padding: 0.5rem;
-		background: var(--imag-98, #fafafa);
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 
 	.event {
-		background: white;
-		border-left: 4px solid #3b82f6;
+		background: var(--bg-secondary, #111827);
+		border-left: 3px solid;
 		border-radius: 4px;
 		padding: 0.75rem;
-		margin-bottom: 0.5rem;
-		font-family: monospace;
-		font-size: 0.75rem;
 	}
 
 	.event-header {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
 		margin-bottom: 0.5rem;
 	}
 
 	.event-type {
-		font-weight: 700;
-		color: var(--imag-primary, #3b82f6);
+		font-weight: 600;
+		font-size: 0.875rem;
 	}
 
 	.event-time {
-		color: var(--imag-60, #6b7280);
-		font-size: 0.7rem;
+		font-size: 0.75rem;
+		color: var(--text-secondary, #9ca3af);
 	}
 
 	.event-data {
-		color: var(--imag-40, #4b5563);
+		font-family: monospace;
+		font-size: 0.75rem;
+		background: var(--bg-tertiary, #0f172a);
+		padding: 0.5rem;
+		border-radius: 4px;
+		overflow-x: auto;
 		white-space: pre-wrap;
 		word-break: break-all;
 	}
@@ -466,6 +453,26 @@
 	.no-events {
 		text-align: center;
 		padding: 2rem;
-		color: var(--imag-60, #6b7280);
+		color: var(--text-secondary, #9ca3af);
+		font-style: italic;
+	}
+
+	/* Scrollbar styling */
+	.event-list::-webkit-scrollbar {
+		width: 8px;
+	}
+
+	.event-list::-webkit-scrollbar-track {
+		background: var(--bg-tertiary, #1f2937);
+		border-radius: 4px;
+	}
+
+	.event-list::-webkit-scrollbar-thumb {
+		background: var(--accent-color, #3b82f6);
+		border-radius: 4px;
+	}
+
+	.event-list::-webkit-scrollbar-thumb:hover {
+		background: #2563eb;
 	}
 </style>
