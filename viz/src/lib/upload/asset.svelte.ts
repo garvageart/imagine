@@ -44,7 +44,16 @@ export class UploadImage implements UploadImageStats {
     }
 
     private updateProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) => {
-        this.progress = (event.loaded / event.total) * 100;
+        // Some browsers don't provide total (lengthComputable=false). Fallback to file size when possible.
+        if (event.lengthComputable && event.total > 0) {
+            this.progress = Math.min(100, (event.loaded / event.total) * 100);
+        } else if ((this.data as any)?.data?.size) {
+            const total = (this.data as any).data.size as number;
+            this.progress = Math.min(100, (event.loaded / total) * 100);
+        } else {
+            // As a last resort, show indeterminate progress by nudging a bit until completion
+            this.progress = Math.min(95, this.progress + 1);
+        }
     };
 
     async upload(): Promise<UploadImageResult | undefined> {
