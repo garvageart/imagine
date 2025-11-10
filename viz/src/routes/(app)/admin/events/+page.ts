@@ -1,44 +1,37 @@
-import { getSseStats, getSseMetrics, getEventHistory } from "$lib/api";
+import { error } from "@sveltejs/kit";
+import { getWsStats, getWsMetrics, getEventsSince } from "$lib/api";
 import type { PageLoad } from "./$types";
+import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api/client.gen";
 
-export const load: PageLoad = async () => {
-    try {
-        const [statsRes, metricsRes, historyRes] = await Promise.all([
-            getSseStats(),
-            getSseMetrics(),
-            getEventHistory()
-        ]);
+interface PageLoadData {
+    stats: WsStatsResponse;
+    metrics: WsMetricsResponse;
+    history: EventRecord[];
+}
 
-        return {
-            stats: statsRes.status === 200 ? statsRes.data : {
-                connectedClients: 0,
-                clientIds: [],
-                timestamp: new Date().toISOString()
-            },
-            metrics: metricsRes.status === 200 ? metricsRes.data : {
-                connectedClients: 0,
-                totalEvents: 0,
-                eventsByType: {},
-                timestamp: new Date().toISOString()
-            },
-            history: historyRes.status === 200 ? (historyRes.data.events || []) : []
-        };
-    } catch (e) {
-        console.error("Failed to load events data:", e);
-        return {
-            stats: {
-                connectedClients: 0,
-                clientIds: [],
-                timestamp: new Date().toISOString()
-            },
-            metrics: {
-                connectedClients: 0,
-                totalEvents: 0,
-                eventsByType: {},
-                timestamp: new Date().toISOString()
-            },
-            history: [],
-            error: (e as Error).message
-        };
+export const load: PageLoad = async (): Promise<PageLoadData> => {
+    const [statsRes, metricsRes, historyRes] = await Promise.all([
+        getWsStats(),
+        getWsMetrics(),
+        getEventsSince({ limit: 50 })
+    ]);
+
+    // Throw error if any response is not 2xx
+    if (statsRes.status !== 200) {
+        throw error(statsRes.status, `Failed to load stats: ${statsRes.status}`);
     }
+
+    if (metricsRes.status !== 200) {
+        throw error(metricsRes.status, `Failed to load metrics: ${metricsRes.status}`);
+    }
+
+    if (historyRes.status !== 200) {
+        throw error(historyRes.status, `Failed to load history: ${historyRes.status}`);
+    }
+
+    return {
+        stats: statsRes.data,
+        metrics: metricsRes.data,
+        history: 'events' in historyRes.data ? (historyRes.data.events || []) : []
+    };
 };

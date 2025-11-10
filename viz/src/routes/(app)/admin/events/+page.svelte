@@ -2,22 +2,25 @@
 	import { onMount, onDestroy } from "svelte";
 	import Button from "$lib/components/Button.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import { getSSEStats, getSSEMetrics, getEventHistory, clearEventHistory } from "$lib/api/sse";
+	import { getWsStats, getWsMetrics, getEventsSince } from "$lib/api";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import type { PageData } from "./$types";
+	import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api/client.gen";
+
+	type EventHistoryItem = EventRecord;
 
 	let { data }: { data: PageData } = $props();
 
 	let refreshing = $state(false);
 
 	// SSE Stats - initialize from load data
-	let stats = $state(data.stats);
+	let stats = $state<WsStatsResponse>(data.stats);
 
 	// SSE Metrics - initialize from load data
-	let metrics = $state(data.metrics);
+	let metrics = $state<WsMetricsResponse>(data.metrics);
 
 	// Event History - initialize from load data
-	let history: any[] = $state(data.history || []);
+	let history = $state<EventHistoryItem[]>(data.history || []);
 	let historyFilter = $state("all");
 	let historySearch = $state("");
 
@@ -25,13 +28,13 @@
 	let autoRefresh = $state(true);
 	let refreshInterval: number | null = null;
 
-	function showMessage(message: string, type: "success" | "error" | "info" = "info") {
+	function showMessage(message: string, type: "success" | "error" | "info" = "info"): void {
 		toastState.addToast({ message, type });
 	}
 
-	async function loadStats() {
+	async function loadStats(): Promise<void> {
 		try {
-			const res = await getSSEStats();
+			const res = await getWsStats();
 			if (res.status === 200) {
 				stats = res.data;
 			}
@@ -40,9 +43,9 @@
 		}
 	}
 
-	async function loadMetrics() {
+	async function loadMetrics(): Promise<void> {
 		try {
-			const res = await getSSEMetrics();
+			const res = await getWsMetrics();
 			if (res.status === 200) {
 				metrics = res.data;
 			}
@@ -51,10 +54,10 @@
 		}
 	}
 
-	async function loadHistory() {
+	async function loadHistory(): Promise<void> {
 		try {
-			const res = await getEventHistory();
-			if (res.status === 200) {
+			const res = await getEventsSince({ limit: 50 });
+			if (res.status === 200 && "events" in res.data) {
 				history = res.data.events || [];
 			}
 		} catch (e) {
@@ -62,7 +65,7 @@
 		}
 	}
 
-	async function refreshAll() {
+	async function refreshAll(): Promise<void> {
 		refreshing = true;
 		try {
 			await Promise.all([loadStats(), loadMetrics(), loadHistory()]);
@@ -73,20 +76,13 @@
 		}
 	}
 
-	async function clearHistory() {
+	async function clearHistory(): Promise<void> {
 		if (!confirm("Clear all event history?")) return;
-		try {
-			const res = await clearEventHistory();
-			if (res.status === 200) {
-				history = [];
-				showMessage("Event history cleared", "success");
-			}
-		} catch (e) {
-			showMessage("Clear failed: " + (e as Error).message, "error");
-		}
+		showMessage("Clear event history endpoint not yet implemented for WebSocket", "info");
+		// TODO: Implement clearWsEventHistory endpoint if needed
 	}
 
-	function toggleAutoRefresh() {
+	function toggleAutoRefresh(): void {
 		autoRefresh = !autoRefresh;
 		if (autoRefresh) {
 			startAutoRefresh();
@@ -95,12 +91,12 @@
 		}
 	}
 
-	function startAutoRefresh() {
+	function startAutoRefresh(): void {
 		if (refreshInterval) return;
 		refreshInterval = window.setInterval(refreshAll, 5000);
 	}
 
-	function stopAutoRefresh() {
+	function stopAutoRefresh(): void {
 		if (refreshInterval) {
 			clearInterval(refreshInterval);
 			refreshInterval = null;
@@ -128,18 +124,19 @@
 		return filtered;
 	});
 
-	const eventTypes = $derived(() => {
+	const eventTypes = $derived((): string[] => {
 		const types = new Set<string>();
 		history.forEach((e) => types.add(e.event));
 		return Array.from(types).filter(Boolean).sort();
 	});
 
-	function formatTimestamp(ts: string) {
+	function formatTimestamp(ts: string): string {
 		return new Date(ts).toLocaleString();
 	}
 
 	function getMaxEventCount(): number {
-		const values = Object.values(metrics.eventsByType || {});
+		const eventsByType = metrics.eventsByType as Record<string, number>;
+		const values = Object.values(eventsByType || {});
 		const nums = values.map((v) => (typeof v === "number" ? v : Number(v) || 0));
 		return nums.length ? Math.max(...nums) : 0;
 	}
@@ -150,7 +147,7 @@
 		return max > 0 ? (num / max) * 100 : 0;
 	}
 
-	function formatJSON(data: any) {
+	function formatJSON(data: any): string {
 		return JSON.stringify(data, null, 2);
 	}
 
