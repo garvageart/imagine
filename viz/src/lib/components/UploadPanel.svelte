@@ -168,7 +168,7 @@
 		box-sizing: border-box;
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
+		justify-content: flex-start;
 		overflow-y: auto;
 		font-family: var(--imag-code-font);
 	}
