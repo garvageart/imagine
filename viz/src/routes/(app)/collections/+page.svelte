@@ -189,7 +189,8 @@
 	:global(.toolbar-button) {
 		border-radius: 10em;
 		margin: 0.5em 0em;
-		font-size: 0.9em;
+		/* Use rem so button font-size is consistent site-wide (not relative to local container) */
+		font-size: 0.9rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
