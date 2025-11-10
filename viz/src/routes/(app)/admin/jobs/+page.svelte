@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from "svelte";
 	import Button from "$lib/components/Button.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import { createSSEConnection } from "$lib/api/sse";
+	import { createWSConnection, type WSClient } from "$lib/api/websocket";
 	import {
 		listJobs,
 		createJob,
@@ -17,7 +17,7 @@
 
 	// Connection state
 	let connected = $state(false);
-	let eventSource: EventSource | null = null;
+	let wsClient: WSClient | null = null;
 	let backfilledOnce = $state(false);
 	let lastCursor = $state(0);
 	let statsSyncInterval: ReturnType<typeof setInterval> | null = null;
@@ -175,16 +175,19 @@
 		}
 	}
 
-	// -------- SSE wiring --------
-	function connectSSE() {
-		if (eventSource) return;
-		eventSource = createSSEConnection(
-			async (event, data) => {
+	// -------- WebSocket wiring --------
+	function connectWS() {
+		if (wsClient) {
+			return;
+		}
+
+		wsClient = createWSConnection(
+			async (event: string, data: any) => {
 				switch (event) {
 					case "connected": {
 						connected = true;
 						if (data?.clientId) {
-							showMessage(`Connected to SSE (Client: ${String(data.clientId).substring(0, 8)})`, "success");
+							showMessage(`Connected to WebSocket (Client: ${String(data.clientId).substring(0, 8)})`, "success");
 						}
 						if (!backfilledOnce) await bootstrapState();
 						break;
@@ -250,29 +253,32 @@
 					}
 				}
 			},
-			(error) => {
-				console.error("SSE error:", error);
+			(error: Event) => {
+				console.error("WebSocket error:", error);
 				connected = false;
-				showMessage("SSE connection error", "error");
+				showMessage("WebSocket connection error", "error");
+			},
+			() => {
+				connected = true;
+			},
+			(code: number, reason: string) => {
+				connected = false;
+				showMessage(`WebSocket disconnected (${code}): ${reason}`, "info");
 			}
 		);
-
-		eventSource.onopen = () => {
-			connected = true;
-		};
 	}
 
-	function disconnectSSE() {
-		if (eventSource) {
-			eventSource.close();
-			eventSource = null;
+	function disconnectWS() {
+		if (wsClient) {
+			wsClient.close();
+			wsClient = null;
 			connected = false;
-			showMessage("Disconnected from SSE", "info");
+			showMessage("Disconnected from WebSocket", "info");
 		}
 	}
 
 	onMount(() => {
-		connectSSE();
+		connectWS();
 		// Load initial server state for consistent counters
 		void loadJobStats();
 		// Ensure job types are loaded on first render
@@ -284,7 +290,7 @@
 	});
 
 	onDestroy(() => {
-		disconnectSSE();
+		disconnectWS();
 		if (statsSyncInterval) clearInterval(statsSyncInterval);
 	});
 
@@ -435,7 +441,7 @@
 			stats.activeCount = jobTracking.active.size;
 		}
 		// 2) Establish current cursor by asking events/since with tiny limit
-		const since = await getEventsSince(lastCursor, 1);
+		const since = await getEventsSince({ cursor: lastCursor, limit: 1 });
 		if (since.status === 200) {
 			const nc = Number(since.data?.nextCursor ?? 0);
 			if (nc && nc > lastCursor) lastCursor = nc;
@@ -480,19 +486,18 @@
 				Shutdown Scheduler
 			</Button>
 			{#if connected}
-				<Button onclick={disconnectSSE} class="control-button">
+				<Button onclick={disconnectWS} class="control-button">
 					<MaterialIcon iconName="link_off" />
-					Disconnect SSE
+					Disconnect WebSocket
 				</Button>
 			{:else}
-				<Button onclick={connectSSE} class="control-button">
+				<Button onclick={connectWS} class="control-button">
 					<MaterialIcon iconName="link" />
-					Connect SSE
+					Connect WebSocket
 				</Button>
 			{/if}
 		</div>
 	</section>
-
 	<!-- Job Types Management -->
 	<section class="content-section">
 		<div class="section-header">
