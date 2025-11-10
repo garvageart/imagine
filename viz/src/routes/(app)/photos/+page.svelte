@@ -1,6 +1,5 @@
 <script lang="ts">
-	import AssetGrid from "$lib/components/AssetGrid.svelte";
-	import ImageCard from "$lib/components/ImageCard.svelte";
+	import PhotoAssetGrid from "$lib/components/PhotoAssetGrid.svelte";
 	import Lightbox from "$lib/components/Lightbox.svelte";
 	import LoadingContainer from "$lib/components/LoadingContainer.svelte";
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
@@ -11,7 +10,7 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { loadImage } from "$lib/utils/dom.js";
 	import { SvelteSet } from "svelte/reactivity";
-	import { listImages, deleteImagesBulk, signDownload, downloadImages } from "$lib/api/client.gen";
+	import { listImages, deleteImagesBulk, signDownload, downloadImagesBlob } from "$lib/api/client";
 	import { getTakenAt, compareByTakenAtDesc } from "$lib/utils/images.js";
 	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
 	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
@@ -21,6 +20,10 @@
 	import hotkeys from "hotkeys-js";
 	import { createServerURL } from "$lib/utils/url.js";
 	import { MEDIA_SERVER } from "$lib/constants.js";
+	import UploadManager from "$lib/upload/manager.svelte";
+	import { SUPPORTED_IMAGE_TYPES, SUPPORTED_RAW_FILES, type SupportedImageTypes } from "$lib/types/images";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import { invalidateAll } from "$app/navigation";
 
 	let { data } = $props();
 
@@ -36,6 +39,98 @@
 
 	// Page state
 	let groups: { key: string; date: DateTime; label: string; items: Image[] }[] = $derived(groupImagesByDate(images) ?? []);
+
+	// Consolidated groups: merge small consecutive date groups into visual sections
+	type ImageWithDateLabel = Image & { dateLabel?: string; isFirstOfDate?: boolean };
+	type ConsolidatedGroup = {
+		label: string; // Combined label like "8 Mar - 26 Aug 2025"
+		totalCount: number;
+		allImages: ImageWithDateLabel[]; // All images merged together with date labels
+		isConsolidated: boolean; // true if multiple date groups merged
+		startDate: DateTime; // newest date in this consolidated block
+		endDate: DateTime; // oldest date in this consolidated block
+	};
+
+	let consolidatedGroups: ConsolidatedGroup[] = $derived.by(() => {
+		const consolidated: ConsolidatedGroup[] = [];
+		const SMALL_GROUP_THRESHOLD = 4; // Groups with <= 4 photos are considered "small"
+		let currentConsolidation: ConsolidatedGroup | null = null;
+
+		for (let i = 0; i < groups.length; i++) {
+			const group = groups[i];
+			const isSmall = group.items.length <= SMALL_GROUP_THRESHOLD;
+			const isLastGroup = i === groups.length - 1;
+
+			if (isSmall) {
+				// Start or continue consolidation
+				if (!currentConsolidation) {
+					// Mark first image of this date group
+					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
+						...img,
+						dateLabel: group.label,
+						isFirstOfDate: idx === 0
+					}));
+
+					currentConsolidation = {
+						label: group.label,
+						totalCount: group.items.length,
+						allImages: imagesWithLabels,
+						isConsolidated: false,
+						startDate: group.date,
+						endDate: group.date
+					};
+				} else {
+					// Add to existing consolidation
+					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
+						...img,
+						dateLabel: group.label,
+						isFirstOfDate: idx === 0
+					}));
+
+					currentConsolidation.allImages.push(...imagesWithLabels);
+					currentConsolidation.totalCount += group.items.length;
+					currentConsolidation.isConsolidated = true;
+
+					// Update oldest/newest and label
+					currentConsolidation.endDate = group.date; // groups are sorted newest -> oldest
+					const start = currentConsolidation.startDate;
+					const end = currentConsolidation.endDate;
+					
+					if (start.year === end.year && start.month === end.month) {
+						currentConsolidation.label = `${start.day}\u2013${end.day} ${start.toFormat("LLL yyyy")}`; // e.g., 27–24 Aug 2025
+					} else if (start.year === end.year) {
+						currentConsolidation.label = `${start.toFormat("d LLL")} - ${end.toFormat("d LLL yyyy")}`;
+					} else {
+						currentConsolidation.label = `${start.toFormat("d LLL yyyy")} - ${end.toFormat("d LLL yyyy")}`;
+					}
+				}
+
+				// If this is the last group, flush the consolidation
+				if (isLastGroup && currentConsolidation) {
+					consolidated.push(currentConsolidation);
+					currentConsolidation = null;
+				}
+			} else {
+				// Large group: flush any pending consolidation first, then add this group standalone
+				if (currentConsolidation) {
+					consolidated.push(currentConsolidation);
+					currentConsolidation = null;
+				}
+
+				const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img) => ({ ...img }));
+				consolidated.push({
+					label: group.label,
+					totalCount: group.items.length,
+					allImages: imagesWithLabels,
+					isConsolidated: false,
+					startDate: group.date,
+					endDate: group.date
+				});
+			}
+		}
+
+		return consolidated;
+	});
 
 	// Sorting state (local to photos page)
 	type SortMode = "most_recent" | "oldest" | "name_asc" | "name_desc";
@@ -79,6 +174,9 @@
 	// Selection (shared across groups)
 	let selectedAssets = $state(new SvelteSet<Image>());
 	let singleSelectedAsset: Image | undefined = $state();
+
+	// Flat list of all images for cross-group range selection
+	let allImagesFlat = $derived(consolidatedGroups.flatMap((g) => g.allImages));
 
 	// UI state: show a small spinner while a download is in progress
 	let downloadInProgress = $state(false);
@@ -272,45 +370,18 @@
 
 			const token = signRes.data.uid; // The token is stored in the uid field
 
-			const baseUrl = createServerURL(MEDIA_SERVER);
-			const dlUrl = new URL("/download", baseUrl);
-			dlUrl.searchParams.set("token", token);
+			// Use the custom downloadImagesBlob function that properly handles binary responses
+			const dlRes = await downloadImagesBlob(token, { uids });
 
-			const res = await fetch(dlUrl.toString(), {
-				method: "POST",
-				credentials: "include",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ uids })
-			});
-
-			if (!res.ok) {
-				// Prefer JSON ErrorResponse messages when available
-				let errMsg;
-				try {
-					const ct = (res.headers.get("content-type") || "").toLowerCase();
-					if (ct.includes("application/json")) {
-						const j = await res.json();
-						errMsg = j?.error ?? j?.message ?? j?.detail ?? JSON.stringify(j);
-					} else {
-						errMsg = await res.text();
-					}
-				} catch (e) {
-					errMsg = `${res.status} ${res.statusText}`;
-				}
-
-				if (!errMsg || String(errMsg).trim() === "") {
-					errMsg = `${res.status} ${res.statusText}`;
-				}
-
-				throw new Error(`Failed to download archive: ${errMsg}`);
+			if (dlRes.status !== 200) {
+				throw new Error(dlRes.data?.error ?? "Failed to download archive");
 			}
 
-			const cd = res.headers.get("content-disposition") || "";
-			const filenameMatch = cd.match(/filename="?([^"]+)"?/);
-			const parsedFilename = filenameMatch ? filenameMatch[1] : null;
-			const filename = parsedFilename || "images.zip";
+			// Extract filename from Content-Disposition header if available
+			// Note: The custom function returns the blob directly, so we need to handle filename separately
+			const filename = `images-${Date.now()}.zip`;
 
-			const blob = await res.blob();
+			const blob = dlRes.data;
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
@@ -367,21 +438,25 @@
 		return labelled;
 	}
 
-	let thumbhashURL = $derived.by(() => {
-		if (lightboxImage?.image_metadata?.thumbhash) {
-			try {
-				const binaryString = atob(lightboxImage.image_metadata.thumbhash);
-				const bytes = new Uint8Array(binaryString.length);
-				for (let i = 0; i < binaryString.length; i++) {
-					bytes[i] = binaryString.charCodeAt(i);
-				}
-				return thumbHashToDataURL(bytes);
-			} catch (error) {
-				console.warn("Failed to decode thumbhash:", error);
-				return null;
-			}
+	function getThumbhashURL(asset: Image): string | undefined {
+		if (!asset.image_metadata?.thumbhash) {
+			return undefined;
 		}
-	});
+
+		try {
+			const binaryString = atob(asset.image_metadata.thumbhash);
+			const bytes = new Uint8Array(binaryString.length);
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+			return thumbHashToDataURL(bytes);
+		} catch (error) {
+			console.warn("Failed to decode thumbhash:", error);
+			return undefined;
+		}
+	}
+
+	let thumbhashURL = $derived(lightboxImage ? getThumbhashURL(lightboxImage) : undefined);
 
 	function openLightbox(asset: Image) {
 		lightboxImage = asset;
@@ -451,7 +526,198 @@
 			nextLightboxImage();
 		}
 	});
+
+	// Drag and drop upload state
+	let isDragging = $state(false);
+	let dragCounter = $state(0);
+
+	/**
+	 * Recursively traverse file system entries to collect all files,
+	 * including those in nested folders.
+	 */
+	async function traverseFileTree(item: FileSystemEntry): Promise<File[]> {
+		const files: File[] = [];
+
+		if (item.isFile) {
+			const fileEntry = item as FileSystemFileEntry;
+			const file = await new Promise<File>((resolve, reject) => {
+				fileEntry.file(resolve, reject);
+			});
+			files.push(file);
+		} else if (item.isDirectory) {
+			const dirEntry = item as FileSystemDirectoryEntry;
+			const reader = dirEntry.createReader();
+
+			const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+				reader.readEntries(resolve, reject);
+			});
+
+			for (const entry of entries) {
+				const nestedFiles = await traverseFileTree(entry);
+				files.push(...nestedFiles);
+			}
+		}
+
+		return files;
+	}
+
+	/**
+	 * Handle dropped files and folders.
+	 * Supports single file, multiple files, and entire folders.
+	 */
+	async function handleDrop(e: DragEvent) {
+		e.preventDefault();
+		isDragging = false;
+		dragCounter = 0;
+
+		if (!e.dataTransfer) {
+			return;
+		}
+
+		try {
+			const allFiles: File[] = [];
+
+			// Use DataTransferItemList for folder support
+			if (e.dataTransfer.items) {
+				const items = Array.from(e.dataTransfer.items);
+
+				// Note: Extract all entries synchronously FIRST before any async operations
+				// DataTransferItem entries become invalid after the first async operation
+				const entries: FileSystemEntry[] = [];
+				for (const item of items) {
+					if (item.kind === "file") {
+						const entry = item.webkitGetAsEntry?.();
+						if (entry) {
+							entries.push(entry);
+						} else {
+							// Fallback for browsers that don't support webkitGetAsEntry
+							const file = item.getAsFile();
+							if (file) {
+								allFiles.push(file);
+							}
+						}
+					}
+				}
+
+				// Now process all entries asynchronously
+				for (const entry of entries) {
+					const files = await traverseFileTree(entry);
+					allFiles.push(...files);
+				}
+			} else {
+				// Fallback to files list (doesn't support folders)
+				const files = Array.from(e.dataTransfer.files);
+				allFiles.push(...files);
+			}
+
+			if (allFiles.length === 0) {
+				toastState.addToast({
+					type: "info",
+					message: "No files to upload",
+					timeout: 3000
+				});
+				return;
+			}
+
+			// Filter for supported image types
+			const supportedExtensions = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_RAW_FILES];
+			const validFiles = allFiles.filter((file) => {
+				const ext = file.type.split("/")[1];
+				return supportedExtensions.includes(ext as any);
+			});
+
+			if (validFiles.length === 0) {
+				toastState.addToast({
+					type: "error",
+					message: "No supported image files found",
+					timeout: 4000
+				});
+				return;
+			}
+
+			if (validFiles.length < allFiles.length) {
+				toastState.addToast({
+					type: "warning",
+					message: `${allFiles.length - validFiles.length} file(s) skipped (unsupported format)`,
+					timeout: 4000
+				});
+			}
+
+			// Use new UploadManager API
+			const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+
+			// Add files to queue (panel appears immediately)
+			const tasks = manager.addFiles(validFiles);
+
+			toastState.addToast({
+				type: "success",
+				message: `Starting upload of ${tasks.length} file(s)...`,
+				timeout: 2500
+			});
+
+			// Start uploads with concurrency control
+			const uploadedImages = await manager.start(tasks);
+
+			if (uploadedImages.length > 0) {
+				toastState.addToast({
+					type: "success",
+					message: `Successfully uploaded ${uploadedImages.length} file(s)`,
+					timeout: 3000
+				});
+
+				// Fetch the newly uploaded images and prepend them to the list
+				try {
+					const res = await listImages({
+						limit: uploadedImages.length,
+						offset: 0
+					});
+
+					if (res.status === 200) {
+						const newImages = res.data.items?.map((i) => i.image) ?? [];
+						// Prepend new images to the beginning of the list
+						images = [...newImages, ...images];
+					}
+				} catch (err) {
+					console.error("Failed to fetch uploaded images:", err);
+					// Fallback to full invalidation if fetch fails
+					await invalidateAll();
+				}
+			}
+		} catch (err) {
+			console.error("Drop upload error:", err);
+			toastState.addToast({
+				type: "error",
+				message: `Upload failed: ${err}`,
+				timeout: 5000
+			});
+		}
+	}
+
+	function handleDragEnter(e: DragEvent) {
+		e.preventDefault();
+		dragCounter++;
+		if (dragCounter === 1) {
+			isDragging = true;
+		}
+	}
+
+	function handleDragLeave(e: DragEvent) {
+		e.preventDefault();
+		dragCounter--;
+		if (dragCounter === 0) {
+			isDragging = false;
+		}
+	}
+
+	function handleDragOver(e: DragEvent) {
+		e.preventDefault();
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = "copy";
+		}
+	}
 </script>
+
+<svelte:body ondragenter={handleDragEnter} ondragleave={handleDragLeave} ondragover={handleDragOver} ondrop={handleDrop} />
 
 <svelte:head>
 	<title>Photos</title>
@@ -461,6 +727,16 @@
 		</div>
 	{/if}
 </svelte:head>
+
+{#if isDragging}
+	<div class="drop-overlay" transition:fade={{ duration: 150 }}>
+		<div class="drop-overlay-content">
+			<MaterialIcon iconName="upload" style="font-size: 4rem; margin-bottom: 1rem;" />
+			<p style="font-size: 1.5rem; font-weight: 600;">Drop files to upload</p>
+			<p style="font-size: 1rem; opacity: 0.8;">Supports images and folders</p>
+		</div>
+	</div>
+{/if}
 
 {#if lightboxImage}
 	{@const imageToLoad = getFullImagePath(lightboxImage.image_paths?.preview) ?? ""}
@@ -574,25 +850,25 @@
 			<p>No photos to display</p>
 		</div>
 	{:else}
-		{#each groups as group}
+		{#each consolidatedGroups as consolidatedGroup}
 			<section class="photo-group">
-				<h2>{group.label} ({group.items.length})</h2>
-				<AssetGrid
+				<h2>{consolidatedGroup.label}</h2>
+
+				<PhotoAssetGrid
 					{selectedAssets}
-					singleSelectedAsset={undefined}
-					data={group.items}
+					bind:singleSelectedAsset
+					data={consolidatedGroup.allImages}
+					allData={allImagesFlat}
 					disableOutsideUnselect={true}
 					assetDblClick={(_e, asset) => openLightbox(asset)}
-					assetSnippet={imageCard}
 					onassetcontext={(detail: { asset: Image; anchor: { x: number; y: number } }) => {
 						const { asset, anchor } = detail;
-						// If the user hasn't multi-selected, make this the only selected asset so handlers operate on it
 						if (!selectedAssets.has(asset) || selectedAssets.size <= 1) {
 							singleSelectedAsset = asset;
 							selectedAssets.clear();
 							selectedAssets.add(asset);
 						}
-						// Build menu items from actionMenuOptions and open the context menu anchored to mouse coords
+
 						ctxItems = actionMenuOptions.map((opt) => ({
 							id: opt.title,
 							label: opt.title,
@@ -618,10 +894,6 @@
 <!-- Context menu for right-click on assets -->
 <ContextMenu bind:showMenu={ctxShowMenu} items={ctxItems} anchor={ctxAnchor} offsetY={0} />
 
-{#snippet imageCard(asset: Image)}
-	<ImageCard {asset} />
-{/snippet}
-
 <style lang="scss">
 	.no-photos {
 		display: flex;
@@ -635,12 +907,13 @@
 	.photo-group {
 		margin: 2rem 0rem;
 		width: 100%;
+		gap: 1rem;
+		display: flex;
+		flex-direction: column;
 
 		h2 {
-			padding: 0.5rem 1rem;
-			margin: 0 0 1rem 0;
-			border-bottom: 1px solid var(--imag-20);
-			font-weight: 600;
+			margin: 0rem 2rem;
+			font-weight: 700;
 			font-size: 1.1rem;
 		}
 	}
@@ -697,5 +970,29 @@
 		justify-content: center;
 		cursor: pointer;
 		font-size: 0.9rem;
+	}
+
+	.drop-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 1000;
+		background: rgba(0, 0, 0, 0.85);
+		backdrop-filter: blur(8px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.drop-overlay-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		color: var(--imag-10);
+		border: 2px solid var(--imag-primary);
+		border-radius: 1rem;
+		padding: 3rem 4rem;
+		background: rgba(0, 0, 0, 0.5);
 	}
 </style>
