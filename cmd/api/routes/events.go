@@ -11,21 +11,25 @@ import (
 	"gorm.io/gorm"
 	"log/slog"
 
+	"imagine/internal/dto"
 	libhttp "imagine/internal/http"
 )
 
-// EventsRouter creates routes for SSE event management
-func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker) http.Handler {
+// EventsRouter creates routes for WebSocket event management
+func EventsRouter(db *gorm.DB, logger *slog.Logger, wsBroker *libhttp.WSBroker) http.Handler {
 	router := chi.NewRouter()
 
-	router.Get("/", sseBroker.ServeHTTP)
+	// WebSocket upgrade endpoint
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		wsBroker.ServeWS(w, r)
+	})
 
-	// Get SSE connection statistics
+	// Get WebSocket connection statistics
 	router.Get("/stats", func(w http.ResponseWriter, r *http.Request) {
-		stats := map[string]interface{}{
-			"connectedClients": sseBroker.GetClientCount(),
-			"clientIds":        sseBroker.GetClientIDs(),
-			"timestamp":        time.Now(),
+		stats := dto.WSStatsResponse{
+			ConnectedClients: wsBroker.GetClientCount(),
+			ClientIds:        wsBroker.GetClientIDs(),
+			Timestamp:        time.Now(),
 		}
 		render.JSON(w, r, stats)
 	})
@@ -42,7 +46,7 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			}
 		}
 
-		recs := sseBroker.GetRecent(limit)
+		recs := wsBroker.GetRecent(limit)
 		render.JSON(w, r, map[string]interface{}{
 			"events": recs,
 			"count":  len(recs),
@@ -67,11 +71,11 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 				}
 			}
 		}
-		recs := sseBroker.Since(cursor, limit)
+		recs := wsBroker.Since(cursor, limit)
 		render.JSON(w, r, map[string]interface{}{
 			"events": recs,
 			"count":  len(recs),
-			"nextCursor": sseBroker.LastID(),
+			"nextCursor": wsBroker.LastID(),
 		})
 	})
 
@@ -88,10 +92,7 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 
 	// Test endpoint to broadcast a message
 	router.Post("/broadcast", func(w http.ResponseWriter, r *http.Request) {
-		var payload struct {
-			Event string                 `json:"event"`
-			Data  map[string]interface{} `json:"data"`
-		}
+		var payload dto.WSBroadcastRequest
 
 		if err := render.DecodeJSON(r.Body, &payload); err != nil {
 			render.Status(r, http.StatusBadRequest)
@@ -103,7 +104,7 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			payload.Event = "message"
 		}
 
-		err := sseBroker.Broadcast(payload.Event, payload.Data)
+		err := wsBroker.Broadcast(payload.Event, payload.Data)
 		if err != nil {
 			logger.Error("Failed to broadcast message", slog.String("error", err.Error()))
 			render.Status(r, http.StatusInternalServerError)
@@ -111,21 +112,19 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			return
 		}
 
-		render.JSON(w, r, map[string]interface{}{
-			"success": true,
-			"message": "Message broadcasted successfully",
-			"clients": sseBroker.GetClientCount(),
-		})
+		response := dto.WSBroadcastResponse{
+			Success: true,
+			Message: "Message broadcasted successfully",
+			Clients: wsBroker.GetClientCount(),
+		}
+		render.JSON(w, r, response)
 	})
 
 	// Test endpoint to send message to specific client
 	router.Post("/send/{clientId}", func(w http.ResponseWriter, r *http.Request) {
 		clientID := chi.URLParam(r, "clientId")
 
-		var payload struct {
-			Event string                 `json:"event"`
-			Data  map[string]interface{} `json:"data"`
-		}
+		var payload dto.WSBroadcastRequest
 
 		if err := render.DecodeJSON(r.Body, &payload); err != nil {
 			render.Status(r, http.StatusBadRequest)
@@ -137,7 +136,7 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			payload.Event = "message"
 		}
 
-		err := sseBroker.SendToClient(clientID, payload.Event, payload.Data)
+		err := wsBroker.SendToClient(clientID, payload.Event, payload.Data)
 		if err != nil {
 			logger.Error("Failed to send message to client",
 				slog.String("clientId", clientID),
@@ -147,16 +146,17 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			return
 		}
 
-		render.JSON(w, r, map[string]interface{}{
-			"success":  true,
-			"message":  "Message sent successfully",
-			"clientId": clientID,
-		})
+		response := dto.WSBroadcastResponse{
+			Success: true,
+			Message: "Message sent successfully",
+			Clients: 1,
+		}
+		render.JSON(w, r, response)
 	})
 
 	// Metrics endpoint for monitoring
 	router.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		history := sseBroker.GetRecent(100)
+		history := wsBroker.GetRecent(100)
 		
 		// Count events by type
 		eventCounts := make(map[string]int)
@@ -164,12 +164,13 @@ func EventsRouter(db *gorm.DB, logger *slog.Logger, sseBroker *libhttp.SSEBroker
 			eventCounts[record.Event]++
 		}
 
-		render.JSON(w, r, map[string]interface{}{
-			"connectedClients": sseBroker.GetClientCount(),
-			"totalEvents":      len(history),
-			"eventsByType":     eventCounts,
-			"timestamp":        time.Now(),
-		})
+		metrics := dto.WSMetricsResponse{
+			ConnectedClients: wsBroker.GetClientCount(),
+			TotalEvents:      len(history),
+			EventsByType:     eventCounts,
+			Timestamp:        time.Now(),
+		}
+		render.JSON(w, r, metrics)
 	})
 
 	return router

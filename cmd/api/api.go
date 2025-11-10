@@ -106,7 +106,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	libvips.SetLogging(libvipsLogHandler, libvipsLogLevel)
 	imageops.WarmupAllOps()
 
-	server.SSEBroker = libhttp.NewSSEBroker()
+	server.WSBroker = libhttp.NewWSBroker(logger)
 
 	// Public routes (no auth required)
 	router.Mount("/auth", routes.AuthRouter(dbClient, logger))
@@ -119,7 +119,7 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 	// Protected routes (auth required)
 	router.Group(func(r chi.Router) {
 		r.Use(libhttp.AuthMiddleware(server.Database.Client, logger))
-		router.Mount("/events", routes.EventsRouter(dbClient, logger, server.SSEBroker))
+		router.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
 		r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
 		r.Mount("/images", routes.ImagesRouter(dbClient, logger))
 		r.Mount("/download", routes.DownloadRouter(dbClient, logger))
@@ -201,7 +201,7 @@ func main() {
 
 	server.Launch(router)
 
-	imageWorker := workers.NewImageWorker(client, server.SSEBroker)
-	xmpWorker := workers.NewXMPWorker(logger, server.SSEBroker)
+	imageWorker := workers.NewImageWorker(client, server.WSBroker)
+	xmpWorker := workers.NewXMPWorker(logger, server.WSBroker)
 	jobs.RunJobQueue(imageWorker, xmpWorker)
 }
