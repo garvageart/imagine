@@ -144,7 +144,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		limitStr := req.URL.Query().Get("limit")
 		offsetStr := req.URL.Query().Get("offset")
 
-		limit := 25
+		limit := 100
 		offset := 0
 
 		if limitStr != "" {
@@ -159,26 +159,21 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			}
 		}
 
-		var total int64
 		var images []entities.Image
 
 		if err := db.WithContext(req.Context()).Transaction(func(tx *gorm.DB) error {
-			// Count non-deleted images
-			if err := tx.Model(&entities.Image{}).
-				Where("deleted_at IS NULL").
-				Count(&total).Error; err != nil {
-				return err
-			}
-
 			// Fetch non-deleted images
-			if err := tx.Preload("UploadedBy").
+			err := tx.Preload("UploadedBy").
 				Where("deleted_at IS NULL").
 				Order("created_at DESC, uid DESC").
 				Limit(limit).
 				Offset(offset * limit).
-				Find(&images).Error; err != nil {
+				Find(&images).Error;
+
+			if err != nil {
 				return err
 			}
+
 			return nil
 		}); err != nil {
 			render.Status(req, http.StatusInternalServerError)
@@ -201,7 +196,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			}
 		}
 
-		count := int(total)
+		count := len(items)
 		response := dto.ImagesPage{
 			Limit:  limit,
 			Offset: offset,
