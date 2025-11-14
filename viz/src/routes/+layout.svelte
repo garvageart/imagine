@@ -16,6 +16,7 @@
 	import type { VizConfig } from "$lib/types/config.types";
 	import "$lib/styles/scss/main.scss";
 	import "@fontsource-variable/manrope";
+	import "$lib/stores/appReady";
 
 	window.debug = CAN_DEBUG;
 
@@ -23,7 +24,7 @@
 		environment: dev ? "dev" : "prod",
 		// @ts-ignore
 		version: __APP_VERSION__ as string,
-		debug: window.debug ?? false,
+		debug: window.debug ?? false
 	};
 
 	let { children } = $props();

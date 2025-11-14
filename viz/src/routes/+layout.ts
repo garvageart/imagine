@@ -1,6 +1,7 @@
-import { login, user, fetchCurrentUser } from "$lib/states/index.svelte.js";
+import { login, user } from "$lib/states/index.svelte.js";
 import { redirect } from '@sveltejs/kit';
 import { initApi } from "$lib/api/client";
+import { fetchCurrentUser } from "$lib/auth/auth_methods";
 
 export const ssr = false;
 export const csr = true;
