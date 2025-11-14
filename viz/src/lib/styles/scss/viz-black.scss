@@ -1,0 +1,83 @@
+@use "sass:color";
+
+$base-color: #1b1b1b;
+$bg-color: #181818;
+$text-color: #F7F9F9;
+
+/* Colours */
+:root {
+    --imag-bg-color: #{$bg-color};
+    --imag-text-color: #{$text-color};
+    --imag-100: #{color.mix($base-color, #fff, 100%)};
+    --imag-90: #{color.mix($base-color, #fff, 90%)};
+    --imag-80: #{color.mix($base-color, #fff, 80%)};
+    --imag-70: #{color.mix($base-color, #fff, 70%)};
+    --imag-60: #{color.mix($base-color, #fff, 60%)};
+    --imag-50: #{color.mix($base-color, #fff, 50%)};
+    --imag-40: #{color.mix($base-color, #fff, 40%)};
+    --imag-30: #{color.mix($base-color, #fff, 30%)};
+    --imag-20: #{color.mix($base-color, #fff, 20%)};
+    --imag-10: #{color.mix($base-color, #fff, 10%)};
+    --imag-primary: #1885df;
+    --imag-secondary: #06589b;
+}
+
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-track {
+    background-color: var(--imag-100);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--imag-60);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--imag-80)
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--imag-90)
+}
+
+/* Buttons */
+::-webkit-scrollbar-button:single-button {
+    background-color: var(--imag-100);
+    display: block;
+    background-size: 9px;
+    background-repeat: no-repeat;
+}
+
+/* Up */
+::-webkit-scrollbar-button:single-button:vertical:decrement {
+    height: 12px;
+    width: 16px;
+    background-position: center 4px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-20)'><polygon points='50,00 0,50 100,50'/></svg>");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:decrement:hover {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-90)'><polygon points='50,00 0,50 100,50'/></svg>");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:decrement:active {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-100)'><polygon points='50,00 0,50 100,50'/></svg>");
+}
+
+/* Down */
+::-webkit-scrollbar-button:single-button:vertical:increment {
+    height: 12px;
+    width: 16px;
+    background-position: center 2px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-20)'><polygon points='0,0 100,0 50,50'/></svg>");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:increment:hover {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-90)'><polygon points='0,0 100,0 50,50'/></svg>");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:increment:active {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='var(--imag-100)'><polygon points='0,0 100,0 50,50'/></svg>");
+}
