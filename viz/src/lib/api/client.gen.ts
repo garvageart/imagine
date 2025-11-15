@@ -32,8 +32,33 @@ export type User = {
 export type ErrorResponse = {
     error: string;
 };
-export type ApiKeyResponse = {
+export type ApiKey = {
+    uid: string;
+    name?: string;
+    description?: string | null;
+    key_hashed: string;
+    user?: User;
+    scopes?: string[];
+    last_used_at?: string | null;
+    revoked: boolean;
+    revoked_at?: string;
+    expires_at?: string | null;
+    created_at: string;
+    updated_at: string;
+};
+export type ApiKeyCreate = {
+    name?: string;
+    description?: string | null;
+    scopes?: string[];
+    expires_at?: string | null;
+};
+export type ApiKeyCreateResponse = {
     consumer_key: string;
+    expires_at?: string | null;
+};
+export type ApiKeyListResponse = {
+    items: ApiKey[];
+    count: number;
 };
 export type MessageResponse = {
     message: string;
@@ -279,8 +304,19 @@ export type JobEnqueueResponse = {
     message: string;
     count?: number;
 };
-export type EnqueueImageProcessRequest = {
-    image_uid: string;
+export type WorkerJob = {
+    uid: string;
+    "type": string;
+    topic: string;
+    command?: string | null;
+    image_uid?: string | null;
+    status: string;
+    payload?: string | null;
+    error_code?: string | null;
+    error_msg?: string | null;
+    enqueued_at: string;
+    started_at?: string | null;
+    completed_at?: string | null;
 };
 export type JobCountResponse = {
     running: number;
@@ -364,12 +400,95 @@ export function registerUser(userCreate: UserCreate, opts?: Oazapfts.RequestOpts
 export function generateApiKey(opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: ApiKeyResponse;
+        data: ApiKey;
     } | {
         status: 500;
         data: ErrorResponse;
     }>("/auth/apikey", {
         ...opts
+    });
+}
+/**
+ * Create a new API key
+ */
+export function createApiKey(apiKeyCreate: ApiKeyCreate, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 201;
+        data: ApiKeyCreateResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    }>("/api-keys", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: apiKeyCreate
+    }));
+}
+/**
+ * List API keys for the authenticated user
+ */
+export function listApiKeys(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: ApiKeyListResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>("/api-keys", {
+        ...opts
+    });
+}
+/**
+ * Get API key details
+ */
+export function getApiKey(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: ApiKey;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    }>(`/api-keys/${encodeURIComponent(uid)}`, {
+        ...opts
+    });
+}
+/**
+ * Delete an API key
+ */
+export function deleteApiKey(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>(`/api-keys/${encodeURIComponent(uid)}`, {
+        ...opts,
+        method: "DELETE"
+    });
+}
+/**
+ * Revoke an API key
+ */
+export function revokeApiKey(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    }>(`/api-keys/${encodeURIComponent(uid)}/revoke`, {
+        ...opts,
+        method: "POST"
+    });
+}
+/**
+ * Rotate an API key (revoke old, create new)
+ */
+export function rotateApiKey(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 201;
+        data: ApiKeyCreateResponse;
+    }>(`/api-keys/${encodeURIComponent(uid)}/rotate`, {
+        ...opts,
+        method: "POST"
     });
 }
 /**
@@ -943,28 +1062,28 @@ export function createJob(jobCreateRequest: JobCreateRequest, opts?: Oazapfts.Re
 /**
  * Get job detail
  */
-export function getJob(id: string, opts?: Oazapfts.RequestOpts) {
+export function getJob(uid: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: JobInfo;
+        data: WorkerJob;
     } | {
         status: 404;
         data: ErrorResponse;
-    }>(`/jobs/${encodeURIComponent(id)}`, {
+    }>(`/jobs/${encodeURIComponent(uid)}`, {
         ...opts
     });
 }
 /**
  * Cancel job
  */
-export function cancelJob(id: string, opts?: Oazapfts.RequestOpts) {
+export function cancelJob(uid: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
         data: MessageResponse;
     } | {
         status: 404;
         data: ErrorResponse;
-    }>(`/jobs/${encodeURIComponent(id)}`, {
+    }>(`/jobs/${encodeURIComponent(uid)}`, {
         ...opts,
         method: "DELETE"
     });
@@ -972,11 +1091,11 @@ export function cancelJob(id: string, opts?: Oazapfts.RequestOpts) {
 /**
  * Retry job
  */
-export function retryJob(id: string, opts?: Oazapfts.RequestOpts) {
+export function retryJob(uid: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 501;
         data: ErrorResponse;
-    }>(`/jobs/${encodeURIComponent(id)}`, {
+    }>(`/jobs/${encodeURIComponent(uid)}`, {
         ...opts,
         method: "POST"
     });
@@ -1010,25 +1129,6 @@ export function shutdownScheduler(opts?: Oazapfts.RequestOpts) {
         ...opts,
         method: "POST"
     });
-}
-/**
- * Enqueue an image processing job (admin only)
- */
-export function enqueueImageProcess(enqueueImageProcessRequest: EnqueueImageProcessRequest, opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 202;
-        data: MessageResponse;
-    } | {
-        status: 400;
-        data: ErrorResponse;
-    } | {
-        status: 500;
-        data: ErrorResponse;
-    }>("/jobs/enqueue-image-process", oazapfts.json({
-        ...opts,
-        method: "POST",
-        body: enqueueImageProcessRequest
-    }));
 }
 /**
  * Get running jobs count

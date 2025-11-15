@@ -7,6 +7,70 @@ import (
 	"time"
 )
 
+// APIKey is a GORM entity inferred from dto.APIKey
+type APIKey struct {
+	ID          uint           `gorm:"primarykey" json:"-"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Description *string
+	ExpiresAt   *time.Time
+	KeyHashed   string
+	LastUsedAt  *time.Time
+	Name        *string
+	Revoked     bool
+	RevokedAt   *time.Time
+	Scopes      *[]string `gorm:"serializer:json;type:JSONB"`
+	Uid         string    `gorm:"uniqueIndex"`
+	UserID      *string
+	User        *User `gorm:"foreignKey:UserID;references:Uid"`
+}
+
+func (e APIKey) DTO() dto.APIKey {
+	return dto.APIKey{
+		CreatedAt:   e.CreatedAt,
+		UpdatedAt:   e.UpdatedAt,
+		Description: e.Description,
+		ExpiresAt:   e.ExpiresAt,
+		KeyHashed:   e.KeyHashed,
+		LastUsedAt:  e.LastUsedAt,
+		Name:        e.Name,
+		Revoked:     e.Revoked,
+		RevokedAt:   e.RevokedAt,
+		Scopes:      e.Scopes,
+		Uid:         e.Uid,
+		User: func() *dto.User {
+			if e.User != nil {
+				d := e.User.DTO()
+				return &d
+			}
+			return nil
+		}(),
+	}
+}
+
+func APIKeyFromDTO(d dto.APIKey) APIKey {
+	return APIKey{
+		CreatedAt:   d.CreatedAt,
+		UpdatedAt:   d.UpdatedAt,
+		Description: d.Description,
+		ExpiresAt:   d.ExpiresAt,
+		KeyHashed:   d.KeyHashed,
+		LastUsedAt:  d.LastUsedAt,
+		Name:        d.Name,
+		Revoked:     d.Revoked,
+		RevokedAt:   d.RevokedAt,
+		Scopes:      d.Scopes,
+		Uid:         d.Uid,
+		UserID: func() *string {
+			if d.User != nil {
+				return &d.User.Uid
+			}
+			return nil
+		}(),
+	}
+}
+
 // Collection is a GORM entity inferred from dto.Collection
 type Collection struct {
 	ID          uint           `gorm:"primarykey" json:"-"`
@@ -140,6 +204,45 @@ func CollectionDetailResponseFromDTO(d dto.CollectionDetailResponse) CollectionD
 		ThumbnailID: func() *string {
 			if d.Thumbnail != nil {
 				return &d.Thumbnail.Uid
+			}
+			return nil
+		}(),
+		Uid: d.Uid,
+	}
+}
+
+// CollectionImage is a GORM entity inferred from dto.CollectionImage
+type CollectionImage struct {
+	ID        uint           `gorm:"primarykey" json:"-"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	AddedAt   time.Time
+	AddedByID *string
+	AddedBy   *User  `gorm:"foreignKey:AddedByID;references:Uid"`
+	Uid       string `gorm:"uniqueIndex"`
+}
+
+func (e CollectionImage) DTO() dto.CollectionImage {
+	return dto.CollectionImage{
+		AddedAt: e.AddedAt,
+		AddedBy: func() *dto.User {
+			if e.AddedBy != nil {
+				d := e.AddedBy.DTO()
+				return &d
+			}
+			return nil
+		}(),
+		Uid: e.Uid,
+	}
+}
+
+func CollectionImageFromDTO(d dto.CollectionImage) CollectionImage {
+	return CollectionImage{
+		AddedAt: d.AddedAt,
+		AddedByID: func() *string {
+			if d.AddedBy != nil {
+				return &d.AddedBy.Uid
 			}
 			return nil
 		}(),
@@ -387,5 +490,59 @@ func UserFromDTO(d dto.User) User {
 		Role:      d.Role,
 		Uid:       d.Uid,
 		Username:  d.Username,
+	}
+}
+
+// WorkerJob is a GORM entity inferred from dto.WorkerJob
+type WorkerJob struct {
+	ID          uint           `gorm:"primarykey" json:"-"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Command     *string
+	CompletedAt *time.Time
+	EnqueuedAt  time.Time
+	ErrorCode   *string
+	ErrorMsg    *string
+	ImageUid    *string
+	Payload     *string
+	StartedAt   *time.Time
+	Status      string
+	Topic       string
+	Type        string
+	Uid         string `gorm:"uniqueIndex"`
+}
+
+func (e WorkerJob) DTO() dto.WorkerJob {
+	return dto.WorkerJob{
+		Command:     e.Command,
+		CompletedAt: e.CompletedAt,
+		EnqueuedAt:  e.EnqueuedAt,
+		ErrorCode:   e.ErrorCode,
+		ErrorMsg:    e.ErrorMsg,
+		ImageUid:    e.ImageUid,
+		Payload:     e.Payload,
+		StartedAt:   e.StartedAt,
+		Status:      e.Status,
+		Topic:       e.Topic,
+		Type:        e.Type,
+		Uid:         e.Uid,
+	}
+}
+
+func WorkerJobFromDTO(d dto.WorkerJob) WorkerJob {
+	return WorkerJob{
+		Command:     d.Command,
+		CompletedAt: d.CompletedAt,
+		EnqueuedAt:  d.EnqueuedAt,
+		ErrorCode:   d.ErrorCode,
+		ErrorMsg:    d.ErrorMsg,
+		ImageUid:    d.ImageUid,
+		Payload:     d.Payload,
+		StartedAt:   d.StartedAt,
+		Status:      d.Status,
+		Topic:       d.Topic,
+		Type:        d.Type,
+		Uid:         d.Uid,
 	}
 }

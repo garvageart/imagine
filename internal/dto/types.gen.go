@@ -51,9 +51,40 @@ const (
 	N1 GetImageFileParamsDownload = "1"
 )
 
-// APIKeyResponse defines model for APIKeyResponse.
-type APIKeyResponse struct {
-	ConsumerKey string `json:"consumer_key"`
+// APIKey defines model for APIKey.
+type APIKey struct {
+	CreatedAt   time.Time  `json:"created_at"`
+	Description *string    `json:"description"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+	KeyHashed   string     `json:"key_hashed"`
+	LastUsedAt  *time.Time `json:"last_used_at"`
+	Name        *string    `json:"name,omitempty"`
+	Revoked     bool       `json:"revoked"`
+	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
+	Scopes      *[]string  `json:"scopes,omitempty"`
+	Uid         string     `json:"uid"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	User        *User      `json:"user,omitempty"`
+}
+
+// APIKeyCreate defines model for APIKeyCreate.
+type APIKeyCreate struct {
+	Description *string    `json:"description"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+	Name        *string    `json:"name,omitempty"`
+	Scopes      *[]string  `json:"scopes,omitempty"`
+}
+
+// APIKeyCreateResponse defines model for APIKeyCreateResponse.
+type APIKeyCreateResponse struct {
+	ConsumerKey string     `json:"consumer_key"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+}
+
+// APIKeyListResponse defines model for APIKeyListResponse.
+type APIKeyListResponse struct {
+	Count int      `json:"count"`
+	Items []APIKey `json:"items"`
 }
 
 // AddImagesResponse defines model for AddImagesResponse.
@@ -177,11 +208,6 @@ type DownloadToken struct {
 
 	// UpdatedAt When this token was last updated
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// EnqueueImageProcessRequest defines model for EnqueueImageProcessRequest.
-type EnqueueImageProcessRequest struct {
-	ImageUid string `json:"image_uid"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -460,6 +486,22 @@ type WSStatsResponse struct {
 	Timestamp        time.Time `json:"timestamp"`
 }
 
+// WorkerJob defines model for WorkerJob.
+type WorkerJob struct {
+	Command     *string    `json:"command"`
+	CompletedAt *time.Time `json:"completed_at"`
+	EnqueuedAt  time.Time  `json:"enqueued_at"`
+	ErrorCode   *string    `json:"error_code"`
+	ErrorMsg    *string    `json:"error_msg"`
+	ImageUid    *string    `json:"image_uid"`
+	Payload     *string    `json:"payload"`
+	StartedAt   *time.Time `json:"started_at"`
+	Status      string     `json:"status"`
+	Topic       string     `json:"topic"`
+	Type        string     `json:"type"`
+	Uid         string     `json:"uid"`
+}
+
 // LoginJSONBody defines parameters for Login.
 type LoginJSONBody struct {
 	Email    openapi_types.Email `json:"email"`
@@ -603,6 +645,9 @@ type UpdateJobTypeConcurrencyJSONBody struct {
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = UserCreate
 
+// CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
+type CreateApiKeyJSONRequestBody = APIKeyCreate
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody LoginJSONBody
 
@@ -644,9 +689,6 @@ type UpdateImageJSONRequestBody = ImageUpdate
 
 // CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
 type CreateJobJSONRequestBody = JobCreateRequest
-
-// EnqueueImageProcessJSONRequestBody defines body for EnqueueImageProcess for application/json ContentType.
-type EnqueueImageProcessJSONRequestBody = EnqueueImageProcessRequest
 
 // UpdateJobTypeConcurrencyJSONRequestBody defines body for UpdateJobTypeConcurrency for application/json ContentType.
 type UpdateJobTypeConcurrencyJSONRequestBody UpdateJobTypeConcurrencyJSONBody

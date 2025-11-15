@@ -26,6 +26,7 @@ import (
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
 	"imagine/internal/uid"
+	"imagine/internal/utils"
 )
 
 type ImagineAuthCodeFlow struct {
@@ -41,55 +42,13 @@ type ImagineAuthPasswordFlow struct {
 func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
-	router.Get("/apikey", func(res http.ResponseWriter, req *http.Request) {
-		keys, err := auth.GenerateAPIKey()
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"error generating api key",
-				"There was an error generating your API key",
-			)
-			return
-		}
-
-		consumerKey := keys["consumer_key"]
-		apiKeyId, err := uid.Generate()
-		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"error generating id for api key",
-				"There was an error generating your API key",
-			)
-			return
-		}
-
-		authUser, _ := libhttp.UserFromContext(req)
-
-		apiDataDocument := &entities.APIKey{
-			UID:       apiKeyId,
-			KeyHashed: keys["hashed_key"],
-			UserUID:   authUser.Uid,
-			Revoked:   false,
-		}
-
-		tx := db.Create(apiDataDocument)
-		if tx.Error != nil {
-			if (tx.Error == gorm.ErrDuplicatedKey) || (tx.Error == gorm.ErrInvalidData) {
-				// Return the key
-				libhttp.ServerError(res, req, err, logger, nil, "error inserting api key into database", "Something went wrong on our side, please try again later")
-			}
-			return
-		}
-
-		logger.Info("Generated an API key", slog.String("request_id", libhttp.GetRequestID(req)))
-		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.APIKeyResponse{ConsumerKey: consumerKey})
-	})
-
 	router.Post("/login", func(res http.ResponseWriter, req *http.Request) {
 		// Accept minimal login payload to avoid coupling to entities
 		var login struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
+
 		err := render.DecodeJSON(req.Body, &login)
 		if err != nil {
 			libhttp.ServerError(res, req, err, logger, nil,
@@ -110,6 +69,7 @@ func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			UID      string
 			Password string
 		}
+		
 		tx := db.Table("users").Select("uid, password").Where("email = ?", login.Email).Scan(&row)
 		if tx.Error != nil || row.Password == "" {
 			if tx.Error == gorm.ErrRecordNotFound || row.Password == "" {
@@ -167,7 +127,7 @@ func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			Uid:        uid.MustGenerate(),
 			UserUid:    row.UID,
 			ClientIp:   &req.RemoteAddr,
-			UserAgent:  ptrString(req.UserAgent()),
+			UserAgent:  utils.StringPtr(req.UserAgent()),
 			LastActive: &lastActive,
 			ExpiresAt:  &expiryTime,
 		}

@@ -100,6 +100,26 @@ type ClientInterface interface {
 	// AdminHealthcheck request
 	AdminHealthcheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListApiKeys request
+	ListApiKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateApiKeyWithBody request with any body
+	CreateApiKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateApiKey(ctx context.Context, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiKey request
+	DeleteApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiKey request
+	GetApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeApiKey request
+	RevokeApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateApiKey request
+	RotateApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GenerateApiKey request
 	GenerateApiKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -231,11 +251,6 @@ type ClientInterface interface {
 	// GetJobsCount request
 	GetJobsCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnqueueImageProcessWithBody request with any body
-	EnqueueImageProcessWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	EnqueueImageProcess(ctx context.Context, body EnqueueImageProcessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ShutdownScheduler request
 	ShutdownScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -254,13 +269,13 @@ type ClientInterface interface {
 	StopJobType(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CancelJob request
-	CancelJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CancelJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetJob request
-	GetJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RetryJob request
-	RetryJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RetryJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Ping request
 	Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -304,6 +319,90 @@ func (c *Client) GetCurrentUser(ctx context.Context, reqEditors ...RequestEditor
 
 func (c *Client) AdminHealthcheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminHealthcheckRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListApiKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApiKeysRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApiKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApiKey(ctx context.Context, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiKeyRequest(c.Server, uid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiKeyRequest(c.Server, uid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeApiKeyRequest(c.Server, uid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RotateApiKey(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateApiKeyRequest(c.Server, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -890,30 +989,6 @@ func (c *Client) GetJobsCount(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
-func (c *Client) EnqueueImageProcessWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEnqueueImageProcessRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) EnqueueImageProcess(ctx context.Context, body EnqueueImageProcessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEnqueueImageProcessRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ShutdownScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewShutdownSchedulerRequest(c.Server)
 	if err != nil {
@@ -986,8 +1061,8 @@ func (c *Client) StopJobType(ctx context.Context, pType string, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
-func (c *Client) CancelJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelJobRequest(c.Server, id)
+func (c *Client) CancelJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelJobRequest(c.Server, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -998,8 +1073,8 @@ func (c *Client) CancelJob(ctx context.Context, id string, reqEditors ...Request
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetJobRequest(c.Server, id)
+func (c *Client) GetJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetJobRequest(c.Server, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -1010,8 +1085,8 @@ func (c *Client) GetJob(ctx context.Context, id string, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-func (c *Client) RetryJob(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRetryJobRequest(c.Server, id)
+func (c *Client) RetryJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryJobRequest(c.Server, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -1111,6 +1186,209 @@ func NewAdminHealthcheckRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/admin/healthcheck")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListApiKeysRequest generates requests for ListApiKeys
+func NewListApiKeysRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateApiKeyRequest calls the generic CreateApiKey builder with application/json body
+func NewCreateApiKeyRequest(server string, body CreateApiKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateApiKeyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateApiKeyRequestWithBody generates requests for CreateApiKey with any type of body
+func NewCreateApiKeyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiKeyRequest generates requests for DeleteApiKey
+func NewDeleteApiKeyRequest(server string, uid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiKeyRequest generates requests for GetApiKey
+func NewGetApiKeyRequest(server string, uid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeApiKeyRequest generates requests for RevokeApiKey
+func NewRevokeApiKeyRequest(server string, uid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys/%s/revoke", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRotateApiKeyRequest generates requests for RotateApiKey
+func NewRotateApiKeyRequest(server string, uid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api-keys/%s/rotate", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2720,46 +2998,6 @@ func NewGetJobsCountRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewEnqueueImageProcessRequest calls the generic EnqueueImageProcess builder with application/json body
-func NewEnqueueImageProcessRequest(server string, body EnqueueImageProcessJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewEnqueueImageProcessRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewEnqueueImageProcessRequestWithBody generates requests for EnqueueImageProcess with any type of body
-func NewEnqueueImageProcessRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/jobs/enqueue-image-process")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewShutdownSchedulerRequest generates requests for ShutdownScheduler
 func NewShutdownSchedulerRequest(server string) (*http.Request, error) {
 	var err error
@@ -2923,12 +3161,12 @@ func NewStopJobTypeRequest(server string, pType string) (*http.Request, error) {
 }
 
 // NewCancelJobRequest generates requests for CancelJob
-func NewCancelJobRequest(server string, id string) (*http.Request, error) {
+func NewCancelJobRequest(server string, uid string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -2957,12 +3195,12 @@ func NewCancelJobRequest(server string, id string) (*http.Request, error) {
 }
 
 // NewGetJobRequest generates requests for GetJob
-func NewGetJobRequest(server string, id string) (*http.Request, error) {
+func NewGetJobRequest(server string, uid string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -2991,12 +3229,12 @@ func NewGetJobRequest(server string, id string) (*http.Request, error) {
 }
 
 // NewRetryJobRequest generates requests for RetryJob
-func NewRetryJobRequest(server string, id string) (*http.Request, error) {
+func NewRetryJobRequest(server string, uid string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uid", runtime.ParamLocationPath, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -3104,6 +3342,26 @@ type ClientWithResponsesInterface interface {
 
 	// AdminHealthcheckWithResponse request
 	AdminHealthcheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminHealthcheckResponse, error)
+
+	// ListApiKeysWithResponse request
+	ListApiKeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
+
+	// CreateApiKeyWithBodyWithResponse request with any body
+	CreateApiKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+
+	CreateApiKeyWithResponse(ctx context.Context, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+
+	// DeleteApiKeyWithResponse request
+	DeleteApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
+
+	// GetApiKeyWithResponse request
+	GetApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error)
+
+	// RevokeApiKeyWithResponse request
+	RevokeApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RevokeApiKeyResponse, error)
+
+	// RotateApiKeyWithResponse request
+	RotateApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RotateApiKeyResponse, error)
 
 	// GenerateApiKeyWithResponse request
 	GenerateApiKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GenerateApiKeyResponse, error)
@@ -3236,11 +3494,6 @@ type ClientWithResponsesInterface interface {
 	// GetJobsCountWithResponse request
 	GetJobsCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetJobsCountResponse, error)
 
-	// EnqueueImageProcessWithBodyWithResponse request with any body
-	EnqueueImageProcessWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnqueueImageProcessResponse, error)
-
-	EnqueueImageProcessWithResponse(ctx context.Context, body EnqueueImageProcessJSONRequestBody, reqEditors ...RequestEditorFn) (*EnqueueImageProcessResponse, error)
-
 	// ShutdownSchedulerWithResponse request
 	ShutdownSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ShutdownSchedulerResponse, error)
 
@@ -3259,13 +3512,13 @@ type ClientWithResponsesInterface interface {
 	StopJobTypeWithResponse(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*StopJobTypeResponse, error)
 
 	// CancelJobWithResponse request
-	CancelJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*CancelJobResponse, error)
+	CancelJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*CancelJobResponse, error)
 
 	// GetJobWithResponse request
-	GetJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetJobResponse, error)
+	GetJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*GetJobResponse, error)
 
 	// RetryJobWithResponse request
-	RetryJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RetryJobResponse, error)
+	RetryJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RetryJobResponse, error)
 
 	// PingWithResponse request
 	PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error)
@@ -3342,10 +3595,146 @@ func (r AdminHealthcheckResponse) StatusCode() int {
 	return 0
 }
 
+type ListApiKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *APIKeyListResponse
+	JSON401      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApiKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApiKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *APIKeyCreateResponse
+	JSON400      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MessageResponse
+	JSON401      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *APIKey
+	JSON404      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RevokeApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MessageResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RotateApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *APIKeyCreateResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GenerateApiKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *APIKeyResponse
+	JSON200      *APIKey
 	JSON500      *ErrorResponse
 }
 
@@ -4183,30 +4572,6 @@ func (r GetJobsCountResponse) StatusCode() int {
 	return 0
 }
 
-type EnqueueImageProcessResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON202      *MessageResponse
-	JSON400      *ErrorResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r EnqueueImageProcessResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r EnqueueImageProcessResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ShutdownSchedulerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4349,7 +4714,7 @@ func (r CancelJobResponse) StatusCode() int {
 type GetJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *JobInfo
+	JSON200      *WorkerJob
 	JSON404      *ErrorResponse
 }
 
@@ -4448,6 +4813,68 @@ func (c *ClientWithResponses) AdminHealthcheckWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseAdminHealthcheckResponse(rsp)
+}
+
+// ListApiKeysWithResponse request returning *ListApiKeysResponse
+func (c *ClientWithResponses) ListApiKeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error) {
+	rsp, err := c.ListApiKeys(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApiKeysResponse(rsp)
+}
+
+// CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyResponse
+func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKeyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApiKeyResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKey(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApiKeyResponse(rsp)
+}
+
+// DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
+func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
+	rsp, err := c.DeleteApiKey(ctx, uid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiKeyResponse(rsp)
+}
+
+// GetApiKeyWithResponse request returning *GetApiKeyResponse
+func (c *ClientWithResponses) GetApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error) {
+	rsp, err := c.GetApiKey(ctx, uid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiKeyResponse(rsp)
+}
+
+// RevokeApiKeyWithResponse request returning *RevokeApiKeyResponse
+func (c *ClientWithResponses) RevokeApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RevokeApiKeyResponse, error) {
+	rsp, err := c.RevokeApiKey(ctx, uid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeApiKeyResponse(rsp)
+}
+
+// RotateApiKeyWithResponse request returning *RotateApiKeyResponse
+func (c *ClientWithResponses) RotateApiKeyWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RotateApiKeyResponse, error) {
+	rsp, err := c.RotateApiKey(ctx, uid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateApiKeyResponse(rsp)
 }
 
 // GenerateApiKeyWithResponse request returning *GenerateApiKeyResponse
@@ -4869,23 +5296,6 @@ func (c *ClientWithResponses) GetJobsCountWithResponse(ctx context.Context, reqE
 	return ParseGetJobsCountResponse(rsp)
 }
 
-// EnqueueImageProcessWithBodyWithResponse request with arbitrary body returning *EnqueueImageProcessResponse
-func (c *ClientWithResponses) EnqueueImageProcessWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnqueueImageProcessResponse, error) {
-	rsp, err := c.EnqueueImageProcessWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEnqueueImageProcessResponse(rsp)
-}
-
-func (c *ClientWithResponses) EnqueueImageProcessWithResponse(ctx context.Context, body EnqueueImageProcessJSONRequestBody, reqEditors ...RequestEditorFn) (*EnqueueImageProcessResponse, error) {
-	rsp, err := c.EnqueueImageProcess(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEnqueueImageProcessResponse(rsp)
-}
-
 // ShutdownSchedulerWithResponse request returning *ShutdownSchedulerResponse
 func (c *ClientWithResponses) ShutdownSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ShutdownSchedulerResponse, error) {
 	rsp, err := c.ShutdownScheduler(ctx, reqEditors...)
@@ -4940,8 +5350,8 @@ func (c *ClientWithResponses) StopJobTypeWithResponse(ctx context.Context, pType
 }
 
 // CancelJobWithResponse request returning *CancelJobResponse
-func (c *ClientWithResponses) CancelJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*CancelJobResponse, error) {
-	rsp, err := c.CancelJob(ctx, id, reqEditors...)
+func (c *ClientWithResponses) CancelJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*CancelJobResponse, error) {
+	rsp, err := c.CancelJob(ctx, uid, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4949,8 +5359,8 @@ func (c *ClientWithResponses) CancelJobWithResponse(ctx context.Context, id stri
 }
 
 // GetJobWithResponse request returning *GetJobResponse
-func (c *ClientWithResponses) GetJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetJobResponse, error) {
-	rsp, err := c.GetJob(ctx, id, reqEditors...)
+func (c *ClientWithResponses) GetJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*GetJobResponse, error) {
+	rsp, err := c.GetJob(ctx, uid, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4958,8 +5368,8 @@ func (c *ClientWithResponses) GetJobWithResponse(ctx context.Context, id string,
 }
 
 // RetryJobWithResponse request returning *RetryJobResponse
-func (c *ClientWithResponses) RetryJobWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RetryJobResponse, error) {
-	rsp, err := c.RetryJob(ctx, id, reqEditors...)
+func (c *ClientWithResponses) RetryJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*RetryJobResponse, error) {
+	rsp, err := c.RetryJob(ctx, uid, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -5088,6 +5498,190 @@ func ParseAdminHealthcheckResponse(rsp *http.Response) (*AdminHealthcheckRespons
 	return response, nil
 }
 
+// ParseListApiKeysResponse parses an HTTP response from a ListApiKeysWithResponse call
+func ParseListApiKeysResponse(rsp *http.Response) (*ListApiKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApiKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIKeyListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateApiKeyResponse parses an HTTP response from a CreateApiKeyWithResponse call
+func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest APIKeyCreateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiKeyResponse parses an HTTP response from a DeleteApiKeyWithResponse call
+func ParseDeleteApiKeyResponse(rsp *http.Response) (*DeleteApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiKeyResponse parses an HTTP response from a GetApiKeyWithResponse call
+func ParseGetApiKeyResponse(rsp *http.Response) (*GetApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeApiKeyResponse parses an HTTP response from a RevokeApiKeyWithResponse call
+func ParseRevokeApiKeyResponse(rsp *http.Response) (*RevokeApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateApiKeyResponse parses an HTTP response from a RotateApiKeyWithResponse call
+func ParseRotateApiKeyResponse(rsp *http.Response) (*RotateApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest APIKeyCreateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGenerateApiKeyResponse parses an HTTP response from a GenerateApiKeyWithResponse call
 func ParseGenerateApiKeyResponse(rsp *http.Response) (*GenerateApiKeyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5103,7 +5697,7 @@ func ParseGenerateApiKeyResponse(rsp *http.Response) (*GenerateApiKeyResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest APIKeyResponse
+		var dest APIKey
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -6447,46 +7041,6 @@ func ParseGetJobsCountResponse(rsp *http.Response) (*GetJobsCountResponse, error
 	return response, nil
 }
 
-// ParseEnqueueImageProcessResponse parses an HTTP response from a EnqueueImageProcessWithResponse call
-func ParseEnqueueImageProcessResponse(rsp *http.Response) (*EnqueueImageProcessResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &EnqueueImageProcessResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest MessageResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON202 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseShutdownSchedulerResponse parses an HTTP response from a ShutdownSchedulerWithResponse call
 func ParseShutdownSchedulerResponse(rsp *http.Response) (*ShutdownSchedulerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6707,7 +7261,7 @@ func ParseGetJobResponse(rsp *http.Response) (*GetJobResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest JobInfo
+		var dest WorkerJob
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -54,8 +54,8 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
 			return true
 		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "OPTIONS", "DELETE"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "x-imagine-key"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "OPTIONS", "DELETE"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "x-imagine-key"},
 		// Expose Content-Disposition so client JS can read filenames from responses across origins
 		ExposedHeaders:   []string{"Set-Cookie", "Content-Disposition"},
 		AllowCredentials: true,
@@ -115,14 +115,15 @@ func (server ImagineMediaServer) Launch(router *chi.Mux) {
 		jsonResponse := map[string]any{"message": "pong"}
 		render.JSON(res, req, jsonResponse)
 	})
-	
+
 	// Protected routes (auth required)
 	router.Group(func(r chi.Router) {
 		r.Use(libhttp.AuthMiddleware(server.Database.Client, logger))
-		router.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
+		r.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
 		r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
 		r.Mount("/images", routes.ImagesRouter(dbClient, logger))
 		r.Mount("/download", routes.DownloadRouter(dbClient, logger))
+		r.Mount("/api-keys", routes.APIKeysRouter(dbClient, logger))
 	})
 
 	// Admin routes (auth + admin required)
@@ -196,13 +197,13 @@ func main() {
 	}
 
 	// Lmao I hate this
-	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.User{}, entities.DownloadToken{}, entities.JobRun{})
+	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.APIKey{}, entities.User{}, entities.DownloadToken{}, entities.WorkerJob{})
 	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)
 
 	imageWorker := workers.NewImageWorker(client, server.WSBroker)
-	xmpWorker := workers.NewXMPWorker(logger, server.WSBroker)
+	xmpWorker := workers.NewXMPWorker(client, logger, server.WSBroker)
 	exifWorker := workers.NewExifWorker(client, server.WSBroker)
 	jobs.RunJobQueue(imageWorker, xmpWorker, exifWorker)
 }
