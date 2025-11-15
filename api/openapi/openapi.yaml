@@ -1061,7 +1061,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /jobs/{id}:
+  /jobs/{uid}:
     get:
       summary: Get job detail
       operationId: getJob
@@ -1077,7 +1077,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobInfo"
+                $ref: "#/components/schemas/WorkerJob"
         "404":
           description: Not found
           content:
@@ -1102,22 +1102,6 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
         "404":
           description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    post:
-      summary: Retry job
-      operationId: retryJob
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        "501":
-          description: Not implemented
           content:
             application/json:
               schema:
@@ -1547,7 +1531,6 @@ components:
           type: string
       required: [id]
 
-    # Job-related schemas (used by admin endpoints)
     JobInfo:
       type: object
       properties:
@@ -1591,6 +1574,45 @@ components:
         count:
           type: integer
       required: [message]
+
+    WorkerJob:
+      type: object
+      properties:
+        uid:
+          type: string
+        type:
+          type: string
+        topic:
+          type: string
+        command:
+          type: string
+          nullable: true
+        image_uid:
+          type: string
+          nullable: true
+        status:
+          type: string
+        payload:
+          type: string
+          nullable: true
+        error_code:
+          type: string
+          nullable: true
+        error_msg:
+          type: string
+          nullable: true
+        enqueued_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [uid, type, topic, status, enqueued_at]
 
     JobCountResponse:
       type: object
