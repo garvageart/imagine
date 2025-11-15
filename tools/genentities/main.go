@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,6 +25,8 @@ type EntityConfig struct {
 	Indexes       []string // Fields to index
 	UniqueIndexes []string // Fields with unique indexes
 	Fields        []FieldConfig
+	// Flag indicating whether the original DTO contains CreatedAt and UpdatedAt
+	DtoHasDates bool
 }
 
 type FieldConfig struct {
@@ -66,8 +69,10 @@ type {{.Name}} struct {
 
 func (e {{.Name}}) DTO() dto.{{.Name}} {
 	return dto.{{.Name}}{
+		{{- if .DtoHasDates}}
 		CreatedAt: e.CreatedAt,
 		UpdatedAt: e.UpdatedAt,
+		{{- end}}
 		{{- range .Fields}}
 		{{- if not .IsFKField}}
 		{{- if .IsEntityRef}}
@@ -82,8 +87,10 @@ func (e {{.Name}}) DTO() dto.{{.Name}} {
 
 func {{.Name}}FromDTO(d dto.{{.Name}}) {{.Name}} {
 	return {{.Name}}{
+		{{- if .DtoHasDates}}
 		CreatedAt: d.CreatedAt,
 		UpdatedAt: d.UpdatedAt,
+		{{- end}}
 		{{- range .Fields}}
 		{{- if not .IsFKField}}
 		{{- if .IsEntityRef}}
@@ -106,6 +113,8 @@ type templateData struct {
 func main() {
 	dtoFile := flag.String("dto", "internal/dto/types.gen.go", "Path to generated DTO file")
 	outFile := flag.String("o", "internal/entities/generated.go", "Output file path")
+	include := flag.String("include", "", "Comma-separated DTO type names to force-include as entities (use as last resort)")
+	openapiPath := flag.String("openapi", "", "Path to OpenAPI spec (yaml/json)")
 	flag.Parse()
 
 	// Discover entities
@@ -113,6 +122,68 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to discover entities: %v\n", err)
 		os.Exit(1)
+	}
+
+	// If an OpenAPI spec path was provided, parse it and collect x-entity:true schema names.
+	openapiIncludes := map[string]bool{}
+	if *openapiPath != "" {
+		data, err := os.ReadFile(*openapiPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read OpenAPI file '%s': %v\n", *openapiPath, err)
+			os.Exit(1)
+		}
+
+		var doc map[string]any
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse OpenAPI YAML: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Navigate to components.schemas
+		if comp, ok := doc["components"].(map[string]any); ok {
+			if schemas, ok := comp["schemas"].(map[string]any); ok {
+				for name, raw := range schemas {
+					if schemaMap, ok := raw.(map[string]any); ok {
+						if val, exists := schemaMap["x-entity"]; exists {
+							if b, ok := val.(bool); ok && b {
+								openapiIncludes[name] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// for DTOs we want to explicitly define as entities (CLI -include has lowest priority)
+	if *include != "" {
+		for _, name := range strings.Split(*include, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			openapiIncludes[name] = true
+		}
+	}
+
+	// Merge OpenAPI includes into discovered entities (OpenAPI preference)
+	if len(openapiIncludes) > 0 {
+		for name := range openapiIncludes {
+			found := false
+			for _, e := range discovered {
+				if e.Name == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				discovered = append(discovered, EntityConfig{
+					Name:       name,
+					SoftDelete: true,
+					PKField:    "ID",
+				})
+			}
+		}
 	}
 
 	// Infer fields for each entity
@@ -210,13 +281,15 @@ func discoverEntities(dtoPath string) ([]EntityConfig, error) {
 			}
 		}
 
-		// If it has the entity signature (uid + created_at + updated_at), add it
-		if hasUID && hasCreatedAt && hasUpdatedAt {
+		// If it has a UID, treat it as an entity candidate.
+		// CreatedAt/UpdatedAt are optional (GORM-managed) but if present they further indicate an entity.
+		if hasUID {
 			entities = append(entities, EntityConfig{
 				Name:          typeSpec.Name.Name,
 				SoftDelete:    true,
 				UniqueIndexes: uniqueIndexes,
 				PKField:       "ID",
+				DtoHasDates:   hasCreatedAt && hasUpdatedAt,
 			})
 		}
 

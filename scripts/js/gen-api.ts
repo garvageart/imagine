@@ -145,7 +145,7 @@ if (options.installTools || !hasRuntime) {
 
 // Generate GORM entities that embed DTOs
 console.log('Generating GORM entities from DTOs (go run ./tools/genentities)...');
-const genEntitiesSuccess = run('go', ['run', './tools/genentities']);
+const genEntitiesSuccess = run('go', ['run', './tools/genentities', '-openapi', specPath]);
 if (!genEntitiesSuccess) {
     console.error('Failed to generate GORM entities');
     process.exit(1);
@@ -163,7 +163,7 @@ if (existsSync(vizDir)) {
                 console.warn('pnpm run gen:api failed; trying npx fallback...');
                 run('npx', [
                     'oazapfts',
-                    join('..', 'api', 'openapi', 'openapi.yaml'),
+                    specPath,
                     join('src', 'lib', 'api', 'client.gen.ts'),
                 ], vizDir);
             }
@@ -171,7 +171,7 @@ if (existsSync(vizDir)) {
             console.warn('pnpm not found; trying npx oazapfts...');
             run('npx', [
                 'oazapfts',
-                join('..', 'api', 'openapi', 'openapi.yaml'),
+                specPath,
                 join('src', 'lib', 'api', 'client.gen.ts'),
             ], vizDir);
         }
