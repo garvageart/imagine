@@ -1,91 +1,71 @@
 package jobs
 
 import (
-    "fmt"
-    "sync"
-
-    "gorm.io/gorm"
+	"fmt"
+	"sync"
 )
-
-type CountFunc func(db *gorm.DB, command string, payload any) (int64, error)
-type EnqueueFunc func(db *gorm.DB, command string, payload any) (int, error)
-type CustomHandler any
-
-type JobDescriptor struct {
-    ID                 string        `json:"id"`
-    Topic              string        `json:"topic"`
-    DisplayName        string        `json:"display_name"`
-    Description        string        `json:"description,omitempty"`
-    Concurrency        int           `json:"concurrency"`
-    Count              CountFunc     `json:"-"`
-    Enqueue            EnqueueFunc   `json:"-"`
-    CustomHandler      CustomHandler `json:"-"`
-}
 
 var (
-    descriptorsMu sync.RWMutex
-    descriptors   = map[string]*JobDescriptor{}
-    persisted    = map[string]map[string]any{}
+	workersMu sync.RWMutex
+	workers   = map[string]*Worker{}
+	persisted = map[string]map[string]any{}
 )
 
-// RegisterJob registers a job descriptor in the in-memory registry and applies
-// default concurrency.
-func RegisterJob(desc *JobDescriptor) {
-    descriptorsMu.Lock()
-    defer descriptorsMu.Unlock()
-    descriptors[desc.ID] = desc
+// RegisterWorker registers a worker in the in-memory registry. Safe to call multiple times.
+func RegisterWorker(w *Worker) {
+	if w == nil || w.Name == "" {
+		return
+	}
+	workersMu.Lock()
+	defer workersMu.Unlock()
+	workers[w.Name] = w
 }
 
-// GetAll returns a shallow copy of all registered descriptors.
-func GetAll() []*JobDescriptor {
-    descriptorsMu.RLock()
-    defer descriptorsMu.RUnlock()
+// GetAllWorkers returns a slice copy of all registered workers.
+func GetAllWorkers() []*Worker {
+	workersMu.RLock()
+	defer workersMu.RUnlock()
 
-    out := make([]*JobDescriptor, 0, len(descriptors))
-    for _, d := range descriptors {
-        out = append(out, d)
-    }
-
-    return out
+	out := make([]*Worker, 0, len(workers))
+	for _, w := range workers {
+		out = append(out, w)
+	}
+	return out
 }
 
-// Find returns a descriptor by id, or nil.
-func Find(id string) *JobDescriptor {
-    descriptorsMu.RLock()
-    defer descriptorsMu.RUnlock()
-
-    if d, ok := descriptors[id]; ok {
-        return d
-    }
-
-    return nil
+// FindWorker returns a registered worker by id, or nil if not found.
+func FindWorker(id string) *Worker {
+	workersMu.RLock()
+	defer workersMu.RUnlock()
+	if w, ok := workers[id]; ok {
+		return w
+	}
+	return nil
 }
 
-// SetPersisted sets a key/value for a given job id and persists immediately.
-func SetPersisted(jobID string, key string, value any) error {
-    if persisted == nil {
-        persisted = map[string]map[string]any{}
-    }
-
-    if _, ok := persisted[jobID]; !ok {
-        persisted[jobID] = map[string]any{}
-    }
-	
-    persisted[jobID][key] = value
-    return nil
+// SetPersisted sets a key/value pair for a worker id in the in-memory persisted map.
+func SetPersisted(workerID string, key string, value any) error {
+	if persisted == nil {
+		persisted = map[string]map[string]any{}
+	}
+	if _, ok := persisted[workerID]; !ok {
+		persisted[workerID] = map[string]any{}
+	}
+	persisted[workerID][key] = value
+	return nil
 }
 
-// GetPersisted returns a persisted value for a job id/key, or nil.
-func GetPersisted(jobID string, key string) any {
-    if v, ok := persisted[jobID]; ok {
-        return v[key]
-    }
-    return nil
+// GetPersisted returns a previously persisted value for a worker id/key.
+func GetPersisted(workerID string, key string) any {
+	if v, ok := persisted[workerID]; ok {
+		return v[key]
+	}
+	return nil
 }
 
-// For debugging convenience
+// DumpRegistry returns a debug string representation of the registry.
 func DumpRegistry() string {
-    descriptorsMu.RLock()
-    defer descriptorsMu.RUnlock()
-    return fmt.Sprintf("%v", descriptors)
+	workersMu.RLock()
+	defer workersMu.RUnlock()
+	return fmt.Sprintf("%v", workers)
 }

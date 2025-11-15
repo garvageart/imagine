@@ -140,3 +140,6 @@ func GenerateRandomBytes(n int) []byte {
 
 	return b
 }
+
+// StringPtr returns a pointer to the provided string.
+func StringPtr(s string) *string { return &s }

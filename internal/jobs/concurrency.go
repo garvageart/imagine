@@ -77,7 +77,7 @@ func (l *ConcurrencyManager) Middleware(h message.HandlerFunc) message.HandlerFu
 
 // Global per-topic concurrency managers registry
 var (
-	managersMu     sync.Mutex
+	managersMu      sync.Mutex
 	managersByTopic = map[string]*ConcurrencyManager{}
 )
 

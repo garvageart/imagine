@@ -7,20 +7,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/trimmer-io/go-xmp/models/dc"
 	"github.com/trimmer-io/go-xmp/models/exif"
 	"github.com/trimmer-io/go-xmp/models/tiff"
 	xmpbase "github.com/trimmer-io/go-xmp/models/xmp_base"
 	"github.com/trimmer-io/go-xmp/xmp"
+	"gorm.io/gorm"
 
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
 	"imagine/internal/images"
 	"imagine/internal/jobs"
+	"imagine/internal/utils"
 )
 
 const (
@@ -33,70 +35,66 @@ type XMPGenerationJob struct {
 }
 
 // NewXMPWorker creates a worker that generates XMP sidecar files
-func NewXMPWorker(logger *slog.Logger, wsBroker *libhttp.WSBroker) *jobs.Worker {
-	return &jobs.Worker{
-		Name:  JobTypeXMPGeneration,
-		Topic: TopicXMPGeneration,
-		Handler: func(msg *message.Message) error {
-			var job XMPGenerationJob
-			err := json.Unmarshal(msg.Payload, &job)
-			if err != nil {
-				return fmt.Errorf("%s: %w", JobTypeXMPGeneration, err)
-			}
+func NewXMPWorker(db *gorm.DB, logger *slog.Logger, wsBroker *libhttp.WSBroker) *jobs.Worker {
+	return jobs.NewWorker(JobTypeXMPGeneration, TopicXMPGeneration, "XMP Sidecar Generation", 2, func(msg *message.Message) error {
+		var job XMPGenerationJob
+		err := json.Unmarshal(msg.Payload, &job)
+		if err != nil {
+			return fmt.Errorf("%s: %w", JobTypeXMPGeneration, err)
+		}
 
+		if wsBroker != nil {
+			wsBroker.Broadcast("job-started", map[string]any{
+				"jobId":    msg.UUID,
+				"type":     JobTypeXMPGeneration,
+				"imageId":  job.Image.Uid,
+				"filename": job.Image.ImageMetadata.FileName,
+			})
+		}
+
+		// mark running
+		startedAt := time.Now().UTC()
+		_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusRunning, nil, nil, &startedAt, nil)
+
+		onProgress := jobs.NewProgressCallback(
+			wsBroker,
+			msg.UUID,
+			JobTypeXMPGeneration,
+			job.Image.Uid,
+			job.Image.ImageMetadata.FileName,
+		)
+
+		err = generateXMPSidecar(job.Image, logger, onProgress)
+
+		if err != nil {
 			if wsBroker != nil {
-				wsBroker.Broadcast("job-started", map[string]any{
-					"jobId":    msg.UUID,
-					"type":     JobTypeXMPGeneration,
-					"imageId":  job.Image.Uid,
-					"filename": job.Image.ImageMetadata.FileName,
-				})
-			}
-
-			onProgress := jobs.NewProgressCallback(
-				wsBroker,
-				msg.UUID,
-				JobTypeXMPGeneration,
-				job.Image.Uid,
-				job.Image.ImageMetadata.FileName,
-			)
-
-			err = generateXMPSidecar(job.Image, logger, onProgress)
-
-			if err != nil {
-				if wsBroker != nil {
-					wsBroker.Broadcast("job-failed", map[string]any{
-						"jobId":   msg.UUID,
-						"type":    JobTypeXMPGeneration,
-						"imageId": job.Image.Uid,
-						"error":   err.Error(),
-					})
-				}
-				return err
-			}
-
-			if wsBroker != nil {
-				wsBroker.Broadcast("job-completed", map[string]any{
+				wsBroker.Broadcast("job-failed", map[string]any{
 					"jobId":   msg.UUID,
 					"type":    JobTypeXMPGeneration,
 					"imageId": job.Image.Uid,
+					"error":   err.Error(),
 				})
 			}
+			_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusFailed, utils.StringPtr("worker_error"), utils.StringPtr(jobs.Truncate(err.Error(), 1024)), nil, nil)
+			return err
+		}
 
-			return nil
-		},
-	}
+		if wsBroker != nil {
+			wsBroker.Broadcast("job-completed", map[string]any{
+				"jobId":   msg.UUID,
+				"type":    JobTypeXMPGeneration,
+				"imageId": job.Image.Uid,
+			})
+		}
+
+		completedAt := time.Now().UTC()
+		_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusSuccess, nil, nil, nil, &completedAt)
+
+		return nil
+	},
+	)
 }
 
-// EnqueueXMPGenerationJob publishes a new XMP generation job to the queue.
-func EnqueueXMPGenerationJob(job *XMPGenerationJob) error {
-	payload, err := json.Marshal(job)
-	if err != nil {
-		return fmt.Errorf("%s: %w", JobTypeXMPGeneration, err)
-	}
-	msg := message.NewMessage(watermill.NewUUID(), payload)
-	return jobs.Publish(TopicXMPGeneration, msg)
-}
 
 func generateXMPSidecar(img entities.Image, logger *slog.Logger, onProgress func(step string, progress int)) error {
 	originalPath := images.GetImagePath(img.Uid, img.ImageMetadata.FileName)

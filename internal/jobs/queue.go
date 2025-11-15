@@ -1,9 +1,9 @@
 package jobs
 
 import (
-	"maps"
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 
@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	allJobs = make(map[string]*Job)
-	allJobsMu sync.RWMutex
+	allJobs        = make(map[string]*Job)
+	allJobsMu      sync.RWMutex
 	queuedCounts   = make(map[string]int)
 	queuedCountsMu sync.RWMutex
 )
@@ -51,17 +51,19 @@ func Publish(topic string, msg *message.Message) error {
 	if PubSub == nil {
 		return fmt.Errorf("pubsub not initialized")
 	}
+
 	queuedCountsMu.Lock()
 	queuedCounts[topic] = queuedCounts[topic] + 1
 	queuedCountsMu.Unlock()
+
 	return PubSub.Publish(topic, msg)
 }
 
 // JobCounts describes running and queued counts by topic.
 type JobCounts struct {
-	Running        int64           `json:"running"`
-	RunningByTopic map[string]int  `json:"running_by_topic"`
-	QueuedByTopic  map[string]int  `json:"queued_by_topic"`
+	Running        int64          `json:"running"`
+	RunningByTopic map[string]int `json:"running_by_topic"`
+	QueuedByTopic  map[string]int `json:"queued_by_topic"`
 }
 
 // GetCounts returns a snapshot of running and queued counts.
@@ -103,7 +105,7 @@ func RegisterWorkers(workers ...*Worker) {
 			topic,
 			PubSub,
 			func(msg *message.Message) error {
-				// enforce per-topic concurrency
+
 				cm.Acquire()
 				defer cm.Release()
 

@@ -10,14 +10,21 @@ import (
 )
 
 type Worker struct {
-	Handler  JobHandler
-	Name     string
-	Topic    string
-	mutex    sync.Mutex
-	busy     bool
-	canceled bool
-	lastRun  time.Time
-	ctx      context.Context
+	Handler JobHandler
+	Name    string
+	Topic   string
+	// Descriptor fields
+	DisplayName string
+	Concurrency int
+	// Optional helpers for admin and enqueueing
+	Count         func(db any, command string, payload any) (int64, error)
+	Enqueue       func(db any, command string, payload any) (int, error)
+	CustomHandler any
+	mutex         sync.Mutex
+	busy          bool
+	canceled      bool
+	lastRun       time.Time
+	ctx           context.Context
 }
 
 type JobHandler func(msg *message.Message) error
@@ -91,4 +98,23 @@ func (w *Worker) LastRun() time.Time {
 
 func (w *Worker) String() string {
 	return w.Name
+}
+
+// NewWorker registers the provided JobDescriptor and returns a Worker wired
+// with the descriptor's ID and Topic. This centralizes registration so worker
+// factories don't need to call RegisterJob separately.
+// NewWorker creates a Worker from descriptor fields and registers the
+// descriptor in the in-memory registry. This API lets worker factories
+// provide descriptor values inline without constructing a separate
+// JobDescriptor object.
+func NewWorker(id string, topic string, displayName string, concurrency int, handler JobHandler) *Worker {
+	w := &Worker{
+		Handler:     handler,
+		Name:        id,
+		Topic:       topic,
+		DisplayName: displayName,
+		Concurrency: concurrency,
+	}
+	RegisterWorker(w)
+	return w
 }

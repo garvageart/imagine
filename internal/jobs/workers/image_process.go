@@ -14,6 +14,7 @@ import (
 	"imagine/internal/imageops"
 	"imagine/internal/images"
 	"imagine/internal/jobs"
+	"imagine/internal/utils"
 
 	"gorm.io/gorm"
 )
@@ -29,70 +30,66 @@ type ImageProcessJob struct {
 
 // NewImageWorker creates a worker that processes images and sends WebSocket updates
 func NewImageWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
-	return &jobs.Worker{
-		Name:  JobTypeImageProcess,
-		Topic: TopicImageProcess,
-		Handler: func(msg *message.Message) error {
-			var job ImageProcessJob
-			err := json.Unmarshal(msg.Payload, &job)
-			if err != nil {
-				return fmt.Errorf("%s: %w", JobTypeImageProcess, err)
-			}
+	return jobs.NewWorker(JobTypeImageProcess, TopicImageProcess, "Image Processing", 5, func(msg *message.Message) error {
+		var job ImageProcessJob
+		err := json.Unmarshal(msg.Payload, &job)
+		if err != nil {
+			return fmt.Errorf("%s: %w", JobTypeImageProcess, err)
+		}
 
+		if wsBroker != nil {
+			wsBroker.Broadcast("job-started", map[string]any{
+				"jobId":    msg.UUID,
+				"type":     JobTypeImageProcess,
+				"imageId":  job.Image.Uid,
+				"filename": job.Image.ImageMetadata.FileName,
+			})
+		}
+
+		// Mark job as running in DB
+		startedAt := time.Now().UTC()
+		_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusRunning, nil, nil, &startedAt, nil)
+
+		// Create reusable progress reporter and process
+		onProgress := jobs.NewProgressCallback(
+			wsBroker,
+			msg.UUID,
+			JobTypeImageProcess,
+			job.Image.Uid,
+			job.Image.ImageMetadata.FileName,
+		)
+
+		err = ImageProcess(msg.Context(), db, job.Image, onProgress)
+
+		if err != nil {
 			if wsBroker != nil {
-				wsBroker.Broadcast("job-started", map[string]any{
-					"jobId":    msg.UUID,
-					"type":     JobTypeImageProcess,
-					"imageId":  job.Image.Uid,
-					"filename": job.Image.ImageMetadata.FileName,
-				})
-			}
-
-			// Create reusable progress reporter and process
-			onProgress := jobs.NewProgressCallback(
-				wsBroker,
-				msg.UUID,
-				JobTypeImageProcess,
-				job.Image.Uid,
-				job.Image.ImageMetadata.FileName,
-			)
-
-			err = ImageProcess(msg.Context(), db, job.Image, onProgress)
-
-			if err != nil {
-				if wsBroker != nil {
-					wsBroker.Broadcast("job-failed", map[string]any{
-						"jobId":   msg.UUID,
-						"type":    JobTypeImageProcess,
-						"imageId": job.Image.Uid,
-						"error":   err.Error(),
-					})
-				}
-				return err
-			}
-
-			if wsBroker != nil {
-				wsBroker.Broadcast("job-completed", map[string]any{
+				wsBroker.Broadcast("job-failed", map[string]any{
 					"jobId":   msg.UUID,
 					"type":    JobTypeImageProcess,
 					"imageId": job.Image.Uid,
+					"error":   err.Error(),
 				})
 			}
+			// persist concise error
+			_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusFailed, utils.StringPtr("worker_error"), utils.StringPtr(jobs.Truncate(err.Error(), 1024)), nil, nil)
+			return err
+		}
 
-			return nil
-		},
-	}
-}
+		if wsBroker != nil {
+			wsBroker.Broadcast("job-completed", map[string]any{
+				"jobId":   msg.UUID,
+				"type":    JobTypeImageProcess,
+				"imageId": job.Image.Uid,
+			})
+		}
 
-// EnqueueImageProcessJob publishes a new image processing job to the queue.
-func EnqueueImageProcessJob(job *ImageProcessJob) error {
-	payload, err := json.Marshal(job)
-	if err != nil {
-		return fmt.Errorf("%s: %w", JobTypeImageProcess, err)
-	}
+		// mark completed
+		completedAt := time.Now().UTC()
+		_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusSuccess, nil, nil, nil, &completedAt)
 
-	msg := message.NewMessage(watermill.NewUUID(), payload)
-	return jobs.Publish(TopicImageProcess, msg)
+		return nil
+	},
+	)
 }
 
 func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onProgress func(step string, progress int)) error {
