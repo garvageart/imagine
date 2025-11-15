@@ -58,13 +58,137 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/APIKeyResponse"
+                $ref: "#/components/schemas/APIKey"
         "500":
           description: Server error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api-keys:
+    post:
+      summary: Create a new API key
+      operationId: createApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/APIKeyCreate"
+      responses:
+        "201":
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyCreateResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      summary: List API keys for the authenticated user
+      operationId: listApiKeys
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api-keys/{uid}:
+    get:
+      summary: Get API key details
+      operationId: getApiKey
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKey"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete an API key
+      operationId: deleteApiKey
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api-keys/{uid}/revoke:
+    post:
+      summary: Revoke an API key
+      operationId: revokeApiKey
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /api-keys/{uid}/rotate:
+    post:
+      summary: Rotate an API key (revoke old, create new)
+      operationId: rotateApiKey
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: New API key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyCreateResponse"
 
   /auth/login:
     post:
@@ -1067,7 +1191,7 @@ paths:
       operationId: getJob
       parameters:
         - in: path
-          name: id
+          name: uid
           required: true
           schema:
             type: string
@@ -1089,7 +1213,7 @@ paths:
       operationId: cancelJob
       parameters:
         - in: path
-          name: id
+          name: uid
           required: true
           schema:
             type: string
@@ -1102,6 +1226,22 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Retry job
+      operationId: retryJob
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: Not implemented
           content:
             application/json:
               schema:
@@ -1136,36 +1276,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /jobs/enqueue-image-process:
-    post:
-      summary: Enqueue an image processing job (admin only)
-      operationId: enqueueImageProcess
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EnqueueImageProcessRequest"
-      responses:
-        "202":
-          description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Server error
           content:
@@ -1576,6 +1686,7 @@ components:
       required: [message]
 
     WorkerJob:
+      x-entity: true
       type: object
       properties:
         uid:
@@ -1811,6 +1922,7 @@ components:
           description: Optional description of this share/download link
 
     DownloadToken:
+      x-entity: true
       type: object
       description: Persistent download token with granular access controls
       properties:
@@ -1868,13 +1980,6 @@ components:
           created_at,
           updated_at,
         ]
-
-    APIKeyResponse:
-      type: object
-      properties:
-        consumer_key:
-          type: string
-      required: [consumer_key]
 
     OAuthUserData:
       type: object
@@ -1974,6 +2079,7 @@ components:
         ]
 
     Image:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2008,6 +2114,7 @@ components:
         ]
 
     CollectionImage:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2017,6 +2124,7 @@ components:
       required: [uid, added_at]
 
     Collection:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2094,6 +2202,7 @@ components:
       required: [limit, page, items]
 
     CollectionDetailResponse:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2112,6 +2221,7 @@ components:
       required: [uid, name, images, created_at, updated_at]
 
     User:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2144,6 +2254,7 @@ components:
         password: { type: string }
       required: [name, email, password]
     Session:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
@@ -2166,9 +2277,12 @@ components:
         updated_at: { type: string, format: date-time }
       required: [uid, token, user_uid, created_at, updated_at]
     APIKey:
+      x-entity: true
       type: object
       properties:
         uid: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
         key_hashed: { type: string }
         user:
           $ref: "#/components/schemas/User"
@@ -2176,11 +2290,52 @@ components:
           type: array
           items:
             type: string
+        last_used_at: { type: string, format: date-time, nullable: true }
         revoked: { type: boolean }
         revoked_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-      required: [uid, key_hashed, created_at, updated_at]
+      required: [uid, revoked, key_hashed, created_at, updated_at]
+
+    APIKeyCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    APIKeyCreateResponse:
+      type: object
+      properties:
+        consumer_key:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [consumer_key]
+
+    APIKeyListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIKey"
+        count:
+          type: integer
+      required: [items, count]
 
     ImageUpdate:
       type: object
