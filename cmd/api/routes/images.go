@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"slices"
 	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
@@ -15,18 +14,20 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/gorm"
 
+	"imagine/internal/downloads"
 	"imagine/internal/dto"
 	"imagine/internal/entities"
-	"imagine/internal/downloads"
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
 	libvips "imagine/internal/imageops/vips"
@@ -35,6 +36,10 @@ import (
 	libos "imagine/internal/os"
 	"imagine/internal/uid"
 )
+
+// transformGroup coalesces concurrent identical transform requests to avoid duplicate work
+var transformGroup singleflight.Group
+
 
 type ImageUpload struct {
 	Name    string `json:"name,omitempty"`
@@ -146,6 +151,9 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 		Description:   nil, // TODO: evaluate if necessary, blank for now
 	}
 
+	ta := imageops.GetTakenAt(allImageData)
+	allImageData.TakenAt = &ta
+
 	return &allImageData, nil
 }
 
@@ -182,20 +190,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		var total int64
 
 		if err := db.WithContext(req.Context()).Transaction(func(tx *gorm.DB) error {
-			// Count total non-deleted images
+			// Count total non-deleted images for pagination metadata
 			if err := tx.Model(&entities.Image{}).Where("deleted_at IS NULL").Count(&total).Error; err != nil {
 				return err
 			}
 
-			// Fetch current page of non-deleted images
-			err := tx.Preload("UploadedBy").
-				Where("deleted_at IS NULL").
-				Order("created_at DESC, uid DESC").
-				Limit(limit).
-				Offset(page * limit).
-				Find(&images).Error;
-
-			if err != nil {
+			pageOffset := max(page * limit, 0)
+			if err := tx.Preload("UploadedBy").Where("deleted_at IS NULL").Order("taken_at DESC NULLS LAST, name DESC").Offset(pageOffset).Limit(limit).Find(&images).Error; err != nil {
 				return err
 			}
 
@@ -280,6 +281,22 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		// If no transform parameters are present, serve the original image.
 		// Previously this checked len(req.Form) which treated any query param
 		// (including download=1) as a transform request and caused parse errors.
+		// Build a canonical request URI (path + query) and determine once
+		// whether this request matches any stored image path in the DB.
+		var reqURI = req.URL.Path
+		var isPermanent = false
+		if req.URL.RawQuery != "" {
+			reqURI = reqURI + "?" + req.URL.RawQuery
+		}
+
+		if imgEnt.ImagePaths.Thumbnail == reqURI || imgEnt.ImagePaths.Preview == reqURI || imgEnt.ImagePaths.Original == reqURI {
+			isPermanent = true
+		}
+
+		if imgEnt.ImagePaths.Raw != nil && *imgEnt.ImagePaths.Raw == reqURI {
+			isPermanent = true
+		}
+
 		if formatParam == "" && widthParam == "" && heightParam == "" && qualityParam == "" {
 			imageData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 			if err != nil {
@@ -288,10 +305,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				return
 			}
 
-
-			// Set cache headers: match Immich defaults for originals (private)
-			// Cache for 1 day in browser, but prevent shared caches from storing.
-			res.Header().Set("Cache-Control", "private, max-age=86400, no-transform")
+			// Set cache headers based on permanence
+			if isPermanent {
+				res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				// Cache for 1 day in browser, but prevent shared caches from storing.
+				res.Header().Set("Cache-Control", "private, max-age=86400, no-transform")
+			}
 			res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum) // Use checksum as ETag
 			// Last-Modified from DB metadata so proxies and clients can use If-Modified-Since
 			res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
@@ -345,15 +365,14 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 					render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
 					return
 				}
-				} else {
-					if match := req.Header.Get("If-None-Match"); match == imgEnt.ImageMetadata.Checksum {
-						// echo the ETag and Last-Modified for consistent 304 handling
-						res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum)
-						res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-						res.WriteHeader(http.StatusNotModified)
-						return
-					}
+			} else {
+				if match := req.Header.Get("If-None-Match"); match == imgEnt.ImageMetadata.Checksum {
+					res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum)
+					res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+					res.WriteHeader(http.StatusNotModified)
+					return
 				}
+			}
 
 			res.WriteHeader(http.StatusOK)
 			res.Write(imageData)
@@ -389,7 +408,11 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		// Check If-None-Match early to avoid expensive VIPS processing (skip for downloads)
 		if req.FormValue("download") != "1" {
 			if match := req.Header.Get("If-None-Match"); match == transformETag {
-				res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
+				if isPermanent {
+					res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				} else {
+					res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
+				}
 				res.Header().Set("ETag", transformETag)
 				res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
 				res.WriteHeader(http.StatusNotModified)
@@ -397,87 +420,84 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			}
 		}
 
-		// Read the original image file directly
-		originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
-		if err != nil {
-			logger.Error("failed to read image data", slog.Any("error", err))
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read image data"})
-			return
-		}
+		// Use singleflight to coalesce concurrent identical transform requests
+		key := transformETag
+		resVal, err, _ := transformGroup.Do(key, func() (any, error) {
+			// Read the original image file directly
+			originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
+			if err != nil {
+				logger.Error("failed to read image data", slog.Any("error", err))
+				return nil, fmt.Errorf("failed to read image data: %w", err)
+			}
 
-		// Load into libvips
-		libvipsImg, err := libvips.NewImageFromBuffer(originalData, libvips.DefaultLoadOptions())
-		if err != nil {
-			logger.Error("failed to create libvips image", slog.Any("error", err))
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create libvips image"})
-			return
-		}
-		defer libvipsImg.Close()
+			// Load into libvips
+			libvipsImg, err := libvips.NewImageFromBuffer(originalData, libvips.DefaultLoadOptions())
+			if err != nil {
+				logger.Error("failed to create libvips image", slog.Any("error", err))
+				return nil, fmt.Errorf("failed to create libvips image: %w", err)
+			}
+			defer libvipsImg.Close()
 
-		err = libvipsImg.Autorot()
-		if err != nil {
-			logger.Error("failed to auto-rotate image", slog.Any("error", err))
-		}
+			err = libvipsImg.Autorot() // non-fatal
+			if err != nil {
+				logger.Warn("failed to auto-rotate image", slog.Any("error", err))
+			}
 
-		// Resize with libvips
-		err = libvipsImg.Resize(float64(width)/float64(libvipsImg.Width()), &libvips.ResizeOptions{
-			Kernel: libvips.KernelLanczos3,
+			// Resize with libvips
+			if err := libvipsImg.Resize(float64(width)/float64(libvipsImg.Width()), &libvips.ResizeOptions{Kernel: libvips.KernelLanczos3}); err != nil {
+				logger.Error("failed to resize image", slog.Any("error", err))
+				return nil, fmt.Errorf("failed to resize image: %w", err)
+			}
+
+			var imageData []byte
+
+			switch formatParam {
+			case "webp":
+				imageData, err = libvipsImg.WebpsaveBuffer(&libvips.WebpsaveBufferOptions{Q: int(quality)})
+			case "png":
+				imageData, err = libvipsImg.PngsaveBuffer(&libvips.PngsaveBufferOptions{Filter: libvips.PngFilterNone, Interlace: false, Palette: false, Compression: int(quality)})
+			case "jpg", "jpeg":
+				imageData, err = libvipsImg.JpegsaveBuffer(&libvips.JpegsaveBufferOptions{Q: int(quality), Interlace: true})
+			case "avif", "heif":
+				imageData, err = libvipsImg.HeifsaveBuffer(&libvips.HeifsaveBufferOptions{Q: int(quality), Bitdepth: 8, Effort: 5, Lossless: false})
+			default:
+				imageData, err = libvipsImg.RawsaveBuffer(&libvips.RawsaveBufferOptions{Keep: libvips.KeepAll})
+				formatParam = string(libvipsImg.Format())
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode image: %w", err)
+			}
+
+			return imageData, nil
 		})
 
 		if err != nil {
-			logger.Error("failed to resize image", slog.Any("error", err))
+			logger.Error("image transform failed", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to resize image"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to process image"})
 			return
 		}
 
-		var imageData []byte
+		imageData := resVal.([]byte)
 
-		switch formatParam {
-		case "webp":
-			imageData, err = libvipsImg.WebpsaveBuffer(&libvips.WebpsaveBufferOptions{
-				Q: int(quality),
-			})
-		case "png":
-			imageData, err = libvipsImg.PngsaveBuffer(&libvips.PngsaveBufferOptions{
-				Filter:      libvips.PngFilterNone,
-				Interlace:   false,
-				Palette:     false,
-				Compression: int(quality),
-			})
-		case "jpg":
-		case "jpeg":
-			imageData, err = libvipsImg.JpegsaveBuffer(&libvips.JpegsaveBufferOptions{
-				Q:         int(quality),
-				Interlace: true,
-			})
-		case "avif":
-		case "heif":
-			imageData, err = libvipsImg.HeifsaveBuffer(&libvips.HeifsaveBufferOptions{
-				Q:        int(quality),
-				Bitdepth: 8,
-				Effort:   5,
-				Lossless: false,
-			})
-		default:
-			imageData, err = libvipsImg.RawsaveBuffer(&libvips.RawsaveBufferOptions{
-				Keep: libvips.KeepAll,
-			})
+		// Set response headers for transform result
+		res.Header().Set("Content-Type", "image/"+formatParam)
+		// If this request matches a stored image path or includes an explicit
+		// fingerprint `v=`, serve with immutable long-term caching. Otherwise
+		// use the shorter transform TTL.
+		if isPermanent || req.URL.Query().Get("v") != "" {
+			res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
+		}
 
-		formatParam = string(libvipsImg.Format())
-	}
+		res.Header().Set("ETag", transformETag)
+		res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+		res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
 
-	// Set response headers for transform result
-	res.Header().Set("Content-Type", "image/"+formatParam)
-	res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
-	res.Header().Set("ETag", transformETag)
-	res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-	res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
-
-	// If this is a download request, validate token with details
-	if req.FormValue("download") == "1" {
+		// If this is a download request, validate token with details
+		if req.FormValue("download") == "1" {
 			// Validate opaque token with password support
 			token := req.URL.Query().Get("token")
 			password := req.URL.Query().Get("password")
@@ -523,13 +543,6 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			}
 		}
 
-		if err != nil {
-			logger.Error("failed to encode image", slog.Any("error", err))
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to encode image"})
-			return
-		}
-
 		res.Header().Set("Content-Length", strconv.Itoa(len(imageData)))
 		res.WriteHeader(http.StatusOK)
 		res.Write(imageData)
@@ -541,7 +554,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		var imgEnt entities.Image
 		result := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt)
-		
+
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
@@ -565,7 +578,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			render.JSON(res, req, imgEnt.Exif)
 			return
 		}
-		
+
 		imageFile, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
@@ -574,18 +587,61 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		libvipsImg, err := libvips.NewImageFromBuffer(imageFile, libvips.DefaultLoadOptions())
-		
+
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
 			render.JSON(res, req, dto.ErrorResponse{Error: "failed to process image"})
 			return
 		}
 		defer libvipsImg.Close()
-		
+
 		exifData := libvipsImg.Exif()
 
 		render.Status(req, http.StatusOK)
 		render.JSON(res, req, exifData)
+	})
+
+	router.Patch("/{uid}", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+		var update dto.ImageUpdate
+
+		if err := render.DecodeJSON(req.Body, &update); err != nil {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			return
+		}
+
+		var img entities.Image
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if e := tx.First(&img, "uid = ? AND deleted_at IS NULL", uid); e.Error != nil {
+				return e.Error
+			}
+
+			updateImageFromDTO(&img, update)
+
+			if err := tx.Save(&img).Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				return
+			}
+
+			libhttp.ServerError(res, req, err, logger, nil,
+				"Failed to update image",
+				"Something went wrong, please try again later",
+			)
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, img.DTO())
 	})
 
 	// Dedicated download route: creates a short-lived signed redirect to the
@@ -972,4 +1028,55 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	})
 
 	return router
+}
+
+// updateImageFromDTO updates image entity fields from a small ImageUpdate
+func updateImageFromDTO(image *entities.Image, update dto.ImageUpdate) {
+	if update.Name != nil {
+		image.Name = *update.Name
+	}
+
+	if update.Description != nil {
+		image.Description = update.Description
+	}
+
+	if update.Private != nil {
+		image.Private = *update.Private
+	}
+
+	if update.Exif != nil {
+		image.Exif = update.Exif
+	}
+
+	if update.ImageMetadata != nil && update.ImageMetadata.Rating != nil {
+		// Clamp rating 0..5
+		r := *update.ImageMetadata.Rating
+		if r < 0 {
+			r = 0
+		} else if r > 5 {
+			r = 5
+		}
+
+		if image.ImageMetadata == nil {
+			image.ImageMetadata = &dto.ImageMetadata{}
+		}
+
+		image.ImageMetadata.Rating = &r
+	}
+
+	if update.ImageMetadata != nil && update.ImageMetadata.Label != nil {
+		if image.ImageMetadata == nil {
+			image.ImageMetadata = &dto.ImageMetadata{}
+		}
+
+		image.ImageMetadata.Label = update.ImageMetadata.Label
+	}
+
+	if update.ImageMetadata != nil && update.ImageMetadata.Keywords != nil {
+		if image.ImageMetadata == nil {
+			image.ImageMetadata = &dto.ImageMetadata{}
+		}
+		image.ImageMetadata.Keywords = update.ImageMetadata.Keywords
+	}
+
 }

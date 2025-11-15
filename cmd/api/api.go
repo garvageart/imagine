@@ -196,12 +196,13 @@ func main() {
 	}
 
 	// Lmao I hate this
-	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.User{}, entities.DownloadToken{})
+	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.User{}, entities.DownloadToken{}, entities.JobRun{})
 	server.ImagineServer.Database.Client = client
 
 	server.Launch(router)
 
 	imageWorker := workers.NewImageWorker(client, server.WSBroker)
 	xmpWorker := workers.NewXMPWorker(logger, server.WSBroker)
-	jobs.RunJobQueue(imageWorker, xmpWorker)
+	exifWorker := workers.NewExifWorker(client, server.WSBroker)
+	jobs.RunJobQueue(imageWorker, xmpWorker, exifWorker)
 }
