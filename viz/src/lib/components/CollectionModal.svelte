@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { EventHandler } from "svelte/elements";
 	import Button from "./Button.svelte";
-	import ModalOverlay from "./modal/ModalOverlay.svelte";
+	import ModalOverlay from "./Modal/ModalOverlay.svelte";
 	import SliderToggle from "./SliderToggle.svelte";
 	import InputText from "./dom/InputText.svelte";
 
