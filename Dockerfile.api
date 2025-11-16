@@ -6,11 +6,24 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/imagine ./cmd/api
+# libvips requires CGO: install build deps and enable CGO
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	build-essential \
+	pkg-config \
+	libvips-dev \
+	ca-certificates \
+	git && rm -rf /var/lib/apt/lists/*
 
-FROM alpine:3.18
-RUN apk add --no-cache ca-certificates
+# Build with CGO enabled so vips bindings compile
+RUN CGO_ENABLED=1 GOOS=linux go build -o /app/imagine ./cmd/api
+
+FROM debian:bookworm-slim
 WORKDIR /app
+
+# Runtime libs for libvips - keep minimal, install libvips and ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	libvips \
+	ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/imagine /app/imagine
 COPY imagine.json /app/imagine.json
