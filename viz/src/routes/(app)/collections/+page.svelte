@@ -5,10 +5,8 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import Button from "$lib/components/Button.svelte";
 	import { createCollection, type Collection, deleteCollection, updateCollection } from "$lib/api";
-	import ModalOverlay from "$lib/components/modal/ModalOverlay.svelte";
 	import { modal, sort } from "$lib/states/index.svelte";
 	import { goto } from "$app/navigation";
-	import SliderToggle from "$lib/components/SliderToggle.svelte";
 	import { page } from "$app/state";
 	import { SvelteSet } from "svelte/reactivity";
 	import AssetGrid from "$lib/components/AssetGrid.svelte";
