@@ -17,10 +17,12 @@ services:
 
   viz:
     build:
-      context: ./viz
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: viz/Dockerfile
       args:
         VITE_API_BASE_URL: "http://api:7770"
+    environment:
+      - IMAGINE_CONFIG_PATH=/app/imagine.json
     image: imagine-viz:latest
     env_file:
       - .env
@@ -28,6 +30,8 @@ services:
       - "7777:7777"
     depends_on:
       - api
+    volumes:
+      - ./imagine.json:/app/imagine.json:ro
 
   postgres:
     image: postgres:15-alpine

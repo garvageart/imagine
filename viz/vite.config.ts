@@ -7,7 +7,24 @@ import devtoolsJson from "vite-plugin-devtools-json";
 
 const file = fileURLToPath(new URL('package.json', import.meta.url));
 const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
-const config = JSON.parse(fs.readFileSync('../imagine.json', 'utf8'));
+// In Docker we can pass IMAGINE_CONFIG_PATH (e.g., /app/imagine.json)
+const configPath = process.env.IMAGINE_CONFIG_PATH || '../imagine.json';
+let config: any;
+try {
+	config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+} catch (err) {
+	if (process.env.IMAGINE_CONFIG_PATH) {
+		// Fail fast for unexpected Docker build context issues.
+		throw new Error(`IMAGINE_CONFIG_PATH set to '${process.env.IMAGINE_CONFIG_PATH}' but file not found: ${err}`);
+	}
+
+	config = {
+		servers: {
+			'api-server': { host: 'localhost', port: Number(process.env.API_PORT ?? 7770) },
+			viz: { port: Number(process.env.VITE_VIZ_PORT ?? 7777) }
+		}
+	};
+}
 const define = {
 	'__APP_VERSION__': JSON.stringify(pkg.version)
 };
@@ -46,19 +63,7 @@ export default defineConfig({
 	},
 	server: {
 		port: config.servers.viz.port,
-		cors: true,
-		// Proxy API requests during development so the browser sees the API as same-origin.
-		// This is especially useful for SSE (EventSource) since cookies and SameSite rules
-		// work reliably when the resource appears same-origin to the browser.
-		proxy: {
-			// Forward any /jobs requests to the API server running locally
-			'/jobs': {
-				target: `http://localhost:${config.servers['api-server'].port}`,
-				changeOrigin: true,
-				secure: false,
-				ws: false
-			}
-		}
+		cors: true
 	},
 	preview: {
 		port: config.servers.viz.port,

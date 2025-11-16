@@ -4,8 +4,14 @@ WORKDIR /app
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-COPY package.json package-lock.json* ./
-COPY . .
+# Build-time copy of config from repository root (make sure build context
+# includes the repo root so this file is available during build).
+COPY imagine.json /app/imagine.json
+ENV IMAGINE_CONFIG_PATH=/app/imagine.json
+
+# Copy package.json and lock from the viz subdir because build context is the repo root
+COPY viz/package.json viz/package-lock.json* ./
+COPY viz/ ./
 
 RUN npm install --legacy-peer-deps
 RUN npm run build
