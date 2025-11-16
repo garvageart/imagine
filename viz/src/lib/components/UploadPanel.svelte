@@ -6,6 +6,48 @@
 	import MaterialIcon from "./MaterialIcon.svelte";
 
 	let minimized = $state(false);
+
+	let listEl: HTMLDivElement | null = $state(null);
+
+	let prevCompletedCount = $state(0);
+
+	const isUserNearBottom = (el: HTMLDivElement) => {
+		const threshold = 150; // px
+		return el.scrollHeight - (el.scrollTop + el.clientHeight) < threshold;
+	};
+
+	const prefersReducedMotion = () =>
+		typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+	$effect(() => {
+		if (!listEl) {
+			return;
+		}
+
+		// compute completed items
+		const completed = upload.files.filter(
+			(f) =>
+				f.state === UploadState.DONE ||
+				f.state === UploadState.ERROR ||
+				f.state === UploadState.CANCELED ||
+				f.state === UploadState.DUPLICATE
+		).length;
+
+		if (completed > prevCompletedCount && isUserNearBottom(listEl)) {
+			try {
+				const rows = Array.from(listEl.querySelectorAll(".panel-file-info")) as HTMLElement[];
+				if (rows.length) {
+					const lastRow = rows[rows.length - 1];
+					const behavior = prefersReducedMotion() ? "auto" : "smooth";
+					lastRow.scrollIntoView({ behavior: behavior as ScrollBehavior, block: "nearest" });
+				}
+			} catch (e) {
+				// silently ignore DOM issues
+			}
+		}
+
+		prevCompletedCount = completed;
+	});
 </script>
 
 {#if minimized}
@@ -24,7 +66,7 @@
 		</Button>
 	</div>
 {:else}
-	<div in:scale={{ duration: 250 }} out:scale={{ delay: minimized ? 0 : 3000, duration: 250 }} id="viz-upload-panel">
+	<div transition:scale={{ delay: minimized ? 0 : 3000, duration: 250 }} id="viz-upload-panel">
 		<div id="viz-upload-panel-header">
 			<div id="upload-panel-header-info">
 				<Button
@@ -54,7 +96,7 @@
 				</label>
 			</div>
 		</div>
-		<div id="viz-upload-panel-list">
+		<div id="viz-upload-panel-list" bind:this={listEl}>
 			{#each upload.files as file}
 				<div class="panel-file-info" data-checksum={file.data.checksum}>
 					{#if file.state === UploadState.STARTED}
@@ -71,7 +113,12 @@
 					{/if}
 					<div class="panel-file-info-data_container">
 						<div class="panel-file-info-metadata">
-							<span class="viz-upload-file-name">{file.data.filename}</span>
+							<div style="display:flex; flex-direction:column; gap:4px;">
+								<span class="viz-upload-file-name">{file.data.filename}</span>
+								{#if file.imageData}
+									<span style="font-size:0.7rem; color:var(--imag-warning);">Duplicate of {file.imageData.uid}</span>
+								{/if}
+							</div>
 							<span class="viz-upload-progress-text">{Math.round(file.progress)}%</span>
 						</div>
 						<div class="panel-file-info-progress-container">
@@ -79,6 +126,7 @@
 								class="panel-file-info-progress"
 								class:complete={file.state === UploadState.DONE}
 								class:error={file.state === UploadState.ERROR || file.state === UploadState.CANCELED}
+								class:duplicate={file.state === UploadState.DUPLICATE}
 								style="width: {file.progress}%;"
 							>
 							</span>
@@ -238,17 +286,21 @@
 
 	.panel-file-info-progress {
 		height: 100%;
-		background: linear-gradient(90deg, var(--imag-30), var(--imag-20));
+		background: linear-gradient(90deg, var(--imag-40), var(--imag-20));
 		border-radius: 2px;
 		transition: width 0.3s ease;
 		display: block;
 	}
 
 	.panel-file-info-progress.complete {
-		background: linear-gradient(90deg, #10b981, #059669);
+		background: linear-gradient(90deg, hsl(115, 80%, 40%), hsl(115, 50%, 40%));
 	}
 
 	.panel-file-info-progress.error {
-		background: linear-gradient(90deg, #ef4444, #dc2626);
+		background: linear-gradient(90deg, hsl(0, 80%, 40%), hsl(0, 50%, 40%));
+	}
+
+	.panel-file-info-progress.duplicate {
+		background: linear-gradient(90deg, hsl(36, 80%, 40%), hsl(36, 50%, 40%));
 	}
 </style>

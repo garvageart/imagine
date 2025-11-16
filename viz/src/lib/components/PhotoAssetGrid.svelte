@@ -86,7 +86,6 @@
 		if (img.src === data) {
 			return;
 		}
-
 		img.src = data;
 	}
 
@@ -126,7 +125,19 @@
 
 		return {
 			update(newParams: { src: string }) {
-				if (newParams?.src) node.dataset.src = newParams.src;
+				if (newParams?.src) {
+					// If the node currently has a different src, clear it so the browser
+					// doesn't continue showing the previous image while dataset updates.
+					if (node.src && node.src !== newParams.src) {
+						node.src = "";
+					}
+					node.dataset.src = newParams.src;
+					// force the observer to re-evaluate this node
+					try {
+						observer.unobserve(node);
+					} catch (e) {}
+					observer.observe(node);
+				}
 			},
 			destroy() {
 				observer.disconnect();
@@ -495,6 +506,7 @@
 			// no-op for now
 		}}
 		data-asset-id={asset.uid}
+		title={asset.name ?? asset.image_metadata?.file_name ?? asset.uid}
 		class:selected-photo={isSelected}
 		class:multi-selected-photo={isSelected && isMultiSelecting}
 		role="button"

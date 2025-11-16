@@ -71,15 +71,27 @@ export default class UploadManager {
 
         const results = await this.uploadWithConcurrency(pending, upload.concurrency);
 
-        // Update stats
-        const successful = results.filter(r => r !== undefined) as ImageUploadSuccess[];
-        upload.stats.success += successful.length;
-        upload.stats.errors += (pending.length - successful.length);
+        // Update stats based on task states
+        const successfulCount = pending.filter(t => t.state === UploadState.DONE).length;
+        const duplicateCount = pending.filter(t => t.state === UploadState.DUPLICATE).length;
+        const errorCount = pending.filter(t => t.state === UploadState.ERROR || t.state === UploadState.INVALID).length;
 
-        // Remove completed tasks from panel
+        upload.stats.success += successfulCount;
+        upload.stats.duplicates += duplicateCount;
+        upload.stats.errors += errorCount;
+
+        const successful = results.filter(r => r !== undefined) as ImageUploadSuccess[];
+
+        // Remove only fully completed/terminal tasks from panel.
+        // Keep DUPLICATE tasks visible so the UI can show duplicate state to the user.
         for (const task of pending) {
             const idx = upload.files.indexOf(task);
-            if (idx > -1) {
+            if (idx === -1) {
+                continue;
+            }
+
+            // Remove if DONE, CANCELED or ERROR. Keep DUPLICATE and INVALID for visibility.
+            if (task.state === UploadState.DONE || task.state === UploadState.CANCELED || task.state === UploadState.ERROR) {
                 upload.files.splice(idx, 1);
             }
         }

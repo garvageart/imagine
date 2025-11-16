@@ -163,7 +163,7 @@ export type ImagesPage = {
     items: ImagesResponse[];
 };
 export type ImageUploadResponse = {
-    id: string;
+    uid: string;
 };
 export type DeleteAssetsResponse = {
     results: {
@@ -632,6 +632,9 @@ export function uploadImage(body: {
     data: Blob;
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
+        status: 200;
+        data: ImageUploadResponse;
+    } | {
         status: 201;
         data: ImageUploadResponse;
     } | {
@@ -676,6 +679,9 @@ export function deleteImagesBulk(body: {
  */
 export function uploadImageByUrl(body: string, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
+        status: 200;
+        data: ImageUploadResponse;
+    } | {
         status: 201;
         data: ImageUploadResponse;
     } | {

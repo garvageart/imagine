@@ -138,40 +138,44 @@
 							{/if}
 						</div>
 					</div>
-					<div class="card-row main-row">
-						<MaterialIcon iconName="camera" class="exif-material-icon" />
-						<div class="card-values">
-							<div class="value-small">{lightboxImage?.exif?.f_number ?? lightboxImage?.exif?.aperture ?? "—"}</div>
-							<div class="value-small">{lightboxImage?.exif?.exposure_time ?? "—"}</div>
+				</div>
+				<div class="exif-card-group">
+					<div class="exif-card">
+						<div class="card-row main-row">
+							<MaterialIcon iconName="camera" class="exif-material-icon" />
+							<div class="card-values">
+								<div class="value-sub">{lightboxImage?.exif?.f_number ?? lightboxImage?.exif?.aperture ?? "—"}</div>
+								<div class="value-sub">{lightboxImage?.exif?.exposure_time ?? "—"}</div>
+							</div>
 						</div>
-					</div>
-					<div class="card-row meta-row">
-						<MaterialIcon iconName="tune" class="exif-material-icon" />
-						<div class="card-values">
-							<div class="value-small">
-								ISO {lightboxImage?.exif?.iso ?? "—"} · {lightboxImage?.exif?.exposure_value ?? "—"}
+						<div class="card-row meta-row">
+							<MaterialIcon iconName="tune" class="exif-material-icon" />
+							<div class="card-values">
+								<div class="value-sub">
+									ISO {lightboxImage?.exif?.iso ?? "—"} · {lightboxImage?.exif?.exposure_value ?? "—"}
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="exif-card">
-					<div class="card-row main-row">
-						<div class="card-values">
-							<div class="value-sub">{lightboxImage?.width} x {lightboxImage?.height}</div>
+					<div class="exif-card">
+						<div class="card-row main-row">
+							<div class="card-values">
+								<div class="value-sub">{lightboxImage?.width} x {lightboxImage?.height}</div>
+							</div>
 						</div>
-					</div>
-					<div class="card-row main-row">
-						<MaterialIcon iconName="aspect_ratio" class="exif-material-icon" />
-						<div class="card-values">
-							<div class="value-sub">{Math.floor((lightboxImage?.width! * lightboxImage?.height!) / 1_000_000)} MP</div>
-							<div class="value-sub">{formatFileSize()}</div>
+						<div class="card-row main-row">
+							<MaterialIcon iconName="aspect_ratio" class="exif-material-icon" />
+							<div class="card-values">
+								<div class="value-sub">{Math.floor((lightboxImage?.width! * lightboxImage?.height!) / 1_000_000)} MP</div>
+								<div class="value-sub">{formatFileSize()}</div>
+							</div>
 						</div>
-					</div>
-					<div class="card-row meta-row">
-						<MaterialIcon iconName="palette" class="exif-material-icon" />
-						<div class="card-values">
-							<div class="value-small">{lightboxImage?.image_metadata?.color_space ?? "—"}</div>
+						<div class="card-row meta-row">
+							<MaterialIcon iconName="palette" class="exif-material-icon" />
+							<div class="card-values">
+								<div class="value-sub">{lightboxImage?.image_metadata?.color_space ?? "—"}</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -213,6 +217,7 @@
 		<div class="image-container">
 			<div class="image-icon-buttons">
 				<button
+					class="image-icon-buttons-shadow"
 					title={`${showMetadata ? "Hide" : "Show"} Info`}
 					onclick={(e) => {
 						e.stopPropagation();
@@ -260,7 +265,7 @@
 			{#if prevLightboxImage && nextLightboxImage}
 				<div class="lightbox-nav">
 					<button
-						class="lightbox-nav-btn prev"
+						class="lightbox-nav-btn prev image-icon-buttons-shadow"
 						aria-label="Previous image"
 						onclick={(e) => {
 							e.stopPropagation();
@@ -270,7 +275,7 @@
 						<MaterialIcon iconName="arrow_back" />
 					</button>
 					<button
-						class="lightbox-nav-btn next"
+						class="lightbox-nav-btn next image-icon-buttons-shadow"
 						aria-label="Next image"
 						onclick={(e) => {
 							e.stopPropagation();
@@ -321,10 +326,18 @@
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			padding: 0.25rem;
+			padding: 0.25em;
 			background: transparent;
 			border: none;
 		}
+	}
+
+	.image-icon-buttons-shadow {
+		filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1)) drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
+			drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+		-webkit-filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1)) drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
+			drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+		will-change: filter;
 	}
 
 	.image-wrapper {
@@ -364,12 +377,12 @@
 	.lightbox-nav-btn {
 		border: none;
 		color: var(--imag-10);
-		width: 3rem;
-		height: 3rem;
+		width: 3em;
+		height: 3em;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.3rem;
+		border-radius: 0.3em;
 		cursor: pointer;
 		pointer-events: auto;
 	}
@@ -385,83 +398,88 @@
 		z-index: 100;
 		pointer-events: auto;
 		box-sizing: border-box;
+		font-size: 0.9rem;
 	}
 
 	.metadata-header {
+		font-size: 1rem;
 		display: flex;
 		align-items: center;
-		margin-bottom: 1rem;
-		gap: 0.5rem;
+		margin-bottom: 1em;
+		gap: 0.5em;
 	}
 
 	.metadata-exif-box {
 		display: block;
 	}
 
+	.exif-card-group {
+		display: flex;
+		gap: 0.5em;
+	}
+
 	.exif-cards {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.75em;
 	}
 
 	.exif-card {
 		background: var(--imag-100);
 		color: var(--imag-text-color);
-		padding: 0.6rem 0.8rem;
-		border-radius: 0.5rem;
+		width: 100%;
+		padding: 0.6em 0.8em;
+		border-radius: 0.5em;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: 0.4em;
 		box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
 	}
 
 	.card-row {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.6em;
 	}
 
 	:global(.exif-material-icon) {
 		color: var(--imag-10);
-		width: 1.4rem;
-		height: 1.4rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
+		vertical-align: middle;
 	}
 
 	.card-values {
 		display: flex;
 		flex-direction: column;
-		gap: 0.1rem;
+		gap: 0.1em;
+		justify-content: center;
 	}
 
 	.value-big {
-		font-size: 1rem;
+		font-size: 1.1em;
 		font-weight: 600;
-		color: var(--imag-20);
 	}
 
 	.value-sub {
-		font-size: 0.9rem;
-		color: var(--imag-20);
-	}
-
-	.value-small {
-		color: var(--imag-20);
-		font-size: 0.85rem;
+		font-size: 0.9em;
 	}
 
 	.value-big,
-	.value-sub,
-	.value-small {
+	.value-sub {
+		color: var(--imag-20);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.rating-container {
-		margin-top: 0.75rem;
+		margin-top: 0.75em;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.5em;
 	}
 
 	.rating-stars {
@@ -481,6 +499,6 @@
 	}
 
 	.rating-clear {
-		margin: 0rem 0.5rem;
+		margin: 0em 0.5em;
 	}
 </style>

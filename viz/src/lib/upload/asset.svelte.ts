@@ -1,6 +1,6 @@
-import { uploadImageWithProgress, type UploadImageResult } from "$lib/api";
+import { uploadImageWithProgress, type ImageUploadResponse } from "$lib/api";
 import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
-import type { ImageUploadFileData, ImageUploadSuccess } from "./manager.svelte";
+import type { ImageUploadFileData } from "./manager.svelte";
 
 export enum UploadState {
     PENDING,
@@ -8,7 +8,8 @@ export enum UploadState {
     DONE,
     ERROR,
     CANCELED,
-    INVALID
+    INVALID,
+    DUPLICATE
 }
 
 export interface UploadImageStats {
@@ -23,6 +24,7 @@ export class UploadImage implements UploadImageStats {
     state: UploadState = $state(UploadState.PENDING);
     startTime?: Date = $state(new Date());
     checksum?: string;
+    imageData?: ImageUploadResponse;
     data: ImageUploadFileData;
     request: XMLHttpRequest | undefined = $state(undefined);
 
@@ -56,7 +58,7 @@ export class UploadImage implements UploadImageStats {
         }
     };
 
-    async upload(): Promise<UploadImageResult | undefined> {
+    async upload(): Promise<ImageUploadResponse | undefined> {
         try {
             this.state = UploadState.STARTED;
             const responseData = await uploadImageWithProgress({
@@ -65,17 +67,14 @@ export class UploadImage implements UploadImageStats {
                 request: this.request
             });
 
-            this.state = (responseData.status === 200) || (responseData.status === 201) ? UploadState.DONE : UploadState.INVALID;
+            const isDuplicate = responseData.status === 200;
+
+            this.state = isDuplicate ? UploadState.DUPLICATE : UploadState.DONE;
             if (responseData.status !== 200 && responseData.status !== 201) {
                 throw new Error(`Upload failed with status ${responseData.status}`);
             }
 
-            toastState.addToast({
-                message: this.state === UploadState.DONE ? `Uploaded ${this.data.filename} successfully.` : `Failed to upload ${this.data.filename}.`,
-                type: this.state === UploadState.DONE ? 'success' : 'error',
-                dismissible: true,
-                timeout: 5000
-            });
+            this.imageData = responseData.data;
 
             return responseData.data;
         } catch (error) {

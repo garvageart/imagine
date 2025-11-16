@@ -13,6 +13,7 @@
 		data?: typeof page.data;
 		hasMore?: boolean;
 		paginate?: () => void;
+		randomLatency?: boolean;
 	}
 
 	let {
@@ -22,6 +23,7 @@
 		hasMore = $bindable(false), // default to false, don't spam unnecessarily
 		data = $bindable(),
 		paginate,
+		randomLatency = $bindable(false),
 		...props
 	}: SvelteHTMLElements["div"] & Props = $props();
 
@@ -29,7 +31,7 @@
 	let isLoading = $state(true);
 	const initStyle = $derived(`${isLoading ? "height: 100%;" : ""} ${style}`);
 	let pageData = $derived.by(() => {
-		if (dev) {
+		if (dev && randomLatency) {
 			const randomLatency = Math.floor(Math.random() * 2000) + 500; // Random latency between 1 and 3 seconds in dev mode
 			return new Promise((resolve) => {
 				setTimeout(() => {

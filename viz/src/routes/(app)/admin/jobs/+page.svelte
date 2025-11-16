@@ -13,256 +13,249 @@
 		shutdownScheduler as apiShutdownScheduler
 	} from "$lib/api";
 	import { getJobsSnapshot, getEventsSince } from "$lib/api";
+	import type { WorkerJob, JobInfo } from "$lib/api";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 
-	// Connection state
-	let connected = $state(false);
-	let wsClient: WSClient | null = null;
-	let backfilledOnce = $state(false);
-	let lastCursor = $state(0);
-	let statsSyncInterval: ReturnType<typeof setInterval> | null = null;
+	type UiJob = WorkerJob & {
+		filename?: string;
+		progress?: number;
+		step?: string;
+		startTime: Date;
+		endTime?: Date | string;
+		error?: string;
+	};
 
-	// Stats
-	let stats = $state({
+	function getErrorMessage(e: unknown) {
+		if (e instanceof Error) return e.message;
+		try {
+			return String(e);
+		} catch {
+			return "Unknown error";
+		}
+	}
+
+	function getCountFromResData(data: unknown) {
+		if (!data || typeof data !== "object") return 0;
+		const d = data as Record<string, unknown>;
+		const c = d.count;
+		if (typeof c === "number") return c;
+		if (typeof c === "string") {
+			const n = Number(c);
+			return Number.isNaN(n) ? 0 : n;
+		}
+		return 0;
+	}
+
+	// Lightweight state using backend's new shapes (uids, image_uid, topic)
+	let connected = false;
+	let wsClient: WSClient | null = null;
+	let lastCursor = 0;
+
+	let stats = {
 		activeCount: 0,
 		completedCount: 0,
 		failedCount: 0,
 		totalProcessed: 0
-	});
+	};
 
-	// Job tracking
-	let jobTracking = $state({
-		active: new Map<string, any>(),
-		completed: [] as any[],
-		failed: [] as any[]
-	});
+	let activeJobs: UiJob[] = [];
+	let completedJobs: UiJob[] = [];
+	let failedJobs: UiJob[] = [];
 
-	// Correlation helpers
-	const imageToJobId = new Map<string, string>();
+	let runningByTopic: Record<string, number> = {};
+	let queuedByTopic: Record<string, number> = {};
 
-	// Topic counters
-	let runningByTopic = $state({} as Record<string, number>);
-	let queuedByTopic = $state({} as Record<string, number>);
-
-	// Job management UI state
-	let jobMgmt = $state({
+	let jobMgmt = {
 		loading: false,
-		types: [] as any[],
+		types: [] as JobInfo[],
 		concurrency: {} as Record<string, number>
-	});
+	};
 
 	function showMessage(message: string, type: "success" | "error" | "info" = "info") {
 		toastState.addToast({ message, type });
 	}
 
-	// -------- Helpers (shared by live handling and backfill) --------
-	function getTopicForJobId(jobId: string): string {
-		switch (jobId) {
-			case "thumbnailGeneration":
-				return "image_process";
-			case "xmpGeneration":
-				return "xmp_generation";
-			case "exifProcess":
-				return "exif_process";
-			default:
-				return jobId;
-		}
-	}
-
-	function resolveActiveJobId(data: any): string | null {
-		if (data?.jobId && jobTracking.active.has(data.jobId)) return data.jobId;
-		const img = data?.imageId as string | undefined;
-		if (img) {
-			const mapped = imageToJobId.get(img);
-			if (mapped && jobTracking.active.has(mapped)) return mapped;
-			for (const [jid, job] of jobTracking.active.entries()) {
-				if (job.imageId === img) {
-					imageToJobId.set(img, jid);
-					return jid;
-				}
-			}
-		}
-		return null;
-	}
-
-	function ensurePlaceholderFrom(data: any, ts?: Date) {
-		if (!data?.jobId) return;
-		const placeholder = {
-			jobId: data.jobId,
-			imageId: data.imageId,
-			type: data.type || "unknown",
-			filename: data.filename,
-			startTime: ts ? new Date(ts) : new Date(),
-			progress: typeof data.progress === "number" ? data.progress : 0,
-			step: data.step || "In progress"
-		};
-		jobTracking.active.set(data.jobId, placeholder);
-		if (data.imageId) imageToJobId.set(data.imageId, data.jobId);
-		stats.activeCount = jobTracking.active.size;
-	}
-
-	function applyProgressUpdate(data: any) {
-		const id = resolveActiveJobId(data);
-		if (id) {
-			const job = jobTracking.active.get(id)!;
-			const nextProg = typeof data.progress === "number" ? Math.max(data.progress, job.progress ?? 0) : (job.progress ?? 0);
-			jobTracking.active.set(id, { ...job, progress: nextProg, step: data.step ?? job.step });
-			return;
-		}
-		if (data?.jobId) ensurePlaceholderFrom(data);
-	}
-
-	function removeActiveFor(data: any) {
-		const id = resolveActiveJobId(data);
-		if (!id) return null;
-		const job = jobTracking.active.get(id);
-		jobTracking.active.delete(id);
-		if (job?.imageId) imageToJobId.delete(job.imageId);
-		return job || null;
-	}
-
-	let statsSyncTimer: ReturnType<typeof setTimeout> | null = null;
-	function scheduleStatsSync(delay = 300) {
-		if (statsSyncTimer) clearTimeout(statsSyncTimer);
-		statsSyncTimer = setTimeout(() => void loadJobStats(), delay);
-	}
-
-	function afterTerminalUpdate(data: any, removed: boolean) {
-		stats.activeCount = jobTracking.active.size;
-		const topic = getTopicForJobId(data.type);
-
-		if (removed) {
-			// Job was in our active map, so decrement running
-			runningByTopic[topic] = Math.max(0, (runningByTopic[topic] || 0) - 1);
-		} else {
-			// Job completed without being in active map (very fast or missed start)
-			// Try decrementing running first, then queued
-			if ((runningByTopic[topic] || 0) > 0) {
-				runningByTopic[topic] = Math.max(0, (runningByTopic[topic] || 0) - 1);
-			} else if ((queuedByTopic[topic] || 0) > 0) {
-				queuedByTopic[topic] = Math.max(0, (queuedByTopic[topic] || 0) - 1);
-			}
+	function getTopicForJobType(jobType: string) {
+		const info = jobMgmt.types.find((t) => t.id === jobType);
+		if (info && typeof info.topic === "string" && info.topic.length > 0) {
+			return info.topic;
 		}
 
-		// If everything quiets down quickly (fast jobs), ask server for the truth shortly after.
-		if (jobTracking.active.size === 0) {
-			scheduleStatsSync(250);
-		}
+		return jobType;
 	}
 
-	// -------- Scheduler controls --------
+	// Scheduler controls
 	async function startScheduler() {
 		try {
 			const res = await apiStartScheduler();
-			if (res.status === 200) {
-				showMessage((res.data as any)?.message ?? "Scheduler started", "success");
-			} else {
-				showMessage((res as any).data?.error ?? `Start failed (${res.status})`, "error");
-			}
+			if (res.status === 200) showMessage(res.data?.message ?? "Scheduler started", "success");
+			else showMessage(`Start failed (${res.status})`, "error");
 		} catch (e) {
-			showMessage("Start failed: " + (e as Error).message, "error");
+			showMessage("Start failed: " + getErrorMessage(e), "error");
 		}
 	}
 
 	async function shutdownScheduler() {
 		try {
 			const res = await apiShutdownScheduler();
-			if (res.status === 200) {
-				showMessage((res.data as any)?.message ?? "Scheduler shutdown", "success");
-			} else {
-				showMessage((res as any).data?.error ?? `Shutdown failed (${res.status})`, "error");
-			}
+			if (res.status === 200) showMessage(res.data?.message ?? "Scheduler shutdown", "success");
+			else showMessage(`Shutdown failed (${res.status})`, "error");
 		} catch (e) {
-			showMessage("Shutdown failed: " + (e as Error).message, "error");
+			showMessage("Shutdown failed: " + getErrorMessage(e), "error");
 		}
 	}
 
-	// -------- WebSocket wiring --------
 	function connectWS() {
 		if (wsClient) {
 			return;
 		}
 
 		wsClient = createWSConnection(
-			async (event: string, data: any) => {
+			async (event: string, data: unknown) => {
+				const payload = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
 				switch (event) {
-					case "connected": {
+					case "connected":
 						connected = true;
-						if (data?.clientId) {
-							showMessage(`Connected to WebSocket (Client: ${String(data.clientId).substring(0, 8)})`, "success");
+						if (payload.clientId) {
+							showMessage(`Connected (client ${String(payload.clientId).slice(0, 8)})`, "success");
 						}
-						if (!backfilledOnce) await bootstrapState();
+
+						await bootstrapState();
 						break;
-					}
 					case "job-started": {
-						const idNum = Number((data as any)?.__id ?? 0);
-						if (idNum && idNum <= lastCursor) break;
-						if (idNum) lastCursor = idNum;
-						if (!data?.jobId) break;
-						jobTracking.active.set(data.jobId, {
-							...data,
-							startTime: new Date(),
-							progress: 0,
-							step: "Starting..."
-						});
-						if (data.imageId) imageToJobId.set(data.imageId, data.jobId);
-						stats.activeCount = jobTracking.active.size;
-						const topic = getTopicForJobId(data.type);
+						const uid = typeof payload.uid === "string" ? payload.uid : typeof payload.id === "string" ? payload.id : undefined;
+						if (!uid) {
+							return;
+						}
+
+						const progress = typeof payload.progress === "number" ? payload.progress : 0;
+						const newJob: UiJob = {
+							uid,
+							// prefer explicit type/topic when provided, fall back to the other
+							type:
+								typeof payload.type === "string" ? payload.type : typeof payload.topic === "string" ? payload.topic : "unknown",
+							topic:
+								typeof payload.topic === "string" ? payload.topic : typeof payload.type === "string" ? payload.type : "unknown",
+							status: typeof payload.status === "string" ? payload.status : "running",
+							enqueued_at: typeof payload.enqueued_at === "string" ? payload.enqueued_at : new Date().toISOString(),
+							image_uid: typeof payload.image_uid === "string" ? payload.image_uid : undefined,
+							filename: typeof payload.filename === "string" ? payload.filename : undefined,
+							progress,
+							startTime: new Date()
+						};
+
+						activeJobs = [newJob, ...activeJobs].slice(0, 200);
+						stats.activeCount = activeJobs.length;
+
+						const topic = getTopicForJobType(newJob.type || newJob.topic || "unknown");
 						runningByTopic[topic] = (runningByTopic[topic] || 0) + 1;
-						if ((queuedByTopic[topic] || 0) > 0) queuedByTopic[topic] = (queuedByTopic[topic] || 0) - 1;
+						if ((queuedByTopic[topic] || 0) > 0) {
+							queuedByTopic[topic] = Math.max(0, queuedByTopic[topic] - 1);
+						}
+
 						break;
 					}
 					case "job-progress": {
-						const idNum = Number((data as any)?.__id ?? 0);
-						if (idNum && idNum <= lastCursor) break;
-						if (idNum) lastCursor = idNum;
-						applyProgressUpdate(data);
+						const uid = typeof payload.uid === "string" ? payload.uid : undefined;
+						const imageUid = typeof payload.image_uid === "string" ? payload.image_uid : undefined;
+						if (!uid && !imageUid) {
+							return;
+						}
+
+						const progress = typeof payload.progress === "number" ? payload.progress : undefined;
+						const step = typeof payload.step === "string" ? payload.step : undefined;
+
+						// I hate everything about this
+						activeJobs = activeJobs.map((j) =>
+							(j.uid && uid && j.uid === uid) || (j.image_uid && imageUid && j.image_uid === imageUid)
+								? { ...j, ...(progress !== undefined ? { progress } : {}), ...(step ? { step } : {}) }
+								: j
+						);
+
 						break;
 					}
 					case "job-completed": {
-						const idNum = Number((data as any)?.__id ?? 0);
-						if (idNum && idNum <= lastCursor) break;
-						if (idNum) lastCursor = idNum;
-						const removedJob = removeActiveFor(data);
-						if (removedJob) {
-							jobTracking.completed = [{ ...removedJob, ...data, endTime: new Date() }, ...jobTracking.completed].slice(0, 50);
-						} else {
-							jobTracking.completed = [{ ...data, endTime: new Date(), startTime: new Date() }, ...jobTracking.completed].slice(
-								0,
-								50
-							);
+						const uid = typeof payload.uid === "string" ? payload.uid : undefined;
+						const imageUid = typeof payload.image_uid === "string" ? payload.image_uid : undefined;
+
+						let removed: UiJob | null = null;
+						activeJobs = activeJobs.filter((j) => {
+							if ((j.uid && uid && j.uid === uid) || (imageUid && j.image_uid === imageUid)) {
+								removed = { ...j, ...(payload as Record<string, unknown>), endTime: new Date() } as UiJob;
+								return false;
+							}
+							return true;
+						});
+
+						if (!removed) {
+							removed = {
+								uid: uid ?? String(Math.random()).slice(2),
+								type:
+									typeof payload.type === "string" ? payload.type : typeof payload.topic === "string" ? payload.topic : "unknown",
+								topic:
+									typeof payload.topic === "string" ? payload.topic : typeof payload.type === "string" ? payload.type : "unknown",
+								status: typeof payload.status === "string" ? payload.status : "completed",
+								enqueued_at: typeof payload.enqueued_at === "string" ? payload.enqueued_at : new Date().toISOString(),
+								image_uid: imageUid ?? undefined,
+								endTime: new Date(),
+								startTime: new Date()
+							} as UiJob;
 						}
+
+						completedJobs = [removed, ...completedJobs].slice(0, 50);
 						stats.completedCount++;
 						stats.totalProcessed++;
-						if (!removedJob && data.imageId) imageToJobId.delete(data.imageId);
-						afterTerminalUpdate(data, !!removedJob);
+						stats.activeCount = activeJobs.length;
+
+						const topic = getTopicForJobType(removed.type || removed.topic || "unknown");
+						runningByTopic[topic] = Math.max(0, (runningByTopic[topic] || 0) - 1);
 						break;
 					}
 					case "job-failed": {
-						const idNum = Number((data as any)?.__id ?? 0);
-						if (idNum && idNum <= lastCursor) break;
-						if (idNum) lastCursor = idNum;
-						const removedJob = removeActiveFor(data);
-						if (removedJob) {
-							jobTracking.failed = [{ ...removedJob, ...data, endTime: new Date() }, ...jobTracking.failed].slice(0, 50);
-						} else {
-							jobTracking.failed = [{ ...data, endTime: new Date(), startTime: new Date() }, ...jobTracking.failed].slice(0, 50);
+						const uid = typeof payload.uid === "string" ? payload.uid : undefined;
+						const imageUid = typeof payload.image_uid === "string" ? payload.image_uid : undefined;
+						let removed: UiJob | null = null;
+
+						// fuck this
+						activeJobs = activeJobs.filter((j) => {
+							if ((j.uid && uid && j.uid === uid) || (imageUid && j.image_uid === imageUid)) {
+								removed = { ...j, ...(payload as Record<string, unknown>), endTime: new Date() } as UiJob;
+								return false;
+							}
+							return true;
+						});
+
+						if (!removed) {
+							removed = {
+								uid: uid ?? String(Math.random()).slice(2),
+								type:
+									typeof payload.type === "string" ? payload.type : typeof payload.topic === "string" ? payload.topic : "unknown",
+								topic:
+									typeof payload.topic === "string" ? payload.topic : typeof payload.type === "string" ? payload.type : "unknown",
+								status: typeof payload.status === "string" ? payload.status : "failed",
+								enqueued_at: typeof payload.enqueued_at === "string" ? payload.enqueued_at : new Date().toISOString(),
+								image_uid: imageUid ?? undefined,
+								endTime: new Date(),
+								startTime: new Date()
+							} as UiJob;
 						}
+
+						failedJobs = [removed, ...failedJobs].slice(0, 50);
 						stats.failedCount++;
-						if (!removedJob && data.imageId) imageToJobId.delete(data.imageId);
-						afterTerminalUpdate(data, !!removedJob);
+						stats.activeCount = activeJobs.length;
+
+						const topic = getTopicForJobType(removed.type || removed.topic || "unknown");
+						runningByTopic[topic] = Math.max(0, (runningByTopic[topic] || 0) - 1);
 						break;
 					}
 				}
 			},
-			(error: Event) => {
-				console.error("WebSocket error:", error);
+			(err) => {
+				console.error("WebSocket error:", err);
 				connected = false;
 				showMessage("WebSocket connection error", "error");
 			},
-			() => {
-				connected = true;
-			},
+			() => (connected = true),
 			(code: number, reason: string) => {
 				connected = false;
 				showMessage(`WebSocket disconnected (${code}): ${reason}`, "info");
@@ -279,21 +272,35 @@
 		}
 	}
 
+	let statsSyncInterval: ReturnType<typeof setInterval> | null = null;
+	fetch("localhost:7770/images?limit=100", {
+		method: "GET",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		credentials: "include"
+	})
+		.then((res) => res.json())
+		.then((data) => {
+			console.log("Fetched images:", data);
+		})
+		.catch((error) => {
+			console.error("Error fetching images:", error);
+		});
+
 	onMount(() => {
 		connectWS();
-		// Load initial server state for consistent counters
 		void loadJobStats();
-		// Ensure job types are loaded on first render
 		void fetchJobTypes();
-		// Periodic light resync to prevent drift during bursts of ultra-fast jobs
-		statsSyncInterval = setInterval(() => {
-			if (connected) void loadJobStats();
-		}, 10000);
+		statsSyncInterval = setInterval(() => void loadJobStats(), 10000);
 	});
 
 	onDestroy(() => {
 		disconnectWS();
-		if (statsSyncInterval) clearInterval(statsSyncInterval);
+		if (statsSyncInterval) {
+			clearInterval(statsSyncInterval);
+			statsSyncInterval = null;
+		}
 	});
 
 	function formatDuration(start: Date, end: Date) {
@@ -307,11 +314,9 @@
 		try {
 			const res = await getJobStats();
 			if (res.status === 200) {
-				// Initialize topic counters from server
-				runningByTopic = res.data.running_by_topic || {};
-				queuedByTopic = res.data.queued_by_topic || {};
-				// Note: we keep stats.activeCount based on our local tracking map
-				// since it reflects what we're actually showing in the UI
+				const d = res.data as Record<string, unknown> | undefined;
+				runningByTopic = d && typeof d.running_by_topic === "object" ? (d.running_by_topic as Record<string, number>) : {};
+				queuedByTopic = d && typeof d.queued_by_topic === "object" ? (d.queued_by_topic as Record<string, number>) : {};
 			}
 		} catch (e) {
 			console.warn("Failed to load job stats:", e);
@@ -323,15 +328,18 @@
 		try {
 			const res = await listJobs();
 			if (res.status === 200) {
-				jobMgmt.types = res.data.items || [];
+				const d = res.data;
+				jobMgmt.types = Array.isArray(d.items) ? (d.items as JobInfo[]) : [];
 				jobMgmt.types.forEach((job) => {
-					if (!jobMgmt.concurrency[job.id]) jobMgmt.concurrency[job.id] = 5;
+					if (!jobMgmt.concurrency[job.id]) {
+						jobMgmt.concurrency[job.id] = 5;
+					}
 				});
 			} else {
 				showMessage("Failed to fetch job types", "error");
 			}
 		} catch (e) {
-			showMessage("Error fetching job types: " + (e as Error).message, "error");
+			showMessage("Error fetching job types: " + getErrorMessage(e), "error");
 		} finally {
 			jobMgmt.loading = false;
 		}
@@ -341,10 +349,14 @@
 		try {
 			const res = await createJob({ type: jobId, command: "all" });
 			if (res.status === 202) {
-				toastState.addToast({ message: res.data.message || `Job ${jobId} started`, type: "success" });
-				const count = Number((res.data as any).count ?? 0);
+				toastState.addToast({
+					message: res.data.message || `Job ${jobId} started`,
+					type: "success"
+				});
+
+				const count = getCountFromResData(res.data);
 				if (count > 0) {
-					const topic = getTopicForJobId(jobId);
+					const topic = getTopicForJobType(jobId);
 					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
 				}
 				await fetchJobTypes();
@@ -352,7 +364,7 @@
 				toastState.addToast({ message: `Failed to start job ${jobId}`, type: "error" });
 			}
 		} catch (e) {
-			toastState.addToast({ message: "Error starting job: " + (e as Error).message, type: "error" });
+			toastState.addToast({ message: "Error starting job: " + getErrorMessage(e), type: "error" });
 		}
 	}
 
@@ -360,12 +372,15 @@
 		try {
 			const res = await stopJobType(jobId);
 			if (res.status === 200) {
-				toastState.addToast({ message: res.data.message || `Job type ${jobId} stopped`, type: "success" });
+				toastState.addToast({
+					message: res.data.message || `Job type ${jobId} stopped`,
+					type: "success"
+				});
 			} else {
 				toastState.addToast({ message: `Failed to stop job type ${jobId}`, type: "error" });
 			}
 		} catch (e) {
-			toastState.addToast({ message: "Error stopping job type: " + (e as Error).message, type: "error" });
+			toastState.addToast({ message: "Error stopping job type: " + getErrorMessage(e), type: "error" });
 		}
 	}
 
@@ -373,17 +388,21 @@
 		try {
 			const res = await createJob({ type: jobId, command: "all" });
 			if (res.status === 202) {
-				toastState.addToast({ message: res.data.message || `Rescan all for ${jobId} started`, type: "success" });
-				const count = Number((res.data as any).count ?? 0);
+				toastState.addToast({
+					message: res.data.message || `Rescan all for ${jobId} started`,
+					type: "success"
+				});
+
+				const count = getCountFromResData(res.data);
 				if (count > 0) {
-					const topic = getTopicForJobId(jobId);
+					const topic = getTopicForJobType(jobId);
 					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
 				}
 			} else {
 				toastState.addToast({ message: `Failed to start rescan all for ${jobId}`, type: "error" });
 			}
 		} catch (e) {
-			toastState.addToast({ message: "Error starting rescan: " + (e as Error).message, type: "error" });
+			toastState.addToast({ message: "Error starting rescan: " + getErrorMessage(e), type: "error" });
 		}
 	}
 
@@ -391,17 +410,20 @@
 		try {
 			const res = await createJob({ type: jobId, command: "missing" });
 			if (res.status === 202) {
-				toastState.addToast({ message: res.data.message || `Rescan missing for ${jobId} started`, type: "success" });
-				const count = Number((res.data as any).count ?? 0);
+				toastState.addToast({
+					message: res.data.message || `Rescan missing for ${jobId} started`,
+					type: "success"
+				});
+				const count = getCountFromResData(res.data);
 				if (count > 0) {
-					const topic = getTopicForJobId(jobId);
+					const topic = getTopicForJobType(jobId);
 					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
 				}
 			} else {
 				toastState.addToast({ message: `Failed to start rescan missing for ${jobId}`, type: "error" });
 			}
 		} catch (e) {
-			toastState.addToast({ message: "Error starting rescan: " + (e as Error).message, type: "error" });
+			toastState.addToast({ message: "Error starting rescan: " + getErrorMessage(e), type: "error" });
 		}
 	}
 
@@ -410,45 +432,62 @@
 		try {
 			const res = await updateJobTypeConcurrency(jobId, { concurrency: value });
 			if (res.status === 200) {
-				toastState.addToast({ message: res.data.message || `Concurrency for ${jobId} set to ${value}`, type: "success" });
+				toastState.addToast({
+					message: res.data.message || `Concurrency for ${jobId} set to ${value}`,
+					type: "success"
+				});
 			} else {
 				toastState.addToast({ message: `Failed to update concurrency for ${jobId}`, type: "error" });
 			}
 		} catch (e) {
-			toastState.addToast({ message: "Error updating concurrency: " + (e as Error).message, type: "error" });
+			toastState.addToast({ message: "Error updating concurrency: " + getErrorMessage(e), type: "error" });
 		}
 	}
 
-	// -------- Deterministic bootstrap (snapshot + cursor) --------
+	// Bootstrap using server snapshot
 	async function bootstrapState() {
-		// 1) Snapshot counters/active from server (authoritative base)
 		const snap = await getJobsSnapshot();
 		if (snap.status === 200) {
-			const d = snap.data || {};
-			runningByTopic = d.running_by_topic || {};
-			queuedByTopic = d.queued_by_topic || {};
-			// Rebuild active entries with minimal info
-			jobTracking.active.clear();
-			if (Array.isArray(d.active)) {
-				for (const a of d.active) {
-					jobTracking.active.set(a.id, {
-						jobId: a.id,
-						type: a.topic,
-						startTime: new Date(),
-						progress: 0,
-						step: a.status || "Running"
-					});
-				}
+			const d = snap.data as Record<string, unknown> | undefined;
+			runningByTopic = d && typeof d.running_by_topic === "object" ? (d.running_by_topic as Record<string, number>) : {};
+			queuedByTopic = d && typeof d.queued_by_topic === "object" ? (d.queued_by_topic as Record<string, number>) : {};
+			// fucking hell
+			if (Array.isArray(d?.active)) {
+				activeJobs = (d!.active as unknown[]).map((a) => {
+					if (a && typeof a === "object") {
+						const obj = a as Record<string, unknown>;
+						return {
+							uid: obj.id ? String(obj.id) : String(Math.random()).slice(2),
+							type: typeof obj.topic === "string" ? obj.topic : "unknown",
+							topic: typeof obj.topic === "string" ? obj.topic : typeof obj.type === "string" ? obj.type : "unknown",
+							status: typeof obj.status === "string" ? obj.status : "running",
+							enqueued_at: typeof obj.enqueued_at === "string" ? obj.enqueued_at : new Date().toISOString(),
+							startTime: new Date()
+						} as UiJob;
+					}
+					return {
+						uid: String(a),
+						type: String(a),
+						topic: String(a),
+						status: "running",
+						enqueued_at: new Date().toISOString(),
+						startTime: new Date()
+					} as UiJob;
+				});
+			} else {
+				activeJobs = [];
 			}
-			stats.activeCount = jobTracking.active.size;
+			stats.activeCount = activeJobs.length;
 		}
-		// 2) Establish current cursor by asking events/since with tiny limit
+
+		// establish simple cursor
 		const since = await getEventsSince({ cursor: lastCursor, limit: 1 });
 		if (since.status === 200) {
-			const nc = Number(since.data?.nextCursor ?? 0);
-			if (nc && nc > lastCursor) lastCursor = nc;
+			const nc = Number(since.data.nextCursor) ?? 0;
+			if (nc && nc > lastCursor) {
+				lastCursor = nc;
+			}
 		}
-		backfilledOnce = true;
 	}
 </script>
 
@@ -525,11 +564,11 @@
 							<div class="job-type-stats">
 								<div class="stat-item-small">
 									<span class="stat-label-small">Active:</span>
-									<span class="stat-value-small">{runningByTopic[getTopicForJobId(job.id)] || 0}</span>
+									<span class="stat-value-small">{runningByTopic[getTopicForJobType(job.id)] || 0}</span>
 								</div>
 								<div class="stat-item-small">
 									<span class="stat-label-small">Waiting:</span>
-									<span class="stat-value-small">{queuedByTopic[getTopicForJobId(job.id)] || 0}</span>
+									<span class="stat-value-small">{queuedByTopic[getTopicForJobType(job.id)] || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -638,21 +677,23 @@
 	</section>
 
 	<!-- Active Jobs -->
-	{#if jobTracking.active.size > 0}
+	{#if activeJobs.length > 0}
 		<section class="content-section">
 			<div class="section-header">
 				<h2>Active Jobs</h2>
-				<span class="badge">{jobTracking.active.size}</span>
+				<span class="badge">{activeJobs.length}</span>
 			</div>
 			<div class="jobs-list">
-				{#each Array.from(jobTracking.active.values()) as job}
+				{#each activeJobs as job}
 					<div class="job-card active">
 						<div class="job-header">
 							<div class="job-info">
 								<MaterialIcon iconName="image" />
 								<div>
-									<div class="job-title">{job.filename || job.imageId}</div>
-									<div class="job-meta">{job.type} • Started {job.startTime.toLocaleTimeString()}</div>
+									<div class="job-title">{job.filename || job.image_uid || job.uid}</div>
+									<div class="job-meta">
+										{job.type || job.topic} • Started {job.startTime ? new Date(job.startTime).toLocaleTimeString() : ""}
+									</div>
 								</div>
 							</div>
 							<div class="job-progress-value">{job.progress}%</div>
@@ -668,26 +709,26 @@
 	{/if}
 
 	<!-- Completed Jobs -->
-	{#if jobTracking.completed.length > 0}
+	{#if completedJobs.length > 0}
 		<section class="content-section">
 			<div class="section-header">
 				<h2>Completed Jobs</h2>
-				<span class="badge">{jobTracking.completed.length}</span>
+				<span class="badge">{completedJobs.length}</span>
 			</div>
 			<div class="jobs-list">
-				{#each jobTracking.completed.slice(0, 10) as job}
+				{#each completedJobs.slice(0, 10) as job}
 					<div class="job-card completed">
 						<div class="job-header">
 							<div class="job-info">
 								<MaterialIcon iconName="check_circle" />
 								<div>
-									<div class="job-title">{job.filename || job.imageId}</div>
+									<div class="job-title">{job.filename || job.image_uid || job.uid}</div>
 									<div class="job-meta">
-										{job.type} • {formatDuration(job.startTime, job.endTime)}
+										{job.type || job.topic} • {formatDuration(new Date(job.startTime), new Date(job.endTime ?? job.startTime))}
 									</div>
 								</div>
 							</div>
-							<span class="job-time">{job.endTime.toLocaleTimeString()}</span>
+							<span class="job-time">{job.endTime ? new Date(job.endTime).toLocaleTimeString() : ""}</span>
 						</div>
 					</div>
 				{/each}
@@ -696,24 +737,24 @@
 	{/if}
 
 	<!-- Failed Jobs -->
-	{#if jobTracking.failed.length > 0}
+	{#if failedJobs.length > 0}
 		<section class="content-section">
 			<div class="section-header error">
 				<h2>Failed Jobs</h2>
-				<span class="badge error">{jobTracking.failed.length}</span>
+				<span class="badge error">{failedJobs.length}</span>
 			</div>
 			<div class="jobs-list">
-				{#each jobTracking.failed.slice(0, 10) as job}
+				{#each failedJobs.slice(0, 10) as job}
 					<div class="job-card failed">
 						<div class="job-header">
 							<div class="job-info">
 								<MaterialIcon iconName="error" />
 								<div>
-									<div class="job-title">{job.filename || job.imageId}</div>
-									<div class="job-meta error">{job.error}</div>
+									<div class="job-title">{job.filename || job.image_uid || job.uid}</div>
+									<div class="job-meta error">{job.error || job.error_msg}</div>
 								</div>
 							</div>
-							<span class="job-time">{job.endTime.toLocaleTimeString()}</span>
+							<span class="job-time">{job.endTime ? new Date(job.endTime).toLocaleTimeString() : ""}</span>
 						</div>
 					</div>
 				{/each}

@@ -282,7 +282,9 @@
 	}
 
 	async function paginate() {
-		if (isPaginating || !hasMore) return;
+		if (isPaginating || !hasMore) {
+			return;
+		}
 
 		isPaginating = true;
 		const nextPage = pagination.page + 1;
@@ -998,7 +1000,7 @@
 					{selectedAssets}
 					bind:singleSelectedAsset
 					data={consolidatedGroup.allImages}
-					allData={allImagesFlat}
+					bind:allData={allImagesFlat}
 					disableOutsideUnselect={true}
 					assetDblClick={(_e, asset) => openLightbox(asset)}
 					onassetcontext={(detail: { asset: Image; anchor: { x: number; y: number } }) => {

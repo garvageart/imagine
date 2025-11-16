@@ -1,39 +1,6 @@
 <script lang="ts">
 	import { user } from "$lib/states/index.svelte";
-	import Button from "$lib/components/Button.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import { startScheduler as apiStartScheduler, shutdownScheduler as apiShutdownScheduler } from "$lib/api";
-	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
-
-	function showMessage(message: string, type: "success" | "error" | "info" = "info") {
-		toastState.addToast({ message, type });
-	}
-
-	async function startScheduler() {
-		try {
-			const res = await apiStartScheduler();
-			if (res.status === 200) {
-				showMessage((res.data as any)?.message ?? "Scheduler started", "success");
-			} else {
-				showMessage((res as any).data?.error ?? `Start failed (${res.status})`, "error");
-			}
-		} catch (e) {
-			showMessage("Start failed: " + (e as Error).message, "error");
-		}
-	}
-
-	async function shutdownScheduler() {
-		try {
-			const res = await apiShutdownScheduler();
-			if (res.status === 200) {
-				showMessage((res.data as any)?.message ?? "Scheduler shutdown", "success");
-			} else {
-				showMessage((res as any).data?.error ?? `Shutdown failed (${res.status})`, "error");
-			}
-		} catch (e) {
-			showMessage("Shutdown failed: " + (e as Error).message, "error");
-		}
-	}
 </script>
 
 <svelte:head>
@@ -47,23 +14,6 @@
 			<p class="subtitle">Manage system settings and monitor operations</p>
 		</div>
 	</header>
-
-	<section class="content-section">
-		<div class="section-header">
-			<MaterialIcon iconName="settings" />
-			<h2>Scheduler Controls</h2>
-		</div>
-		<div class="controls-grid">
-			<Button onclick={startScheduler}>
-				<MaterialIcon iconName="play_arrow" />
-				Start Scheduler
-			</Button>
-			<Button onclick={shutdownScheduler}>
-				<MaterialIcon iconName="stop" />
-				Shutdown Scheduler
-			</Button>
-		</div>
-	</section>
 
 	<section class="content-section">
 		<div class="section-header">
@@ -155,12 +105,6 @@
 		}
 	}
 
-	.controls-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(12em, 1fr));
-		gap: 1rem;
-	}
-
 	:global(.controls-grid button) {
 		display: flex;
 		align-items: center;
@@ -168,7 +112,7 @@
 		gap: 0.5rem;
 		padding: 0.875rem 1.25rem;
 		border-radius: 0.5rem;
-		font-size: 0.95rem;
+		font-size: 1rem;
 		font-weight: 500;
 		background-color: var(--imag-80);
 		color: var(--imag-text-color);
@@ -210,8 +154,8 @@
 			justify-content: center;
 			width: 3em;
 			height: 3em;
-			background: var(--imag-60);
-			color: white;
+			background: var(--imag-80);
+			color: var(--imag-10);
 			border-radius: 12px;
 		}
 

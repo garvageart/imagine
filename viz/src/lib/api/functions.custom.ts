@@ -5,20 +5,12 @@
 import { createServerURL } from "$lib/utils/url";
 import { MEDIA_SERVER } from "$lib/constants";
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
+import type { ErrorResponse, ImageUploadResponse } from "./client";
 
 export interface UploadImageOptions {
     data: ImageUploadFileData;
     onUploadProgress?: (event: ProgressEvent<XMLHttpRequestEventTarget>) => void;
     request?: XMLHttpRequest;
-}
-
-export interface UploadImageResponse {
-    id: string;
-}
-
-export interface UploadImageResult {
-    uid: string;
-    metadata?: any;
 }
 
 /**
@@ -29,7 +21,7 @@ export interface UploadImageResult {
  */
 export async function uploadImageWithProgress(
     options: UploadImageOptions
-): Promise<{ data: UploadImageResult; status: number; }> {
+): Promise<{ data: ImageUploadResponse; status: number; }> {
     const { onUploadProgress, data } = options;
 
     const xhr = new XMLHttpRequest();
@@ -40,18 +32,13 @@ export async function uploadImageWithProgress(
     }
 
     return new Promise((resolve, reject) => {
-
         xhr.addEventListener('error', (error) => reject(error));
         xhr.addEventListener('load', () => {
             if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
-                const response = xhr.response as UploadImageResponse;
-                // Map API response to app format (id -> uid)
-                resolve({
-                    data: { uid: response.id },
-                    status: xhr.status
-                });
+                const response = xhr.response as ImageUploadResponse;
+                resolve({ data: response, status: xhr.status });
             } else {
-                reject({ data: xhr.response, status: xhr.status });
+                reject({ data: xhr.response as ErrorResponse, status: xhr.status });
             }
         });
 

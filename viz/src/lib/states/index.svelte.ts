@@ -85,3 +85,5 @@ export let upload = $state({
         total: 0
     }
 });
+
+export let continuePath = $state<string | null>(null);
