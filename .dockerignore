@@ -1,0 +1,13 @@
+.git
+.github
+.vscode
+node_modules
+vendor
+bin
+build
+dist
+*.log
+var
+*.local
+*.env
+*.DS_Store
