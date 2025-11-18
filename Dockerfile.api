@@ -2,7 +2,8 @@
 # overriding the packages image
 ARG PACKAGES_IMAGE=debian:bookworm-slim
 FROM ${PACKAGES_IMAGE} AS packages
-ENV VIPS_VERSION=8.16.1
+# TODO: needs to be configurable/automated
+ENV VIPS_VERSION=8.17.2
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
