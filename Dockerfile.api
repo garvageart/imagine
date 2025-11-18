@@ -5,9 +5,7 @@ RUN apk add --no-cache build-base pkgconf git ca-certificates vips-dev
 COPY go.mod go.sum ./
 ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=${GOPROXY}
-RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod \
-    --mount=type=cache,id=gocache,target=/root/.cache/go-build \
-    go env -w GOPROXY=${GOPROXY} && \
+RUN go env -w GOPROXY=${GOPROXY} && \
     go mod download
 COPY . .
 
