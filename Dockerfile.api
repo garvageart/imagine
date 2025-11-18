@@ -16,8 +16,8 @@ RUN apt-get update && \
 RUN set -eux; \
     apt-get update; \
     mkdir -p /tmp/build && cd /tmp/build; \
-    curl -fsSL "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.gz" -o vips.tar.gz; \
-    tar xzf vips.tar.gz; \
+    curl -fsSL "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz" -o vips.tar.xz; \
+    tar xf vips.tar.xz; \
     cd vips-${VIPS_VERSION}; \
     meson setup build --prefix=/usr ; \
     ninja -C build; \
