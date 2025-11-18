@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+      args:
+        PACKAGES_IMAGE: imagine-packages:bookworm
     image: imagine-api:latest
     env_file:
       - .env

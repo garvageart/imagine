@@ -1,6 +1,6 @@
 # install required system packages once
 # overriding the packages image
-ARG PACKAGES_IMAGE=debian:bookworm-slim
+ARG PACKAGES_IMAGE=imagine-packages:bookworm
 FROM ${PACKAGES_IMAGE} AS packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
