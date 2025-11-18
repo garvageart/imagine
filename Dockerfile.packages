@@ -1,7 +1,28 @@
 FROM debian:bookworm-slim AS packages
 
-# Install only the minimal packages needed for building and running (libvips + build deps)
+# Install build tools and required dependencies to build libvips from source.
+
+# note: this will need to be configurable in the future
+ENV VIPS_VERSION=8.16.1
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential pkg-config git ca-certificates libvips-dev && \
+    build-essential pkg-config git ca-certificates \
+    meson ninja-build python3 python3-pip python3-setuptools \
+    libglib2.0-dev libexpat1-dev libjpeg-dev libpng-dev libtiff-dev \
+    libwebp-dev libheif-dev libopenexr-dev liborc-0.4-dev libgirepository1.0-dev \
+    libxml2-dev libexif-dev libpoppler-glib-dev libgsf-1-dev libopenjp2-7-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Download, build and install libvips so headers/libs match the generated bindings
+RUN set -eux; \
+    apt-get update; \
+    mkdir -p /tmp/build && cd /tmp/build; \
+    curl -fsSL "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.gz" -o vips.tar.gz; \
+    tar xzf vips.tar.gz; \
+    cd vips-${VIPS_VERSION}; \
+    meson setup build --prefix=/usr ; \
+    ninja -C build; \
+    ninja -C build install; \
+    rm -rf /tmp/build; \
+    ldconfig || true
