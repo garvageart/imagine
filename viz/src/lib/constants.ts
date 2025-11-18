@@ -21,26 +21,13 @@ export class ServerURLConfig {
     ) {
         this.port = port;
         this.subdomain = subdomain;
-
-        if (CLIENT_IS_PRODUCTION) {
-            this.host = `https://${subdomain}.imagine.${BROWSER_BASE_URL}`;
-        } else {
-            this.host = `http://localhost:${port}`;
-        }
-
+        this.host = `http://localhost:${port}`;
         this.url = this.host;
     }
 }
 
 export const MEDIA_SERVER = new ServerURLConfig("media", 7770);
 export const UI_SERVER = new ServerURLConfig("viz", 7777);
-
-// for docker
-declare const __env: any;
-const BUILD_API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || (typeof __env !== 'undefined' && __env?.VITE_API_BASE_URL) || null;
-if (BUILD_API_BASE) {
-    MEDIA_SERVER.url = BUILD_API_BASE;
-}
 
 export const DEFAULT_THEME = "viz-theme";
 export const CAN_DEBUG = IS_BROWSER_ENV.development && localStorage.getItem("viz:debugMode") === "true";
