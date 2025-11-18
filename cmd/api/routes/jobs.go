@@ -22,38 +22,25 @@ import (
 )
 
 // handleThumbnailGeneration processes thumbnail generation job requests
-func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRequest, res http.ResponseWriter, req *http.Request) {
-	command := "all" // default
-	if body.Command != nil {
-		command = string(*body.Command)
+func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCreateRequest, res http.ResponseWriter, req *http.Request) {
+	command := string(body.Command)
+	if command == "" {
+		command = "all"
 	}
 
 	var count int64
 	var err error
 
-	switch command {
-	case "missing":
-		// Only images without thumbnails/thumbhash
-		err = db.Model(&entities.Image{}).Where("image_metadata->>'thumbhash' IS NULL").Count(&count).Error
-	case "all":
-		// All images
-		err = db.Model(&entities.Image{}).Count(&count).Error
-	case "single":
-		// Single image - requires image_uid
-		if body.ImageUid == nil || *body.ImageUid == "" {
-			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image_uid required for single command"})
-			return
-		}
+	// If UIDs provided and only one, treat as a single target
+	if body.Uids != nil && len(*body.Uids) == 1 {
 		var img entities.Image
-		if err := db.Where("uid = ?", *body.ImageUid).First(&img).Error; err != nil {
+		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
 			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
 			return
 		}
 
 		job := &workers.ImageProcessJob{Image: img}
-		// Use central enqueue which persists a WorkerJob and publishes the message
 		_, err := jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
@@ -63,8 +50,18 @@ func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCre
 
 		count := 1
 		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "thumbnail generation job enqueued", Count: &count})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "thumbnail generation job enqueued", Count: &count})
 		return
+	}
+
+	switch command {
+	case "missing":
+		// Only images without thumbnails/thumbhash
+		err = db.Model(&entities.Image{}).Where("image_metadata->>'thumbhash' IS NULL").Count(&count).Error
+	case "all":
+		// All images
+		err = db.Model(&entities.Image{}).Count(&count).Error
+	// 'single' is now supported via body.Uids of length 1; handled above.
 	default:
 		render.Status(req, http.StatusBadRequest)
 		render.JSON(res, req, dto.ErrorResponse{Error: fmt.Sprintf("unknown command: %s", command)})
@@ -80,7 +77,7 @@ func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCre
 	if count == 0 {
 		zeroCount := 0
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
 		return
 	}
 
@@ -107,22 +104,44 @@ func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCre
 
 	jobCount := int(count)
 	render.Status(req, http.StatusAccepted)
-	render.JSON(res, req, dto.JobEnqueueResponse{
+	render.JSON(res, req, dto.WorkerJobEnqueueResponse{
 		Message: fmt.Sprintf("thumbnail generation jobs enqueued (%s)", command),
 		Count:   &jobCount,
 	})
 }
 
 // handleXMPGeneration processes XMP sidecar file generation job requests
-func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRequest, res http.ResponseWriter, req *http.Request) {
-	command := "all" // default
-	if body.Command != nil {
-		command = string(*body.Command)
+func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCreateRequest, res http.ResponseWriter, req *http.Request) {
+	command := string(body.Command)
+	if command == "" {
+		command = "all"
 	}
 
 	var count int64
 	var err error
 	var uidsWithoutXMP []string
+
+	if body.Uids != nil && len(*body.Uids) == 1 {
+		var img entities.Image
+		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
+			render.Status(req, http.StatusNotFound)
+			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+			return
+		}
+
+		job := &workers.XMPGenerationJob{Image: img}
+		_, err := jobs.Enqueue(db, workers.TopicXMPGeneration, job, nil, &img.Uid)
+		if err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue job"})
+			return
+		}
+
+		count := 1
+		render.Status(req, http.StatusAccepted)
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "XMP sidecar generation job enqueued", Count: &count})
+		return
+	}
 
 	switch command {
 	case "missing":
@@ -170,31 +189,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCreateReq
 			render.JSON(res, req, dto.ErrorResponse{Error: "failed to count images"})
 			return
 		}
-	case "single":
-		if body.ImageUid == nil || *body.ImageUid == "" {
-			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image_uid required for single command"})
-			return
-		}
-		var img entities.Image
-		if err := db.Where("uid = ?", *body.ImageUid).First(&img).Error; err != nil {
-			render.Status(req, http.StatusNotFound)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
-			return
-		}
-
-		job := &workers.XMPGenerationJob{Image: img}
-		_, err := jobs.Enqueue(db, workers.TopicXMPGeneration, job, nil, &img.Uid)
-		if err != nil {
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue job"})
-			return
-		}
-
-		count := 1
-		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "XMP sidecar generation job enqueued", Count: &count})
-		return
+	// 'single' replaced by `uids`: handled above if provided.
 	default:
 		render.Status(req, http.StatusBadRequest)
 		render.JSON(res, req, dto.ErrorResponse{Error: fmt.Sprintf("unknown command: %s", command)})
@@ -204,7 +199,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCreateReq
 	if count == 0 {
 		zeroCount := 0
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
 		return
 	}
 
@@ -258,36 +253,25 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.JobCreateReq
 
 	jobCount := int(count)
 	render.Status(req, http.StatusAccepted)
-	render.JSON(res, req, dto.JobEnqueueResponse{
+	render.JSON(res, req, dto.WorkerJobEnqueueResponse{
 		Message: fmt.Sprintf("XMP sidecar generation jobs enqueued (%s)", command),
 		Count:   &jobCount,
 	})
 }
 
 // handleExifProcessing processes EXIF extraction job requests
-func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRequest, res http.ResponseWriter, req *http.Request) {
-	command := "all"
-	if body.Command != nil {
-		command = string(*body.Command)
+func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCreateRequest, res http.ResponseWriter, req *http.Request) {
+	command := string(body.Command)
+	if command == "" {
+		command = "all"
 	}
 
 	var count int64
 	var err error
 
-	switch command {
-	case "missing":
-		// images without exif
-		err = db.Model(&entities.Image{}).Where("exif IS NULL").Count(&count).Error
-	case "all":
-		err = db.Model(&entities.Image{}).Count(&count).Error
-	case "single":
-		if body.ImageUid == nil || *body.ImageUid == "" {
-			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image_uid required for single command"})
-			return
-		}
+	if body.Uids != nil && len(*body.Uids) == 1 {
 		var img entities.Image
-		if err := db.Where("uid = ?", *body.ImageUid).First(&img).Error; err != nil {
+		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
 			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
 			return
@@ -303,8 +287,17 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRe
 
 		c := 1
 		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "EXIF processing job enqueued", Count: &c})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "EXIF processing job enqueued", Count: &c})
 		return
+	}
+
+	switch command {
+	case "missing":
+		// images without exif
+		err = db.Model(&entities.Image{}).Where("exif IS NULL").Count(&count).Error
+	case "all":
+		err = db.Model(&entities.Image{}).Count(&count).Error
+	// 'single' replaced by `uids`: handled above if provided.
 	default:
 		render.Status(req, http.StatusBadRequest)
 		render.JSON(res, req, dto.ErrorResponse{Error: fmt.Sprintf("unknown command: %s", command)})
@@ -320,7 +313,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRe
 	if count == 0 {
 		zeroCount := 0
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.JobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
 		return
 	}
 
@@ -346,7 +339,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.JobCreateRe
 
 	jobCount := int(count)
 	render.Status(req, http.StatusAccepted)
-	render.JSON(res, req, dto.JobEnqueueResponse{
+	render.JSON(res, req, dto.WorkerJobEnqueueResponse{
 		Message: fmt.Sprintf("EXIF processing jobs enqueued (%s)", command),
 		Count:   &jobCount,
 	})
@@ -360,26 +353,6 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 	r.Use(libhttp.AuthMiddleware(db, logger))
 	r.Use(libhttp.AdminMiddleware)
-
-	r.Post("/scheduler/start", func(res http.ResponseWriter, req *http.Request) {
-		if err := jobs.Start(); err != nil {
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to start scheduler"})
-			return
-		}
-		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.MessageResponse{Message: "started"})
-	})
-
-	r.Post("/scheduler/shutdown", func(res http.ResponseWriter, req *http.Request) {
-		if err := jobs.Shutdown(); err != nil {
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to shutdown scheduler"})
-			return
-		}
-		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.MessageResponse{Message: "shutdown"})
-	})
 
 	r.Get("/count", func(res http.ResponseWriter, req *http.Request) {
 		count := jobs.GetRunningJobs()
@@ -402,6 +375,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			Topic  string `json:"topic"`
 			Status string `json:"status"`
 		}
+
 		active := make([]ActiveBrief, 0, len(activeMap))
 		for id, j := range activeMap {
 			active = append(active, ActiveBrief{Id: id, Topic: j.Topic(), Status: j.GetStatus()})
@@ -423,32 +397,104 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, snap)
 	})
 
+	// GET /jobs: list worker jobs (DB-backed). Supports ?status=&topic=&limit=&page=
 	r.Get("/", func(res http.ResponseWriter, req *http.Request) {
-		// List registered workers as available job types
-		workers := jobs.GetAllWorkers()
-		active := jobs.GetAllJobs()
+		status := req.URL.Query().Get("status")
+		topic := req.URL.Query().Get("topic")
 
-		items := make([]dto.JobInfo, 0, len(workers))
-		for _, w := range workers {
-			status := "idle"
-			for _, j := range active {
-				if j.Topic() == w.Topic {
-					if j.GetStatus() == "running" {
-						status = "running"
-						break
-					}
-					status = j.GetStatus()
-				}
-			}
-			items = append(items, dto.JobInfo{Id: w.Name, Topic: w.DisplayName, Status: status})
+		limit := 25
+		page := 0
+		if q := req.URL.Query().Get("limit"); q != "" {
+			fmt.Sscanf(q, "%d", &limit)
 		}
-        
+		if q := req.URL.Query().Get("page"); q != "" {
+			fmt.Sscanf(q, "%d", &page)
+		}
+
+		var ents []entities.WorkerJob
+		query := db.Session(&gorm.Session{})
+		if status != "" {
+			query = query.Where("status = ?", status)
+		}
+		if topic != "" {
+			query = query.Where("topic = ?", topic)
+		}
+
+		var total int64
+		if err := query.Model(&entities.WorkerJob{}).Count(&total).Error; err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to list jobs"})
+			return
+		}
+
+		if err := query.Order("enqueued_at desc").Limit(limit).Offset(page * limit).Find(&ents).Error; err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to list jobs"})
+			return
+		}
+
+		items := make([]dto.WorkerJob, 0, len(ents))
+		for _, e := range ents {
+			items = append(items, e.DTO())
+		}
+
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.JobListResponse{Items: items})
+		render.JSON(res, req, dto.WorkerJobsResponse{Items: items, Total: int(total)})
+	})
+
+	// GET /workers: list registered worker types
+	r.Get("/workers", func(res http.ResponseWriter, req *http.Request) {
+		stats := jobs.GetCounts()
+		workersList := jobs.GetAllWorkers()
+
+		items := make([]dto.WorkerInfo, 0, len(workersList))
+		for _, w := range workersList {
+			count := 0
+			if v := stats.RunningByTopic[w.Topic]; v > 0 {
+				count = v
+			}
+			cptr := count
+			items = append(items, dto.WorkerInfo{Concurrency: w.Concurrency, Count: &cptr, DisplayName: w.DisplayName, Name: w.Name})
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.WorkersListResponse{Items: items})
+	})
+
+	r.Post("/workers", func(res http.ResponseWriter, req *http.Request) {
+		var body dto.WorkerRegisterRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.ErrorResponse{Error: "invalid body"})
+			return
+		}
+
+		if body.Name == "" {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.ErrorResponse{Error: "name required"})
+			return
+		}
+
+		// Apply optional concurrency update
+		if body.Concurrency != nil {
+			jobs.SetConcurrency(body.Name, *body.Concurrency)
+		}
+
+		stats := jobs.GetCounts()
+		count := 0
+		if v := stats.RunningByTopic[body.Name]; v > 0 {
+			count = v
+		}
+		cptr := count
+
+		ci := dto.WorkerInfo{Concurrency: jobs.GetConcurrency(body.Name), Count: &cptr, DisplayName: body.Name, Name: body.Name}
+
+		render.Status(req, http.StatusCreated)
+		render.JSON(res, req, ci)
 	})
 
 	r.Post("/", func(res http.ResponseWriter, req *http.Request) {
-		var body dto.JobCreateRequest
+		var body dto.WorkerJobCreateRequest
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
 			render.JSON(res, req, dto.ErrorResponse{Error: "invalid body"})
@@ -456,15 +502,15 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		switch body.Type {
-		case "thumbnailGeneration":
+		case workers.JobTypeImageProcess:
 			handleThumbnailGeneration(db, logger, body, res, req)
 			return
 
-		case "xmpGeneration":
+		case workers.JobTypeXMPGeneration:
 			handleXMPGeneration(db, logger, body, res, req)
 			return
 
-		case "exifProcessing":
+		case workers.JobTypeExifProcess:
 			handleExifProcessing(db, logger, body, res, req)
 			return
 
@@ -491,9 +537,9 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		all := jobs.GetAllJobs()
 		if j, ok := all[uid]; ok {
 			resp := map[string]any{
-				"uid":  uid,
-				"type": j.Topic(),
-				"topic": j.Topic(),
+				"uid":    uid,
+				"type":   j.Topic(),
+				"topic":  j.Topic(),
 				"status": j.GetStatus(),
 			}
 
@@ -513,7 +559,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			j.SetStatus("cancelled")
 			delete(all, uid)
 			_ = jobs.UpdateWorkerJobStatus(db, uid, "cancelled", nil, nil, nil, nil)
-            
+
 			render.Status(req, http.StatusOK)
 			render.JSON(res, req, dto.MessageResponse{Message: "cancelled"})
 			return
@@ -543,12 +589,6 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		topic := jobType
-		switch jobType {
-		case "thumbnailGeneration":
-			topic = workers.TopicImageProcess
-		case "exifProcessing":
-			topic = workers.TopicExifProcess
-		}
 
 		all := jobs.GetAllJobs()
 		cancelled := 0
@@ -588,12 +628,6 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		topic := jobType
-		switch jobType {
-		case "thumbnailGeneration":
-			topic = workers.TopicImageProcess
-		case "exifProcessing":
-			topic = workers.TopicExifProcess
-		}
 
 		jobs.SetConcurrency(topic, body.Concurrency)
 		logger.Info("concurrency updated",

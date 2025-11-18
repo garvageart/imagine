@@ -9,19 +9,18 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for JobCreateRequestCommand.
-const (
-	All     JobCreateRequestCommand = "all"
-	Missing JobCreateRequestCommand = "missing"
-	Single  JobCreateRequestCommand = "single"
-)
-
 // Defines values for UserRole.
 const (
 	UserRoleAdmin      UserRole = "admin"
 	UserRoleGuest      UserRole = "guest"
 	UserRoleSuperadmin UserRole = "superadmin"
 	UserRoleUser       UserRole = "user"
+)
+
+// Defines values for WorkerJobCreateRequestCommand.
+const (
+	All     WorkerJobCreateRequestCommand = "all"
+	Missing WorkerJobCreateRequestCommand = "missing"
 )
 
 // Defines values for InitiateOAuthParamsProvider.
@@ -49,6 +48,15 @@ const (
 // Defines values for GetImageFileParamsDownload.
 const (
 	N1 GetImageFileParamsDownload = "1"
+)
+
+// Defines values for ListJobsParamsStatus.
+const (
+	Cancelled ListJobsParamsStatus = "cancelled"
+	Completed ListJobsParamsStatus = "completed"
+	Failed    ListJobsParamsStatus = "failed"
+	Queued    ListJobsParamsStatus = "queued"
+	Running   ListJobsParamsStatus = "running"
 )
 
 // APIKey defines model for APIKey.
@@ -334,51 +342,6 @@ type ImagesResponse struct {
 	Image   Image     `json:"image"`
 }
 
-// JobCountResponse defines model for JobCountResponse.
-type JobCountResponse struct {
-	Running int `json:"running"`
-}
-
-// JobCreateRequest defines model for JobCreateRequest.
-type JobCreateRequest struct {
-	// Command Command to execute (all=process all, missing=process missing, single=process one image)
-	Command *JobCreateRequestCommand `json:"command,omitempty"`
-
-	// ImageUid Image UID (required when command=single)
-	ImageUid *string `json:"image_uid,omitempty"`
-
-	// Type Job type (e.g., thumbnailGeneration, imageProcessing)
-	Type string `json:"type"`
-}
-
-// JobCreateRequestCommand Command to execute (all=process all, missing=process missing, single=process one image)
-type JobCreateRequestCommand string
-
-// JobEnqueueResponse defines model for JobEnqueueResponse.
-type JobEnqueueResponse struct {
-	Count   *int   `json:"count,omitempty"`
-	Message string `json:"message"`
-}
-
-// JobInfo defines model for JobInfo.
-type JobInfo struct {
-	Id     string `json:"id"`
-	Status string `json:"status"`
-	Topic  string `json:"topic"`
-}
-
-// JobListResponse defines model for JobListResponse.
-type JobListResponse struct {
-	Items []JobInfo `json:"items"`
-}
-
-// JobStatsResponse defines model for JobStatsResponse.
-type JobStatsResponse struct {
-	QueuedByTopic  map[string]int `json:"queued_by_topic"`
-	Running        int            `json:"running"`
-	RunningByTopic map[string]int `json:"running_by_topic"`
-}
-
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
 	Message string `json:"message"`
@@ -486,6 +449,21 @@ type WSStatsResponse struct {
 	Timestamp        time.Time `json:"timestamp"`
 }
 
+// WorkerInfo defines model for WorkerInfo.
+type WorkerInfo struct {
+	// Concurrency Number of concurrent jobs for this worker
+	Concurrency int `json:"concurrency"`
+
+	// Count Number of active worker jobs with this name/topic
+	Count *int `json:"count,omitempty"`
+
+	// DisplayName Human-readable worker name
+	DisplayName string `json:"display_name"`
+
+	// Name Job topic/worker name (e.g., exif_process, image_process)
+	Name string `json:"name"`
+}
+
 // WorkerJob defines model for WorkerJob.
 type WorkerJob struct {
 	Command     *string    `json:"command"`
@@ -500,6 +478,54 @@ type WorkerJob struct {
 	Topic       string     `json:"topic"`
 	Type        string     `json:"type"`
 	Uid         string     `json:"uid"`
+}
+
+// WorkerJobCreateRequest defines model for WorkerJobCreateRequest.
+type WorkerJobCreateRequest struct {
+	// Command Command to execute (all=process all, missing=process missing)
+	Command WorkerJobCreateRequestCommand `json:"command"`
+
+	// Type Job topic (e.g., exif_process, image_process)
+	Type string `json:"type"`
+
+	// Uids Image UIDs to process (optional, if omitted all images are considered)
+	Uids *[]string `json:"uids,omitempty"`
+}
+
+// WorkerJobCreateRequestCommand Command to execute (all=process all, missing=process missing)
+type WorkerJobCreateRequestCommand string
+
+// WorkerJobEnqueueResponse defines model for WorkerJobEnqueueResponse.
+type WorkerJobEnqueueResponse struct {
+	Count   *int   `json:"count,omitempty"`
+	Message string `json:"message"`
+}
+
+// WorkerJobStatsResponse defines model for WorkerJobStatsResponse.
+type WorkerJobStatsResponse struct {
+	QueuedByTopic  map[string]int `json:"queued_by_topic"`
+	Running        int            `json:"running"`
+	RunningByTopic map[string]int `json:"running_by_topic"`
+}
+
+// WorkerJobsResponse defines model for WorkerJobsResponse.
+type WorkerJobsResponse struct {
+	Items []WorkerJob `json:"items"`
+	Total int         `json:"total"`
+}
+
+// WorkerRegisterRequest defines model for WorkerRegisterRequest.
+type WorkerRegisterRequest struct {
+	// Concurrency Number of concurrent jobs for this worker
+	Concurrency *int `json:"concurrency,omitempty"`
+
+	// Name Job topic/worker name (e.g., exif_process, image_process)
+	Name string `json:"name"`
+}
+
+// WorkersListResponse defines model for WorkersListResponse.
+type WorkersListResponse struct {
+	Items []WorkerInfo `json:"items"`
 }
 
 // LoginJSONBody defines parameters for Login.
@@ -637,10 +663,23 @@ type GetImageFileParamsFormat string
 // GetImageFileParamsDownload defines parameters for GetImageFile.
 type GetImageFileParamsDownload string
 
-// UpdateJobTypeConcurrencyJSONBody defines parameters for UpdateJobTypeConcurrency.
-type UpdateJobTypeConcurrencyJSONBody struct {
-	Concurrency int `json:"concurrency"`
+// ListJobsParams defines parameters for ListJobs.
+type ListJobsParams struct {
+	// Status Filter by job status
+	Status *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Topic Filter by job topic
+	Topic *string `form:"topic,omitempty" json:"topic,omitempty"`
+
+	// Limit Number of jobs per page
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page index (0-based)
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
+
+// ListJobsParamsStatus defines parameters for ListJobs.
+type ListJobsParamsStatus string
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = UserCreate
@@ -688,7 +727,7 @@ type UploadImageByUrlTextRequestBody = UploadImageByUrlTextBody
 type UpdateImageJSONRequestBody = ImageUpdate
 
 // CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
-type CreateJobJSONRequestBody = JobCreateRequest
+type CreateJobJSONRequestBody = WorkerJobCreateRequest
 
-// UpdateJobTypeConcurrencyJSONRequestBody defines body for UpdateJobTypeConcurrency for application/json ContentType.
-type UpdateJobTypeConcurrencyJSONRequestBody UpdateJobTypeConcurrencyJSONBody
+// RegisterWorkerJSONRequestBody defines body for RegisterWorker for application/json ContentType.
+type RegisterWorkerJSONRequestBody = WorkerRegisterRequest

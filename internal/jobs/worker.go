@@ -13,10 +13,8 @@ type Worker struct {
 	Handler JobHandler
 	Name    string
 	Topic   string
-	// Descriptor fields
 	DisplayName string
 	Concurrency int
-	// Optional helpers for admin and enqueueing
 	Count         func(db any, command string, payload any) (int64, error)
 	Enqueue       func(db any, command string, payload any) (int, error)
 	CustomHandler any
@@ -37,15 +35,14 @@ func (w *Worker) Context() context.Context {
 	return context.Background()
 }
 
-// Running checks if the Activity is currently running.
+// Running checks if the Worker is currently running.
 func (w *Worker) Running() bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-
 	return w.busy
 }
 
-// Start marks the Activity as started and returns an error if it is already running.
+// Start marks the Worker as started and returns an error if it is already running.
 func (w *Worker) Start() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -115,6 +112,7 @@ func NewWorker(id string, topic string, displayName string, concurrency int, han
 		DisplayName: displayName,
 		Concurrency: concurrency,
 	}
+	
 	RegisterWorker(w)
 	return w
 }

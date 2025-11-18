@@ -284,23 +284,34 @@ export type DownloadToken = {
     /** When this token was last updated */
     updated_at: string;
 };
-export type JobInfo = {
-    id: string;
-    topic: string;
-    status: string;
+export type WorkerInfo = {
+    /** Job topic/worker name (e.g., exif_process, image_process) */
+    name: string;
+    /** Human-readable worker name */
+    display_name: string;
+    /** Number of concurrent jobs for this worker */
+    concurrency: number;
+    /** Number of active worker jobs with this name/topic */
+    count?: number;
 };
-export type JobListResponse = {
-    items: JobInfo[];
+export type WorkersListResponse = {
+    items: WorkerInfo[];
 };
-export type JobCreateRequest = {
-    /** Job type (e.g., thumbnailGeneration, imageProcessing) */
+export type WorkerRegisterRequest = {
+    /** Job topic/worker name (e.g., exif_process, image_process) */
+    name: string;
+    /** Number of concurrent jobs for this worker */
+    concurrency?: number;
+};
+export type WorkerJobCreateRequest = {
+    /** Job topic (e.g., exif_process, image_process) */
     "type": string;
-    /** Command to execute (all=process all, missing=process missing, single=process one image) */
-    command?: "all" | "missing" | "single";
-    /** Image UID (required when command=single) */
-    image_uid?: string;
+    /** Command to execute (all=process all, missing=process missing) */
+    command: "all" | "missing";
+    /** Image UIDs to process (optional, if omitted all images are considered) */
+    uids?: string[];
 };
-export type JobEnqueueResponse = {
+export type WorkerJobEnqueueResponse = {
     message: string;
     count?: number;
 };
@@ -318,10 +329,11 @@ export type WorkerJob = {
     started_at?: string | null;
     completed_at?: string | null;
 };
-export type JobCountResponse = {
-    running: number;
+export type WorkerJobsResponse = {
+    items: WorkerJob[];
+    total: number;
 };
-export type JobStatsResponse = {
+export type WorkerJobStatsResponse = {
     running: number;
     running_by_topic: {
         [key: string]: number;
@@ -1033,26 +1045,45 @@ export function adminHealthcheck(opts?: Oazapfts.RequestOpts) {
     });
 }
 /**
- * List jobs
+ * List all workers
  */
-export function listJobs(opts?: Oazapfts.RequestOpts) {
+export function listAvailableWorkers(opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: JobListResponse;
+        data: WorkersListResponse;
     } | {
         status: 401;
         data: ErrorResponse;
-    }>("/jobs", {
+    }>("/jobs/workers", {
         ...opts
     });
 }
 /**
+ * Register a new worker
+ */
+export function registerWorker(workerRegisterRequest: WorkerRegisterRequest, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 201;
+        data: WorkerInfo;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/jobs/workers", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: workerRegisterRequest
+    }));
+}
+/**
  * Create/enqueue a job
  */
-export function createJob(jobCreateRequest: JobCreateRequest, opts?: Oazapfts.RequestOpts) {
+export function createJob(workerJobCreateRequest: WorkerJobCreateRequest, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 202;
-        data: JobEnqueueResponse;
+        data: WorkerJobEnqueueResponse;
     } | {
         status: 400;
         data: ErrorResponse;
@@ -1062,8 +1093,32 @@ export function createJob(jobCreateRequest: JobCreateRequest, opts?: Oazapfts.Re
     }>("/jobs", oazapfts.json({
         ...opts,
         method: "POST",
-        body: jobCreateRequest
+        body: workerJobCreateRequest
     }));
+}
+/**
+ * List jobs with filtering and pagination
+ */
+export function listJobs({ status, topic, limit, page }: {
+    status?: "queued" | "running" | "completed" | "failed" | "cancelled";
+    topic?: string;
+    limit?: number;
+    page?: number;
+} = {}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: WorkerJobsResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/jobs${QS.query(QS.explode({
+        status,
+        topic,
+        limit,
+        page
+    }))}`, {
+        ...opts
+    });
 }
 /**
  * Get job detail
@@ -1107,95 +1162,15 @@ export function retryJob(uid: string, opts?: Oazapfts.RequestOpts) {
     });
 }
 /**
- * Start job scheduler
- */
-export function startScheduler(opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 200;
-        data: MessageResponse;
-    } | {
-        status: 500;
-        data: ErrorResponse;
-    }>("/jobs/scheduler/start", {
-        ...opts,
-        method: "POST"
-    });
-}
-/**
- * Shutdown job scheduler
- */
-export function shutdownScheduler(opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 200;
-        data: MessageResponse;
-    } | {
-        status: 500;
-        data: ErrorResponse;
-    }>("/jobs/scheduler/shutdown", {
-        ...opts,
-        method: "POST"
-    });
-}
-/**
- * Get running jobs count
- */
-export function getJobsCount(opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 200;
-        data: JobCountResponse;
-    }>("/jobs/count", {
-        ...opts
-    });
-}
-/**
  * Get job stats by topic
  */
 export function getJobStats(opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: JobStatsResponse;
+        data: WorkerJobStatsResponse;
     }>("/jobs/stats", {
         ...opts
     });
-}
-/**
- * Stop a job type
- */
-export function stopJobType($type: string, opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 200;
-        data: MessageResponse;
-    } | {
-        status: 400;
-        data: ErrorResponse;
-    } | {
-        status: 500;
-        data: ErrorResponse;
-    }>(`/jobs/types/${encodeURIComponent($type)}/stop`, {
-        ...opts,
-        method: "POST"
-    });
-}
-/**
- * Update job type concurrency
- */
-export function updateJobTypeConcurrency($type: string, body: {
-    concurrency: number;
-}, opts?: Oazapfts.RequestOpts) {
-    return oazapfts.fetchJson<{
-        status: 200;
-        data: MessageResponse;
-    } | {
-        status: 400;
-        data: ErrorResponse;
-    } | {
-        status: 500;
-        data: ErrorResponse;
-    }>(`/jobs/types/${encodeURIComponent($type)}/concurrency`, oazapfts.json({
-        ...opts,
-        method: "PUT",
-        body
-    }));
 }
 /**
  * WebSocket connection for real-time updates

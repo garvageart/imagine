@@ -142,12 +142,13 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 		onProgress("Generating thumbhash", 70)
 	}
 
+	// just for debugging purposes in case some thumbhashes take too long
 	thumbhashTimeStart := time.Now()
-	// Generate a thumbhash from the small thumbnail
 	smallThumbImg, _, err := imageops.ReadToImage(smallThumbData)
 	if err != nil {
 		return fmt.Errorf("failed to decode thumbnail for thumbhash: %w", err)
 	}
+
 	thumbhash, err := imageops.GenerateThumbhash(smallThumbImg)
 	if err != nil {
 		return fmt.Errorf("failed to generate thumbhash: %w", err)
@@ -157,7 +158,6 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 		"duration": time.Since(thumbhashTimeStart).Milliseconds(),
 	}))
 
-	// Update the database with the generated thumbhash (stored inside image_metadata JSON)
 	encoded := images.EncodeThumbhashToString(thumbhash)
 	imgEnt.ImageMetadata.Thumbhash = &encoded
 

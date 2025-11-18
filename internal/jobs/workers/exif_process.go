@@ -134,7 +134,7 @@ func ExifProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onProg
 		Where("uid = ?", imgEnt.Uid).
 		Update("exif", imgEnt.Exif).
 		Update("taken_at", takenAt).
-		Update("image_metadata->>'color_space'", imgEnt.ImageMetadata.ColorSpace).
+		Update("image_metadata", gorm.Expr("jsonb_set(coalesce(image_metadata, '{}'::jsonb), '{color_space}', to_jsonb(?::text), true)", imgEnt.ImageMetadata.ColorSpace)).
 		Error; err != nil {
 		return fmt.Errorf("failed to update db image exif: %w", err)
 	}

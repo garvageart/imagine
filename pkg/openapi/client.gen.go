@@ -241,32 +241,23 @@ type ClientInterface interface {
 	GetImageFile(ctx context.Context, uid string, params *GetImageFileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListJobs request
-	ListJobs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListJobs(ctx context.Context, params *ListJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateJobWithBody request with any body
 	CreateJobWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateJob(ctx context.Context, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetJobsCount request
-	GetJobsCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ShutdownScheduler request
-	ShutdownScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartScheduler request
-	StartScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetJobStats request
 	GetJobStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateJobTypeConcurrencyWithBody request with any body
-	UpdateJobTypeConcurrencyWithBody(ctx context.Context, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListAvailableWorkers request
+	ListAvailableWorkers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateJobTypeConcurrency(ctx context.Context, pType string, body UpdateJobTypeConcurrencyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RegisterWorkerWithBody request with any body
+	RegisterWorkerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// StopJobType request
-	StopJobType(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RegisterWorker(ctx context.Context, body RegisterWorkerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CancelJob request
 	CancelJob(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -941,8 +932,8 @@ func (c *Client) GetImageFile(ctx context.Context, uid string, params *GetImageF
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListJobs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListJobsRequest(c.Server)
+func (c *Client) ListJobs(ctx context.Context, params *ListJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListJobsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -977,42 +968,6 @@ func (c *Client) CreateJob(ctx context.Context, body CreateJobJSONRequestBody, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetJobsCount(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetJobsCountRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ShutdownScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewShutdownSchedulerRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StartScheduler(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartSchedulerRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetJobStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetJobStatsRequest(c.Server)
 	if err != nil {
@@ -1025,8 +980,8 @@ func (c *Client) GetJobStats(ctx context.Context, reqEditors ...RequestEditorFn)
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateJobTypeConcurrencyWithBody(ctx context.Context, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateJobTypeConcurrencyRequestWithBody(c.Server, pType, contentType, body)
+func (c *Client) ListAvailableWorkers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAvailableWorkersRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1037,8 +992,8 @@ func (c *Client) UpdateJobTypeConcurrencyWithBody(ctx context.Context, pType str
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateJobTypeConcurrency(ctx context.Context, pType string, body UpdateJobTypeConcurrencyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateJobTypeConcurrencyRequest(c.Server, pType, body)
+func (c *Client) RegisterWorkerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterWorkerRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1049,8 +1004,8 @@ func (c *Client) UpdateJobTypeConcurrency(ctx context.Context, pType string, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) StopJobType(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopJobTypeRequest(c.Server, pType)
+func (c *Client) RegisterWorker(ctx context.Context, body RegisterWorkerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterWorkerRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2905,7 +2860,7 @@ func NewGetImageFileRequest(server string, uid string, params *GetImageFileParam
 }
 
 // NewListJobsRequest generates requests for ListJobs
-func NewListJobsRequest(server string) (*http.Request, error) {
+func NewListJobsRequest(server string, params *ListJobsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2921,6 +2876,76 @@ func NewListJobsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "status", runtime.ParamLocationQuery, *params.Status); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Topic != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "topic", runtime.ParamLocationQuery, *params.Topic); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -2971,87 +2996,6 @@ func NewCreateJobRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
-// NewGetJobsCountRequest generates requests for GetJobsCount
-func NewGetJobsCountRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/jobs/count")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewShutdownSchedulerRequest generates requests for ShutdownScheduler
-func NewShutdownSchedulerRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/jobs/scheduler/shutdown")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewStartSchedulerRequest generates requests for StartScheduler
-func NewStartSchedulerRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/jobs/scheduler/start")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetJobStatsRequest generates requests for GetJobStats
 func NewGetJobStatsRequest(server string) (*http.Request, error) {
 	var err error
@@ -3079,34 +3023,54 @@ func NewGetJobStatsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewUpdateJobTypeConcurrencyRequest calls the generic UpdateJobTypeConcurrency builder with application/json body
-func NewUpdateJobTypeConcurrencyRequest(server string, pType string, body UpdateJobTypeConcurrencyJSONRequestBody) (*http.Request, error) {
+// NewListAvailableWorkersRequest generates requests for ListAvailableWorkers
+func NewListAvailableWorkersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/jobs/workers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRegisterWorkerRequest calls the generic RegisterWorker builder with application/json body
+func NewRegisterWorkerRequest(server string, body RegisterWorkerJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateJobTypeConcurrencyRequestWithBody(server, pType, "application/json", bodyReader)
+	return NewRegisterWorkerRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewUpdateJobTypeConcurrencyRequestWithBody generates requests for UpdateJobTypeConcurrency with any type of body
-func NewUpdateJobTypeConcurrencyRequestWithBody(server string, pType string, contentType string, body io.Reader) (*http.Request, error) {
+// NewRegisterWorkerRequestWithBody generates requests for RegisterWorker with any type of body
+func NewRegisterWorkerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
-	if err != nil {
-		return nil, err
-	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/jobs/types/%s/concurrency", pathParam0)
+	operationPath := fmt.Sprintf("/jobs/workers")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3116,46 +3080,12 @@ func NewUpdateJobTypeConcurrencyRequestWithBody(server string, pType string, con
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewStopJobTypeRequest generates requests for StopJobType
-func NewStopJobTypeRequest(server string, pType string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/jobs/types/%s/stop", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -3484,32 +3414,23 @@ type ClientWithResponsesInterface interface {
 	GetImageFileWithResponse(ctx context.Context, uid string, params *GetImageFileParams, reqEditors ...RequestEditorFn) (*GetImageFileResponse, error)
 
 	// ListJobsWithResponse request
-	ListJobsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListJobsResponse, error)
+	ListJobsWithResponse(ctx context.Context, params *ListJobsParams, reqEditors ...RequestEditorFn) (*ListJobsResponse, error)
 
 	// CreateJobWithBodyWithResponse request with any body
 	CreateJobWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJobResponse, error)
 
 	CreateJobWithResponse(ctx context.Context, body CreateJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJobResponse, error)
 
-	// GetJobsCountWithResponse request
-	GetJobsCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetJobsCountResponse, error)
-
-	// ShutdownSchedulerWithResponse request
-	ShutdownSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ShutdownSchedulerResponse, error)
-
-	// StartSchedulerWithResponse request
-	StartSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*StartSchedulerResponse, error)
-
 	// GetJobStatsWithResponse request
 	GetJobStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetJobStatsResponse, error)
 
-	// UpdateJobTypeConcurrencyWithBodyWithResponse request with any body
-	UpdateJobTypeConcurrencyWithBodyWithResponse(ctx context.Context, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJobTypeConcurrencyResponse, error)
+	// ListAvailableWorkersWithResponse request
+	ListAvailableWorkersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAvailableWorkersResponse, error)
 
-	UpdateJobTypeConcurrencyWithResponse(ctx context.Context, pType string, body UpdateJobTypeConcurrencyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJobTypeConcurrencyResponse, error)
+	// RegisterWorkerWithBodyWithResponse request with any body
+	RegisterWorkerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterWorkerResponse, error)
 
-	// StopJobTypeWithResponse request
-	StopJobTypeWithResponse(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*StopJobTypeResponse, error)
+	RegisterWorkerWithResponse(ctx context.Context, body RegisterWorkerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterWorkerResponse, error)
 
 	// CancelJobWithResponse request
 	CancelJobWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*CancelJobResponse, error)
@@ -4508,8 +4429,8 @@ func (r GetImageFileResponse) StatusCode() int {
 type ListJobsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *JobListResponse
-	JSON401      *ErrorResponse
+	JSON200      *WorkerJobsResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -4531,7 +4452,7 @@ func (r ListJobsResponse) StatusCode() int {
 type CreateJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *JobEnqueueResponse
+	JSON202      *WorkerJobEnqueueResponse
 	JSON400      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4552,78 +4473,10 @@ func (r CreateJobResponse) StatusCode() int {
 	return 0
 }
 
-type GetJobsCountResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *JobCountResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetJobsCountResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetJobsCountResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ShutdownSchedulerResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *MessageResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ShutdownSchedulerResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ShutdownSchedulerResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type StartSchedulerResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *MessageResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r StartSchedulerResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StartSchedulerResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetJobStatsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *JobStatsResponse
+	JSON200      *WorkerJobStatsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -4642,16 +4495,15 @@ func (r GetJobStatsResponse) StatusCode() int {
 	return 0
 }
 
-type UpdateJobTypeConcurrencyResponse struct {
+type ListAvailableWorkersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *MessageResponse
-	JSON400      *ErrorResponse
-	JSON500      *ErrorResponse
+	JSON200      *WorkersListResponse
+	JSON401      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateJobTypeConcurrencyResponse) Status() string {
+func (r ListAvailableWorkersResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4659,23 +4511,23 @@ func (r UpdateJobTypeConcurrencyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateJobTypeConcurrencyResponse) StatusCode() int {
+func (r ListAvailableWorkersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type StopJobTypeResponse struct {
+type RegisterWorkerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *MessageResponse
+	JSON201      *WorkerInfo
 	JSON400      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r StopJobTypeResponse) Status() string {
+func (r RegisterWorkerResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4683,7 +4535,7 @@ func (r StopJobTypeResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r StopJobTypeResponse) StatusCode() int {
+func (r RegisterWorkerResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5264,8 +5116,8 @@ func (c *ClientWithResponses) GetImageFileWithResponse(ctx context.Context, uid 
 }
 
 // ListJobsWithResponse request returning *ListJobsResponse
-func (c *ClientWithResponses) ListJobsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListJobsResponse, error) {
-	rsp, err := c.ListJobs(ctx, reqEditors...)
+func (c *ClientWithResponses) ListJobsWithResponse(ctx context.Context, params *ListJobsParams, reqEditors ...RequestEditorFn) (*ListJobsResponse, error) {
+	rsp, err := c.ListJobs(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -5289,33 +5141,6 @@ func (c *ClientWithResponses) CreateJobWithResponse(ctx context.Context, body Cr
 	return ParseCreateJobResponse(rsp)
 }
 
-// GetJobsCountWithResponse request returning *GetJobsCountResponse
-func (c *ClientWithResponses) GetJobsCountWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetJobsCountResponse, error) {
-	rsp, err := c.GetJobsCount(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetJobsCountResponse(rsp)
-}
-
-// ShutdownSchedulerWithResponse request returning *ShutdownSchedulerResponse
-func (c *ClientWithResponses) ShutdownSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ShutdownSchedulerResponse, error) {
-	rsp, err := c.ShutdownScheduler(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseShutdownSchedulerResponse(rsp)
-}
-
-// StartSchedulerWithResponse request returning *StartSchedulerResponse
-func (c *ClientWithResponses) StartSchedulerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*StartSchedulerResponse, error) {
-	rsp, err := c.StartScheduler(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartSchedulerResponse(rsp)
-}
-
 // GetJobStatsWithResponse request returning *GetJobStatsResponse
 func (c *ClientWithResponses) GetJobStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetJobStatsResponse, error) {
 	rsp, err := c.GetJobStats(ctx, reqEditors...)
@@ -5325,30 +5150,30 @@ func (c *ClientWithResponses) GetJobStatsWithResponse(ctx context.Context, reqEd
 	return ParseGetJobStatsResponse(rsp)
 }
 
-// UpdateJobTypeConcurrencyWithBodyWithResponse request with arbitrary body returning *UpdateJobTypeConcurrencyResponse
-func (c *ClientWithResponses) UpdateJobTypeConcurrencyWithBodyWithResponse(ctx context.Context, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJobTypeConcurrencyResponse, error) {
-	rsp, err := c.UpdateJobTypeConcurrencyWithBody(ctx, pType, contentType, body, reqEditors...)
+// ListAvailableWorkersWithResponse request returning *ListAvailableWorkersResponse
+func (c *ClientWithResponses) ListAvailableWorkersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAvailableWorkersResponse, error) {
+	rsp, err := c.ListAvailableWorkers(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateJobTypeConcurrencyResponse(rsp)
+	return ParseListAvailableWorkersResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateJobTypeConcurrencyWithResponse(ctx context.Context, pType string, body UpdateJobTypeConcurrencyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJobTypeConcurrencyResponse, error) {
-	rsp, err := c.UpdateJobTypeConcurrency(ctx, pType, body, reqEditors...)
+// RegisterWorkerWithBodyWithResponse request with arbitrary body returning *RegisterWorkerResponse
+func (c *ClientWithResponses) RegisterWorkerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterWorkerResponse, error) {
+	rsp, err := c.RegisterWorkerWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateJobTypeConcurrencyResponse(rsp)
+	return ParseRegisterWorkerResponse(rsp)
 }
 
-// StopJobTypeWithResponse request returning *StopJobTypeResponse
-func (c *ClientWithResponses) StopJobTypeWithResponse(ctx context.Context, pType string, reqEditors ...RequestEditorFn) (*StopJobTypeResponse, error) {
-	rsp, err := c.StopJobType(ctx, pType, reqEditors...)
+func (c *ClientWithResponses) RegisterWorkerWithResponse(ctx context.Context, body RegisterWorkerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterWorkerResponse, error) {
+	rsp, err := c.RegisterWorker(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseStopJobTypeResponse(rsp)
+	return ParseRegisterWorkerResponse(rsp)
 }
 
 // CancelJobWithResponse request returning *CancelJobResponse
@@ -6973,18 +6798,18 @@ func ParseListJobsResponse(rsp *http.Response) (*ListJobsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest JobListResponse
+		var dest WorkerJobsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON401 = &dest
+		response.JSON500 = &dest
 
 	}
 
@@ -7006,7 +6831,7 @@ func ParseCreateJobResponse(rsp *http.Response) (*CreateJobResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest JobEnqueueResponse
+		var dest WorkerJobEnqueueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7018,98 +6843,6 @@ func ParseCreateJobResponse(rsp *http.Response) (*CreateJobResponse, error) {
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetJobsCountResponse parses an HTTP response from a GetJobsCountWithResponse call
-func ParseGetJobsCountResponse(rsp *http.Response) (*GetJobsCountResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetJobsCountResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest JobCountResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseShutdownSchedulerResponse parses an HTTP response from a ShutdownSchedulerWithResponse call
-func ParseShutdownSchedulerResponse(rsp *http.Response) (*ShutdownSchedulerResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ShutdownSchedulerResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStartSchedulerResponse parses an HTTP response from a StartSchedulerWithResponse call
-func ParseStartSchedulerResponse(rsp *http.Response) (*StartSchedulerResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StartSchedulerResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -7138,7 +6871,7 @@ func ParseGetJobStatsResponse(rsp *http.Response) (*GetJobStatsResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest JobStatsResponse
+		var dest WorkerJobStatsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7149,66 +6882,59 @@ func ParseGetJobStatsResponse(rsp *http.Response) (*GetJobStatsResponse, error) 
 	return response, nil
 }
 
-// ParseUpdateJobTypeConcurrencyResponse parses an HTTP response from a UpdateJobTypeConcurrencyWithResponse call
-func ParseUpdateJobTypeConcurrencyResponse(rsp *http.Response) (*UpdateJobTypeConcurrencyResponse, error) {
+// ParseListAvailableWorkersResponse parses an HTTP response from a ListAvailableWorkersWithResponse call
+func ParseListAvailableWorkersResponse(rsp *http.Response) (*ListAvailableWorkersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateJobTypeConcurrencyResponse{
+	response := &ListAvailableWorkersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
+		var dest WorkersListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
+		response.JSON401 = &dest
 
 	}
 
 	return response, nil
 }
 
-// ParseStopJobTypeResponse parses an HTTP response from a StopJobTypeWithResponse call
-func ParseStopJobTypeResponse(rsp *http.Response) (*StopJobTypeResponse, error) {
+// ParseRegisterWorkerResponse parses an HTTP response from a RegisterWorkerWithResponse call
+func ParseRegisterWorkerResponse(rsp *http.Response) (*RegisterWorkerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &StopJobTypeResponse{
+	response := &RegisterWorkerResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WorkerInfo
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorResponse

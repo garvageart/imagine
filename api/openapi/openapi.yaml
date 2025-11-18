@@ -1151,23 +1151,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /jobs:
+  /jobs/workers:
     get:
-      summary: List jobs
-      operationId: listJobs
+      summary: List all workers
+      operationId: listAvailableWorkers
       responses:
         "200":
-          description: Jobs list
+          description: Workers list
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobListResponse"
+                $ref: "#/components/schemas/WorkersListResponse"
         "401":
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Register a new worker
+      operationId: registerWorker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerRegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerInfo"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /jobs:
     post:
       summary: Create/enqueue a job
       operationId: createJob
@@ -1176,20 +1206,61 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/JobCreateRequest"
+              $ref: "#/components/schemas/WorkerJobCreateRequest"
       responses:
         "202":
           description: Accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobEnqueueResponse"
+                $ref: "#/components/schemas/WorkerJobEnqueueResponse"
         "400":
           description: Bad request
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: List jobs with filtering and pagination
+      operationId: listJobs
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [queued, running, completed, failed, cancelled]
+          description: Filter by job status
+        - in: query
+          name: topic
+          schema:
+            type: string
+          description: Filter by job topic
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+          description: Number of jobs per page
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Page index (0-based)
+      responses:
+        "200":
+          description: Jobs list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerJobsResponse"
         "500":
           description: Server error
           content:
@@ -1259,54 +1330,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /jobs/scheduler/start:
-    post:
-      summary: Start job scheduler
-      operationId: startScheduler
-      responses:
-        "200":
-          description: Started
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /jobs/scheduler/shutdown:
-    post:
-      summary: Shutdown job scheduler
-      operationId: shutdownScheduler
-      responses:
-        "200":
-          description: Shutdown
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /jobs/count:
-    get:
-      summary: Get running jobs count
-      operationId: getJobsCount
-      responses:
-        "200":
-          description: Running jobs count
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobCountResponse"
-
   /jobs/stats:
     get:
       summary: Get job stats by topic
@@ -1317,81 +1340,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobStatsResponse"
-
-  /jobs/types/{type}/stop:
-    post:
-      summary: Stop a job type
-      operationId: stopJobType
-      parameters:
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
-          description: Job type to stop
-      responses:
-        "200":
-          description: Job type stopped
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /jobs/types/{type}/concurrency:
-    put:
-      summary: Update job type concurrency
-      operationId: updateJobTypeConcurrency
-      parameters:
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
-          description: Job type to update
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                concurrency:
-                  type: integer
-                  minimum: 1
-                  maximum: 100
-              required: [concurrency]
-      responses:
-        "200":
-          description: Concurrency updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/WorkerJobStatsResponse"
 
   /events:
     get:
@@ -1652,42 +1601,61 @@ components:
           type: string
       required: [uid]
 
-    JobInfo:
+    WorkerRegisterRequest:
       type: object
       properties:
-        id:
+        name:
           type: string
-        topic:
-          type: string
-        status:
-          type: string
-      required: [id, topic, status]
+          description: "Job topic/worker name (e.g., exif_process, image_process)"
+        concurrency:
+          type: integer
+          description: "Number of concurrent jobs for this worker"
+      required: [name]
 
-    JobListResponse:
+    WorkerInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Job topic/worker name (e.g., exif_process, image_process)"
+        display_name:
+          type: string
+          description: "Human-readable worker name"
+        concurrency:
+          type: integer
+          description: "Number of concurrent jobs for this worker"
+        count:
+          type: integer
+          description: "Number of active worker jobs with this name/topic"
+      required: [name, display_name, concurrency]
+
+    WorkersListResponse:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/JobInfo"
+            $ref: "#/components/schemas/WorkerInfo"
       required: [items]
 
-    JobCreateRequest:
+    WorkerJobCreateRequest:
       type: object
       properties:
         type:
           type: string
-          description: "Job type (e.g., thumbnailGeneration, imageProcessing)"
+          description: "Job topic (e.g., exif_process, image_process)"
         command:
           type: string
-          enum: [all, missing, single]
-          description: "Command to execute (all=process all, missing=process missing, single=process one image)"
-        image_uid:
-          type: string
-          description: "Image UID (required when command=single)"
-      required: [type]
+          enum: [all, missing]
+          description: "Command to execute (all=process all, missing=process missing)"
+        uids:
+          type: array
+          items:
+            type: string
+          description: "Image UIDs to process (optional, if omitted all images are considered)"
+      required: [type, command]
 
-    JobEnqueueResponse:
+    WorkerJobEnqueueResponse:
       type: object
       properties:
         message:
@@ -1736,14 +1704,18 @@ components:
           nullable: true
       required: [uid, type, topic, status, enqueued_at]
 
-    JobCountResponse:
+    WorkerJobsResponse:
       type: object
       properties:
-        running:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkerJob"
+        total:
           type: integer
-      required: [running]
+      required: [items, total]
 
-    JobStatsResponse:
+    WorkerJobStatsResponse:
       type: object
       properties:
         running:
@@ -1757,13 +1729,6 @@ components:
           additionalProperties:
             type: integer
       required: [running, running_by_topic, queued_by_topic]
-
-    EnqueueImageProcessRequest:
-      type: object
-      properties:
-        image_uid:
-          type: string
-      required: [image_uid]
 
     # WebSocket-related schemas
     WSStatsResponse:

@@ -4,16 +4,14 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { createWSConnection, type WSClient } from "$lib/api/websocket";
 	import {
-		listJobs,
 		createJob,
-		stopJobType,
-		updateJobTypeConcurrency,
 		getJobStats,
-		startScheduler as apiStartScheduler,
-		shutdownScheduler as apiShutdownScheduler
+		listAvailableWorkers,
+		getJobsSnapshot,
+		getEventsSince,
+		updateJobTypeConcurrency
 	} from "$lib/api";
-	import { getJobsSnapshot, getEventsSince } from "$lib/api";
-	import type { WorkerJob, JobInfo } from "$lib/api";
+	import type { WorkerJob, WorkerInfo } from "$lib/api";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 
 	type UiJob = WorkerJob & {
@@ -65,9 +63,9 @@
 	let runningByTopic: Record<string, number> = {};
 	let queuedByTopic: Record<string, number> = {};
 
-	let jobMgmt = {
+	let workers = {
 		loading: false,
-		types: [] as JobInfo[],
+		types: [] as WorkerInfo[],
 		concurrency: {} as Record<string, number>
 	};
 
@@ -76,33 +74,12 @@
 	}
 
 	function getTopicForJobType(jobType: string) {
-		const info = jobMgmt.types.find((t) => t.id === jobType);
-		if (info && typeof info.topic === "string" && info.topic.length > 0) {
-			return info.topic;
+		const info = workers.types.find((t) => t.name === jobType);
+		if (info && typeof info.display_name === "string" && info.display_name.length > 0) {
+			return info.display_name;
 		}
 
 		return jobType;
-	}
-
-	// Scheduler controls
-	async function startScheduler() {
-		try {
-			const res = await apiStartScheduler();
-			if (res.status === 200) showMessage(res.data?.message ?? "Scheduler started", "success");
-			else showMessage(`Start failed (${res.status})`, "error");
-		} catch (e) {
-			showMessage("Start failed: " + getErrorMessage(e), "error");
-		}
-	}
-
-	async function shutdownScheduler() {
-		try {
-			const res = await apiShutdownScheduler();
-			if (res.status === 200) showMessage(res.data?.message ?? "Scheduler shutdown", "success");
-			else showMessage(`Shutdown failed (${res.status})`, "error");
-		} catch (e) {
-			showMessage("Shutdown failed: " + getErrorMessage(e), "error");
-		}
 	}
 
 	function connectWS() {
@@ -310,15 +287,15 @@
 	}
 
 	async function fetchJobTypes() {
-		jobMgmt.loading = true;
+		workers.loading = true;
 		try {
-			const res = await listJobs();
+			const res = await listAvailableWorkers();
 			if (res.status === 200) {
 				const d = res.data;
-				jobMgmt.types = Array.isArray(d.items) ? (d.items as JobInfo[]) : [];
-				jobMgmt.types.forEach((job) => {
-					if (!jobMgmt.concurrency[job.id]) {
-						jobMgmt.concurrency[job.id] = 5;
+				workers.types = Array.isArray(d.items) ? (d.items as WorkerInfo[]) : [];
+				workers.types.forEach((job) => {
+					if (!workers.concurrency[job.name]) {
+						workers.concurrency[job.name] = job.concurrency || 5;
 					}
 				});
 			} else {
@@ -327,46 +304,7 @@
 		} catch (e) {
 			showMessage("Error fetching job types: " + getErrorMessage(e), "error");
 		} finally {
-			jobMgmt.loading = false;
-		}
-	}
-
-	async function startJobType(jobId: string) {
-		try {
-			const res = await createJob({ type: jobId, command: "all" });
-			if (res.status === 202) {
-				toastState.addToast({
-					message: res.data.message || `Job ${jobId} started`,
-					type: "success"
-				});
-
-				const count = getCountFromResData(res.data);
-				if (count > 0) {
-					const topic = getTopicForJobType(jobId);
-					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
-				}
-				await fetchJobTypes();
-			} else {
-				toastState.addToast({ message: `Failed to start job ${jobId}`, type: "error" });
-			}
-		} catch (e) {
-			toastState.addToast({ message: "Error starting job: " + getErrorMessage(e), type: "error" });
-		}
-	}
-
-	async function _stopJobType(jobId: string) {
-		try {
-			const res = await stopJobType(jobId);
-			if (res.status === 200) {
-				toastState.addToast({
-					message: res.data.message || `Job type ${jobId} stopped`,
-					type: "success"
-				});
-			} else {
-				toastState.addToast({ message: `Failed to stop job type ${jobId}`, type: "error" });
-			}
-		} catch (e) {
-			toastState.addToast({ message: "Error stopping job type: " + getErrorMessage(e), type: "error" });
+			workers.loading = false;
 		}
 	}
 
@@ -413,20 +351,24 @@
 		}
 	}
 
-	async function updateConcurrency(jobId: string, value: number) {
-		jobMgmt.concurrency[jobId] = value;
+	async function setWorkerConcurrency(jobId: string, value: number) {
+		// Optimistically update UI, then persist to server
+		workers.concurrency[jobId] = value;
 		try {
 			const res = await updateJobTypeConcurrency(jobId, { concurrency: value });
 			if (res.status === 200) {
 				toastState.addToast({
-					message: res.data.message || `Concurrency for ${jobId} set to ${value}`,
+					message: (res.data && (res.data as any).message) || `Concurrency for ${jobId} set to ${value}`,
 					type: "success"
 				});
 			} else {
+				// On failure, notify and refresh available job types to sync UI
 				toastState.addToast({ message: `Failed to update concurrency for ${jobId}`, type: "error" });
+				await fetchJobTypes();
 			}
 		} catch (e) {
 			toastState.addToast({ message: "Error updating concurrency: " + getErrorMessage(e), type: "error" });
+			await fetchJobTypes();
 		}
 	}
 
@@ -504,14 +446,6 @@
 			<h2>Scheduler Controls</h2>
 		</div>
 		<div class="controls-grid">
-			<Button onclick={startScheduler} class="control-button">
-				<MaterialIcon iconName="play_arrow" />
-				Start Scheduler
-			</Button>
-			<Button onclick={shutdownScheduler} class="control-button warning">
-				<MaterialIcon iconName="stop" />
-				Shutdown Scheduler
-			</Button>
 			{#if connected}
 				<Button onclick={disconnectWS} class="control-button">
 					<MaterialIcon iconName="link_off" />
@@ -529,82 +463,72 @@
 	<section class="content-section">
 		<div class="section-header">
 			<h2>Job Types</h2>
-			<Button onclick={fetchJobTypes} disabled={jobMgmt.loading}>
+			<Button onclick={fetchJobTypes} disabled={workers.loading}>
 				<MaterialIcon iconName="refresh" />
 				Refresh
 			</Button>
 		</div>
-		{#if jobMgmt.loading}
+		{#if workers.loading}
 			<div class="loading">Loading job types...</div>
-		{:else if jobMgmt.types.length === 0}
+		{:else if workers.types.length === 0}
 			<div class="empty-state">No job types available</div>
 		{:else}
 			<div class="job-types-grid">
-				{#each jobMgmt.types as job (job.id)}
+				{#each workers.types as job}
 					<div class="job-type-card">
 						<div class="job-type-header">
 							<div class="job-type-info">
-								<h3>{job.topic}</h3>
-								<span class="job-type-status status-{job.status.toLowerCase()}">{job.status}</span>
+								<h3>{getTopicForJobType(job.name)}</h3>
+								<span
+									class="job-type-status status-{(runningByTopic[getTopicForJobType(job.name)] || 0) > 0 ? 'running' : 'idle'}"
+									>{(runningByTopic[getTopicForJobType(job.name)] || 0) > 0 ? "running" : "idle"}</span
+								>
 							</div>
 							<div class="job-type-stats">
 								<div class="stat-item-small">
 									<span class="stat-label-small">Active:</span>
-									<span class="stat-value-small">{runningByTopic[getTopicForJobType(job.id)] || 0}</span>
+									<span class="stat-value-small">{runningByTopic[getTopicForJobType(job.name)] || 0}</span>
 								</div>
 								<div class="stat-item-small">
 									<span class="stat-label-small">Waiting:</span>
-									<span class="stat-value-small">{queuedByTopic[getTopicForJobType(job.id)] || 0}</span>
+									<span class="stat-value-small">{queuedByTopic[getTopicForJobType(job.name)] || 0}</span>
 								</div>
 							</div>
 						</div>
 
 						<div class="job-type-controls">
 							<div class="control-row-small">
-								{#if job.status.toLowerCase() === "active" || job.status.toLowerCase() === "running"}
-									<Button class="btn-stop btn-full-width" onclick={() => _stopJobType(job.id)}>
-										<MaterialIcon iconName="stop" />
-										Stop
-									</Button>
-								{:else}
-									<Button class="btn-start btn-full-width" onclick={() => startJobType(job.id)}>
-										<MaterialIcon iconName="play_arrow" />
-										Start
-									</Button>
-								{/if}
-							</div>
-							<div class="control-row-small">
-								<Button class="btn-rescan" onclick={() => rescanAll(job.id)}>
+								<Button class="btn-rescan" onclick={() => rescanAll(job.name)}>
 									<MaterialIcon iconName="refresh" />
-									Rescan All
+									<span>Rescan All</span>
 								</Button>
-								<Button class="btn-missing" onclick={() => rescanMissing(job.id)}>
+								<Button class="btn-missing" onclick={() => rescanMissing(job.name)}>
 									<MaterialIcon iconName="search" />
-									Rescan Missing
+									<span>Rescan Missing</span>
 								</Button>
 							</div>
 						</div>
 						<div class="concurrency-control-small">
-							<label for="concurrency-{job.id}">
+							<label for="concurrency-{job.name}">
 								<MaterialIcon iconName="tune" />
-								Concurrency:
+								<span>Concurrency:</span>
 							</label>
 							<div class="number-input-wrapper">
 								<input
-									id="concurrency-{job.id}"
+									id="concurrency-{job.name}"
 									type="number"
 									min="1"
 									max="20"
-									value={jobMgmt.concurrency[job.id] || 5}
-									oninput={(e) => updateConcurrency(job.id, parseInt((e.target as HTMLInputElement).value))}
+									value={workers.concurrency[job.name] || 5}
+									oninput={(e) => setWorkerConcurrency(job.name, parseInt((e.target as HTMLInputElement).value))}
 								/>
 								<div class="spinner-buttons">
 									<button
 										type="button"
 										class="spinner-btn spinner-up"
 										onclick={() => {
-											const currentVal = jobMgmt.concurrency[job.id] || 5;
-											if (currentVal < 20) updateConcurrency(job.id, currentVal + 1);
+											const currentVal = workers.concurrency[job.name] || 5;
+											if (currentVal < 20) setWorkerConcurrency(job.name, currentVal + 1);
 										}}
 									>
 										<MaterialIcon iconName="keyboard_arrow_up" />
@@ -613,8 +537,8 @@
 										type="button"
 										class="spinner-btn spinner-down"
 										onclick={() => {
-											const currentVal = jobMgmt.concurrency[job.id] || 5;
-											if (currentVal > 1) updateConcurrency(job.id, currentVal - 1);
+											const currentVal = workers.concurrency[job.name] || 5;
+											if (currentVal > 1) setWorkerConcurrency(job.name, currentVal - 1);
 										}}
 									>
 										<MaterialIcon iconName="keyboard_arrow_down" />
@@ -1114,38 +1038,6 @@
 			font-size: 1.125rem;
 			font-weight: 600;
 			color: var(--imag-text-color);
-		}
-	}
-
-	.job-type-status {
-		padding: 0.25rem 0.75rem;
-		border-radius: 12px;
-		font-size: 0.75rem;
-		font-weight: 600;
-		text-transform: uppercase;
-
-		&.status-active {
-			background: #78350f;
-			color: #fef3c7;
-			border: 1px solid #d97706;
-		}
-
-		&.status-completed {
-			background: #064e3b;
-			color: #d1fae5;
-			border: 1px solid #059669;
-		}
-
-		&.status-failed {
-			background: #7f1d1d;
-			color: #fee2e2;
-			border: 1px solid #dc2626;
-		}
-
-		&.status-pending {
-			background: #1e3a8a;
-			color: #dbeafe;
-			border: 1px solid #3b82f6;
 		}
 	}
 

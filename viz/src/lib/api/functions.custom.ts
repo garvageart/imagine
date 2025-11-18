@@ -75,3 +75,25 @@ export async function getJobsSnapshot(): Promise<{ data: any; status: number; }>
     const data = await res.json().catch(() => ({}));
     return { data, status: res.status };
 }
+
+export async function updateJobTypeConcurrency(
+    jobType: string,
+    body: { concurrency: number }
+): Promise<{ data: any; status: number }> {
+    const url = `${createServerURL(MEDIA_SERVER)}/jobs/types/${encodeURIComponent(jobType)}/concurrency`;
+    try {
+        const res = await fetch(url, {
+            method: "PUT",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json().catch(() => ({}));
+        return { data, status: res.status };
+    } catch (err) {
+        return { data: { error: err instanceof Error ? err.message : String(err) }, status: 500 };
+    }
+}

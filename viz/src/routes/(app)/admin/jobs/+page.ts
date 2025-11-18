@@ -1,9 +1,9 @@
-import { listJobs } from "$lib/api";
+import { listAvailableWorkers } from "$lib/api";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ fetch }) => {
     try {
-        const res = await listJobs({ fetch });
+        const res = await listAvailableWorkers({ fetch });
         if (res.status === 200) {
             return {
                 jobTypes: res.data.items || []
