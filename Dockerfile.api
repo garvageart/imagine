@@ -1,33 +1,21 @@
-FROM golang:1.25.0-trixie AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /src
+RUN apk add --no-cache build-base pkgconf git ca-certificates vips-dev
 
 COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . .
 
-# libvips requires CGO: install build deps and enable CGO
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    pkg-config \
-    libvips-dev \
-    ca-certificates \
-    git && rm -rf /var/lib/apt/lists/*
+ENV CGO_ENABLED=1
+RUN go build -o /app/imagine ./cmd/api
 
-# Build with CGO enabled so vips bindings compile
-RUN CGO_ENABLED=1 GOOS=linux go build -o /app/imagine ./cmd/api
-
-FROM debian:bookworm-slim
+FROM alpine:3.19 AS runtime
 WORKDIR /app
-
-# Runtime libs for libvips - keep minimal, install libvips and ca-certificates
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libvips \
-    ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache vips ca-certificates
 
 COPY --from=builder /app/imagine /app/imagine
 COPY imagine.json /app/imagine.json
-EXPOSE 7770
 
+EXPOSE 7770
 ENV ENV=production
 CMD ["/app/imagine"]
