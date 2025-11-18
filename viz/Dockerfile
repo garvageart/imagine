@@ -1,27 +1,39 @@
-FROM node:22-alpine AS build
+# Builder stage
+FROM node:latest AS deps
 WORKDIR /app
-RUN npm install -g pnpm
-
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-
-# Build-time copy of config from repository root (make sure build context
-# includes the repo root so this file is available during build).
-COPY imagine.json /app/imagine.json
-ENV IMAGINE_CONFIG_PATH=/app/imagine.json
-
-# Copy package.json and lock from the viz subdir because build context is the repo root
-COPY viz/package.json viz/package-lock.json* ./
-COPY viz/ ./
-
-RUN pnpm install
-RUN pnpm run build
-
-FROM node:22-alpine
-WORKDIR /app
-COPY --from=build /app /app
-EXPOSE 7777
-
 ENV NODE_ENV=production
 
-CMD ["node", "build"]
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml .npmrc ./
+
+RUN pnpm install --frozen-lockfile
+
+FROM node:latest AS build
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN pnpm run build
+
+# running state
+FROM node:latest AS export
+WORKDIR /app
+
+# copying previously 
+COPY --from=build /app/build /app/build
+COPY --from=build /app/package.json /app/package.json
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/static /app/static
+
+ENV PORT=7777
+EXPOSE 7777
+
+# running as non-root
+USER node
+
+CMD ["node", "/app/build"]
+

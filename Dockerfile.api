@@ -3,19 +3,28 @@ WORKDIR /src
 RUN apk add --no-cache build-base pkgconf git ca-certificates vips-dev
 
 COPY go.mod go.sum ./
-RUN go mod download
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod \
+    --mount=type=cache,id=gocache,target=/root/.cache/go-build \
+    go env -w GOPROXY=${GOPROXY} && \
+    go mod download
 COPY . .
 
 ENV CGO_ENABLED=1
-RUN go build -o /app/imagine ./cmd/api
+RUN mkdir -p /app/build
+RUN go build -o /app/build/imagine ./cmd/api
 
 FROM alpine:3.19 AS runtime
 WORKDIR /app
 RUN apk add --no-cache vips ca-certificates
 
-COPY --from=builder /app/imagine /app/imagine
+# Copy only the build directory produced by the builder stage
+COPY --from=builder /app/build /app/build
+
+# Keep the config in the image root (unchanged)
 COPY imagine.json /app/imagine.json
 
 EXPOSE 7770
 ENV ENV=production
-CMD ["/app/imagine"]
+CMD ["/app/build/imagine"]
