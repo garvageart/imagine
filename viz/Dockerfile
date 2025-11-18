@@ -4,7 +4,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY viz/package.json viz/pnpm-lock.yaml viz/.npmrc ./
 
 RUN pnpm install --frozen-lockfile
 
@@ -15,7 +15,7 @@ ENV NODE_ENV=production
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY viz/ ./
 
 RUN pnpm run build
 
