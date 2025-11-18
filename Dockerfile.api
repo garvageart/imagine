@@ -1,11 +1,29 @@
 # install required system packages once
 # overriding the packages image
-ARG PACKAGES_IMAGE=imagine-packages:bookworm
+ARG PACKAGES_IMAGE=debian:bookworm-slim
 FROM ${PACKAGES_IMAGE} AS packages
+ENV VIPS_VERSION=8.16.1
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential pkg-config git ca-certificates libvips-dev && \
+    build-essential pkg-config git ca-certificates \
+    meson ninja-build python3 python3-pip python3-setuptools \
+    libglib2.0-dev libexpat1-dev libjpeg-dev libpng-dev libtiff-dev \
+    libwebp-dev libheif-dev libopenexr-dev liborc-0.4-dev libgirepository1.0-dev \
+    libxml2-dev libexif-dev libpoppler-glib-dev libgsf-1-dev libopenjp2-7-dev && \
     rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    apt-get update; \
+    mkdir -p /tmp/build && cd /tmp/build; \
+    curl -fsSL "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.gz" -o vips.tar.gz; \
+    tar xzf vips.tar.gz; \
+    cd vips-${VIPS_VERSION}; \
+    meson setup build --prefix=/usr ; \
+    ninja -C build; \
+    ninja -C build install; \
+    rm -rf /tmp/build; \
+    ldconfig || true
 
 
 FROM golang:1.25-bookworm AS builder
