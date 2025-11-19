@@ -37,16 +37,28 @@ BEGIN
   END IF;
 
   -- Create database if it doesn't exist, and set owner
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', '${POSTGRES_DB}', '${POSTGRES_USER}');
-  END IF;
-  -- Also ensure a database exists with the same name as the user, since some
-  -- clients default to connecting to a database named after the user.
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_USER}') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', '${POSTGRES_USER}', '${POSTGRES_USER}');
-  END IF;
 END
 \$\$;
 SQL
+
+# The CREATE DATABASE command cannot be executed inside a PL/pgSQL function/DO
+# block. Run database creation as separate commands so they are executed as
+# top-level SQL statements. Keep role creation/alteration in the DO block
+# above (it is allowed) and create databases idempotently from shell.
+
+# Helper to run a query and return non-empty on match
+exists_db() {
+  psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "postgres" -At -c "SELECT 1 FROM pg_database WHERE datname='${1}'" | grep -q 1
+}
+
+# Create `${POSTGRES_DB}` if it doesn't exist
+if ! exists_db "${POSTGRES_DB}"; then
+  psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "postgres" -c "CREATE DATABASE \"${POSTGRES_DB}\" OWNER \"${POSTGRES_USER}\";"
+fi
+
+# Also ensure a database named after the user exists
+if ! exists_db "${POSTGRES_USER}"; then
+  psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "postgres" -c "CREATE DATABASE \"${POSTGRES_USER}\" OWNER \"${POSTGRES_USER}\";"
+fi
 
 exit 0
