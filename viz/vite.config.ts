@@ -20,7 +20,7 @@ try {
 
 	config = {
 		servers: {
-			'api-server': { host: 'localhost', port: Number(process.env.API_PORT ?? 7770) },
+			'api': { host: 'localhost', port: Number(process.env.API_PORT ?? 7770) },
 			viz: { port: Number(process.env.VITE_VIZ_PORT ?? 7777) }
 		}
 	};
@@ -28,6 +28,9 @@ try {
 const define = {
 	'__APP_VERSION__': JSON.stringify(pkg.version)
 };
+
+// Expose runtime config (servers) as a global so the built frontend can read it without extra fetches.
+(define as any).__RUNTIME_CONFIG__ = JSON.stringify({ servers: config.servers, version: pkg.version });
 
 if (process.env.NODE_ENV !== 'production') {
 	(define as any).__servers = config.servers;

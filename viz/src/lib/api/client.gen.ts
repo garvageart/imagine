@@ -12,7 +12,11 @@ export const defaults: Oazapfts.Defaults<Oazapfts.CustomHeaders> = {
 };
 const oazapfts = Oazapfts.runtime(defaults);
 export const servers = {
-    localApi: "http://localhost:7770"
+    localApi: ({ host = "localhost", port = "7770" }: {
+        host: string | number | boolean;
+        port: string | number | boolean;
+    }) => `http://${host}:${port}`,
+    productionApi: "/api"
 };
 export type UserCreate = {
     name: string;

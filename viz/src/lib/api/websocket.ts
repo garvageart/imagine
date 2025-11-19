@@ -1,6 +1,5 @@
 // WebSocket Events API helpers
-import { MEDIA_SERVER } from "$lib/constants";
-import { createServerURL } from "$lib/utils/url";
+import { API_BASE_URL, defaults } from "./client";
 import { getWsStats as genGetWsStats, getEventHistory as genGetEventHistory, getEventsSince as genGetEventsSince } from "$lib/api/client.gen";
 
 /**
@@ -45,9 +44,8 @@ export class WSClient {
     private isClosed = false;
 
     constructor(options: WSConnectionOptions) {
-        // Convert HTTP(S) URL to WS(S)
-        const baseUrl = createServerURL(MEDIA_SERVER);
-        this.url = baseUrl.replace(/^http/, 'ws') + '/events';
+        const base = API_BASE_URL;
+        this.url = base.replace(/^http/, 'ws') + '/events';
 
         this.options = {
             onEvent: options.onEvent,

@@ -2,10 +2,8 @@
 * Custom API functions that require special handling beyond what openapi-fetch provides.
 * These are manually written for specific use cases like upload progress tracking.
 */
-import { createServerURL } from "$lib/utils/url";
-import { MEDIA_SERVER } from "$lib/constants";
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
-import type { ErrorResponse, ImageUploadResponse } from "./client";
+import { API_BASE_URL, type ErrorResponse, type ImageUploadResponse } from "./client";
 
 export interface UploadImageOptions {
     data: ImageUploadFileData;
@@ -51,7 +49,8 @@ export async function uploadImageWithProgress(
             formData.append(key, value);
         }
 
-        xhr.open('POST', `${createServerURL(MEDIA_SERVER)}/images`);
+        const base = API_BASE_URL;
+        xhr.open('POST', `${base}/images`);
         xhr.withCredentials = true;
         xhr.responseType = 'json';
         xhr.send(formData);
@@ -63,13 +62,15 @@ export function getFullImagePath(path: string): string {
     if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
     }
-    return `${createServerURL(MEDIA_SERVER)}${path}`;
+    const base = API_BASE_URL;
+    return `${base}${path}`;
 }
 
 // --- Realtime helpers (custom) ---
 
 export async function getJobsSnapshot(): Promise<{ data: any; status: number; }> {
-    const res = await fetch(`${createServerURL(MEDIA_SERVER)}/jobs/snapshot`, {
+    const base = API_BASE_URL;
+    const res = await fetch(`${base}/jobs/snapshot`, {
         credentials: "include"
     });
     const data = await res.json().catch(() => ({}));
@@ -78,9 +79,10 @@ export async function getJobsSnapshot(): Promise<{ data: any; status: number; }>
 
 export async function updateJobTypeConcurrency(
     jobType: string,
-    body: { concurrency: number }
-): Promise<{ data: any; status: number }> {
-    const url = `${createServerURL(MEDIA_SERVER)}/jobs/types/${encodeURIComponent(jobType)}/concurrency`;
+    body: { concurrency: number; }
+): Promise<{ data: any; status: number; }> {
+    const base = API_BASE_URL;
+    const url = `${base}/jobs/types/${encodeURIComponent(jobType)}/concurrency`;
     try {
         const res = await fetch(url, {
             method: "PUT",

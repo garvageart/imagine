@@ -5,6 +5,9 @@
 			___vizConfig?: VizConfig;
 			resetAndReloadLayout?: () => void;
 			__APP_VERSION__: string;
+			__RUNTIME_CONFIG__: {
+				[key: string]: string;
+			};
 		}
 	}
 </script>

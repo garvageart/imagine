@@ -11,9 +11,6 @@ export function updateURLParameter(name: string, value: string, keepFocus = true
     goto(newUrl, { replaceState: true, keepFocus, noScroll: true });
 }
 
-export function createServerURL(serverURL: ServerURLConfig): string {
-    return serverURL.url; // lol
-}
 
 /**
  * Reads a URL's hash and returns an object containing the query key/pair values as a properties

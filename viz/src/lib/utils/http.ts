@@ -1,6 +1,5 @@
-import { MEDIA_SERVER } from "$lib/constants";
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
-import { createServerURL } from "./url";
+import { API_BASE_URL } from "$lib/api/client";
 
 type RequestInitOptions = { fetch?: typeof fetch; } & RequestInit;
 
@@ -12,18 +11,20 @@ export async function sendAPIRequest<T>(path: string, options?: RequestInitOptio
     }
 
     if (form) {
+        const base = API_BASE_URL;
         if (options?.fetch) {
-            return options.fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+            return options.fetch(`${base}/${path}`, options);
         }
-        return fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+        return fetch(`${base}/${path}`, options);
     }
 
+    const base = API_BASE_URL;
     if (options?.fetch) {
-        const res = await options.fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options);
+        const res = await options.fetch(`${base}/${path}`, options);
         return res.json() as Promise<T>;
     }
 
-    return fetch(`${createServerURL(MEDIA_SERVER)}/${path}`, options).then(res => res.json() as Promise<T>);
+    return fetch(`${base}/${path}`, options).then(res => res.json() as Promise<T>);
 }
 
 // From https://github.com/immich-app/immich/main/web/src/lib/utils.ts#L55
@@ -58,7 +59,8 @@ export const uploadRequest = async <T>(options: UploadRequestOptions): Promise<{
             formData.append(key, value);
         }
 
-        xhr.open(options.method || 'POST', `${createServerURL(MEDIA_SERVER)}${path}`);
+        const base = API_BASE_URL;
+        xhr.open(options.method || 'POST', `${base}${path}`);
         xhr.responseType = 'json';
         xhr.send(formData);
     });

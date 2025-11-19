@@ -45,11 +45,8 @@
 	import InputText from "$lib/components/dom/InputText.svelte";
 	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
-	import { signDownload, downloadImagesBlob } from "$lib/api/client";
-	import { servers } from "$lib/api/client.gen";
+	import { signDownload, downloadImagesBlob, defaults, API_BASE_URL } from "$lib/api/client";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
-	import { createServerURL } from "$lib/utils/url.js";
-	import { MEDIA_SERVER } from "$lib/constants.js";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 
 	// Context menu state
@@ -203,7 +200,7 @@
 							// Build the download URL using the OpenAPI-generated servers value
 							// and open it in a new tab so the browser follows redirects and
 							// receives the file from the server with proper Content-Disposition.
-							const base = servers.localApi || createServerURL(MEDIA_SERVER);
+							const base = API_BASE_URL;
 							const dlUrl = new URL(`/images/${asset.uid}/download`, base);
 
 							const a = document.createElement("a");
