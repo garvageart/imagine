@@ -50,5 +50,16 @@ services:
       timeout: 5s
       retries: 10
 
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+    depends_on:
+      - viz
+      - api
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+
 volumes:
   postgres-data:
