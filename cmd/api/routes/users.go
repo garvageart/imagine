@@ -36,7 +36,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		var existingUser entities.User
-		if err := db.Where("email = ?", create.Email).First(&existingUser).Error; err == nil {
+		if err := db.Where("email = ?", string(create.Email)).First(&existingUser).Error; err == nil {
 			render.Status(req, http.StatusConflict)
 			render.JSON(res, req, dto.ErrorResponse{Error: "user already exists"})
 			return
