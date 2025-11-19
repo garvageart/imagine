@@ -1,11 +1,11 @@
 {
 	"baseUrl": "les-is.online",
 	"servers": {
-		"api-server": {
+		"api": {
 			"port": 7770,
 			"database": "images"
 		},
-		"auth-server": {
+		"auth": {
 			"port": 7771,
 			"database": "api"
 		},
@@ -15,9 +15,6 @@
 	},
 	"logging": {
 		"level": "debug"
-	},
-	"gcloud": {
-		"storageBuckets": ["image-thumbs", "image-origin", "image-optimized", "image-raw", "image-publishing"]
 	},
 	"base_directory": "./var",
 	"upload": {

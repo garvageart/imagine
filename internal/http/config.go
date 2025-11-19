@@ -23,7 +23,7 @@ const (
 var (
 	ServerKeys = map[string]string{
 		"auth": "auth-server",
-		"api":  "api-server",
+		"api":  "api",
 		"viz":  "viz",
 	}
 

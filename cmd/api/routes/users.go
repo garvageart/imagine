@@ -36,22 +36,15 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		var existingUser entities.User
-		// Log incoming create request data (info level)
-		logger.Info("accounts.create: received request", slog.String("email", string(create.Email)))
-
 		tx := db.Where("email = ?", string(create.Email)).First(&existingUser)
 		switch tx.Error {
 		case nil:
-			// Found an existing user with this email
-			logger.Info("accounts.create: existing user found", slog.String("email", existingUser.Email), slog.String("uid", existingUser.Uid))
 			render.Status(req, http.StatusConflict)
 			render.JSON(res, req, dto.ErrorResponse{Error: "user already exists"})
 			return
 		case gorm.ErrRecordNotFound:
-			// No existing user — log and continue
 			logger.Info("accounts.create: no existing user", slog.String("email", string(create.Email)))
 		default:
-			// Unexpected DB error
 			logger.Info("accounts.create: db error when checking existing user", slog.Any("error", tx.Error))
 			libhttp.ServerError(res, req, tx.Error, logger, nil,
 				"Failed to check existing user",

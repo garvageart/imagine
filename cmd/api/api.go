@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	ServerConfig = libhttp.ImagineServers["api-server"]
+	ServerConfig = libhttp.ImagineServers["api"]
 )
 
 type ImagineMediaServer struct {

@@ -5,7 +5,7 @@ import fs from "fs";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const config = JSON.parse(fs.readFileSync('../imagine.json', 'utf8'));
-const serverPort = parseInt(config.servers["api-server"].port);
+const serverPort = parseInt(config.servers["api"].port);
 
 async function main() {
     const dotEnvPath = path.resolve(__dirname, "..", "..", ".env");
