@@ -21,17 +21,21 @@ for i in 1 2 3 4 5; do
 done
 
 
-# Run psql as the default superuser 'postgres' (guaranteed to exist during init)
-psql -v ON_ERROR_STOP=1 --username "postgres" <<-'SQL'
+# Connect using the configured initial superuser (POSTGRES_USER). The official
+# image creates the initial superuser with the name in POSTGRES_USER, so
+# attempting to connect as literal "postgres" may fail when a different user
+# is supplied via environment variables.
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "postgres" <<-SQL
 DO
 $$
 BEGIN
-  -- Create or alter role
+  -- Create or alter role matching POSTGRES_USER
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${POSTGRES_USER}') THEN
     EXECUTE format('CREATE ROLE %I WITH LOGIN SUPERUSER PASSWORD %L', '${POSTGRES_USER}', '${POSTGRES_PASSWORD}');
   ELSE
     EXECUTE format('ALTER ROLE %I WITH SUPERUSER PASSWORD %L', '${POSTGRES_USER}', '${POSTGRES_PASSWORD}');
   END IF;
+
   -- Create database if it doesn't exist, and set owner
   IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}') THEN
     EXECUTE format('CREATE DATABASE %I OWNER %I', '${POSTGRES_DB}', '${POSTGRES_USER}');
