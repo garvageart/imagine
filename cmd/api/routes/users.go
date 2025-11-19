@@ -36,9 +36,16 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		var existingUser entities.User
-		if err := db.Where("email = ?", string(create.Email)).First(&existingUser).Error; err == nil {
+		tx := db.Where("email = ?", string(create.Email)).First(&existingUser)
+		if existingUser.Email != "" {
 			render.Status(req, http.StatusConflict)
 			render.JSON(res, req, dto.ErrorResponse{Error: "user already exists"})
+			return
+		} else if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+			libhttp.ServerError(res, req, tx.Error, logger, nil,
+				"Failed to check existing user",
+				"Something went wrong, please try again later",
+			)
 			return
 		}
 
@@ -48,6 +55,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				"Failed to generate user ID",
 				"Something went wrong, please try again later",
 			)
+			return
 		}
 
 		userEnt := entities.User{
