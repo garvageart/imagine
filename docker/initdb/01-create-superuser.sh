@@ -20,23 +20,24 @@ for i in 1 2 3 4 5; do
   sleep 1
 done
 
-# Create role if it doesn't exist, and set superuser and password
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-SQL || true
+
+# Run psql as the default superuser 'postgres' (guaranteed to exist during init)
+psql -v ON_ERROR_STOP=1 --username "postgres" <<-'SQL'
 DO
-\$do\$
+$$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$POSTGRES_USER') THEN
-    CREATE ROLE "$POSTGRES_USER" WITH LOGIN SUPERUSER PASSWORD '$POSTGRES_PASSWORD';
+  -- Create or alter role
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${POSTGRES_USER}') THEN
+    EXECUTE format('CREATE ROLE %I WITH LOGIN SUPERUSER PASSWORD %L', '${POSTGRES_USER}', '${POSTGRES_PASSWORD}');
   ELSE
-    -- If role exists, alter it to ensure superuser and password
-    ALTER ROLE "$POSTGRES_USER" WITH SUPERUSER PASSWORD '$POSTGRES_PASSWORD';
+    EXECUTE format('ALTER ROLE %I WITH SUPERUSER PASSWORD %L', '${POSTGRES_USER}', '${POSTGRES_PASSWORD}');
+  END IF;
+  -- Create database if it doesn't exist, and set owner
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', '${POSTGRES_DB}', '${POSTGRES_USER}');
   END IF;
 END
-\$do\$;
-
--- Ensure the database exists and is owned by the role
-CREATE DATABASE "$POSTGRES_DB" OWNER "$POSTGRES_USER";
-
+$$;
 SQL
 
 exit 0
