@@ -18,7 +18,7 @@ export async function load({ url, fetch }) {
     const isAuthed = !!user.data || !!login.state;
 
     if (!isAuthed && !url.pathname.startsWith("/auth")) {
-        redirect(303, `/auth/register?continue=${url.pathname}`);
+        redirect(303, `/auth/register?continue=${decodeURIComponent(url.pathname)}`);
     }
 
     const queryParams = new URLSearchParams(url.search);

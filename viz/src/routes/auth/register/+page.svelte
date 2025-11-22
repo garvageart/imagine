@@ -68,7 +68,6 @@
 			<InputText
 				id="reg-email"
 				label="Email"
-				name="email"
 				placeholder="Email"
 				type="email"
 				required
@@ -78,7 +77,6 @@
 			/>
 			<InputText
 				id="reg-name"
-				name="name"
 				placeholder="Name"
 				type="text"
 				required
@@ -95,7 +93,7 @@
 				value={registerData.password}
 				oninput={(e) => (registerData.password = e.currentTarget.value)}
 			/>
-			<InputText id="reg-password-confirm" name="passwordConfirm" placeholder="Password" type="password" required />
+			<InputText id="reg-password-confirm" name="passwordConfirm" placeholder="Confirm Password" type="password" required />
 			<Button style="margin-top: 1rem;">
 				<input id="reg-submit" type="submit" value="Create" />
 			</Button>

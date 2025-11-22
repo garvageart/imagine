@@ -518,7 +518,6 @@
 		class:multi-selected-photo={isSelected && isMultiSelecting}
 		role="button"
 		tabindex="0"
-		onmouseenter={() => prefetchLightboxImage(asset)}
 		onfocus={() => prefetchLightboxImage(asset)}
 		onclick={(e) => {
 			e.preventDefault();
