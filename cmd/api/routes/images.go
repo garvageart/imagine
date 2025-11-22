@@ -673,6 +673,28 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, exifData)
 	})
 
+	router.Get("/{uid}", func(res http.ResponseWriter, req *http.Request) {
+		uid := chi.URLParam(req, "uid")
+
+		var imgEnt entities.Image
+		result := db.Preload("UploadedBy").Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt)
+
+		if result.Error != nil {
+			if result.Error == gorm.ErrRecordNotFound {
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				return
+			}
+
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to retrieve image"})
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, imgEnt.DTO())
+	})
+
 	router.Patch("/{uid}", func(res http.ResponseWriter, req *http.Request) {
 		uid := chi.URLParam(req, "uid")
 		var update dto.ImageUpdate
