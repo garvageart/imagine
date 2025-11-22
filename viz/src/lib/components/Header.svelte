@@ -237,7 +237,7 @@
 		position: absolute;
 		left: 0.5rem;
 		border-radius: 0.25rem;
-		z-index: 995;
+		z-index: 300;
 		display: flex;
 		flex-direction: column;
 	}
