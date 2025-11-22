@@ -16,6 +16,11 @@ VIZ_DIR := viz
 GO_CMD ?= go
 PNPM ?= pnpm
 DOCKER_COMPOSE ?= docker compose
+BUILDX_CACHE_DIR ?= $(CURDIR)/.buildcache
+
+# Local buildx cache dirs (api/viz)
+BUILDX_CACHE_API_DIR := $(BUILDX_CACHE_DIR)/api
+BUILDX_CACHE_VIZ_DIR := $(BUILDX_CACHE_DIR)/viz
 
 # Cache control: when `USE_HOST_CACHE=1` Make will use host-side cache dirs
 # for Go module cache, Go build cache and pnpm store. This preserves fast
@@ -165,6 +170,27 @@ test:
 docker-build:
 	@echo "Building docker images using docker-compose..."
 	@$(DOCKER_COMPOSE) build --parallel
+
+### Buildx targets (useful to persist cache locally and speed up Go module downloads)
+.PHONY: buildx-api buildx-viz buildx-build
+buildx-api:
+	@echo "Building API image with buildx and local cache ($(BUILDX_CACHE_API_DIR))"
+	@mkdir -p $(BUILDX_CACHE_API_DIR)
+	@docker buildx build --progress=plain \
+		--cache-to=type=local,dest=$(BUILDX_CACHE_API_DIR) \
+		--cache-from=type=local,src=$(BUILDX_CACHE_API_DIR) \
+		-f Dockerfile.api -t imagine-api:local --load .
+
+buildx-viz:
+	@echo "Building Viz image with buildx and local cache ($(BUILDX_CACHE_VIZ_DIR))"
+	@mkdir -p $(BUILDX_CACHE_VIZ_DIR)
+	@docker buildx build --progress=plain \
+		--cache-to=type=local,dest=$(BUILDX_CACHE_VIZ_DIR) \
+		--cache-from=type=local,src=$(BUILDX_CACHE_VIZ_DIR) \
+		-f viz/Dockerfile -t imagine-viz:local viz --load
+
+buildx-build: buildx-api buildx-viz
+	@echo "buildx build complete. Use the images 'imagine-api:local' and 'imagine-viz:local' or tag/push as needed."
 
 docker-up:
 	@echo "Starting services with docker-compose..."
