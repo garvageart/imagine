@@ -24,6 +24,7 @@
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import { goto, invalidateAll } from "$app/navigation";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
+	import Button from "$lib/components/Button.svelte";
 
 	let { data } = $props();
 
@@ -802,6 +803,23 @@
 		}
 	}
 
+	async function addImagesToImagine() {
+		const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+		const uploadedImages = await manager.openPickerAndUpload();
+
+		if (uploadedImages.length === 0) {
+			return;
+		}
+
+		toastState.addToast({
+			message: `Added ${uploadedImages.length} photo(s)`,
+			type: "success",
+			timeout: 3000
+		});
+
+		await invalidateAll();
+	}
+
 	function handleDragEnter(e: DragEvent) {
 		e.preventDefault();
 		dragCounter++;
@@ -901,6 +919,22 @@
 	<ImageLightbox bind:lightboxImage {prevLightboxImage} {nextLightboxImage} />
 {/if}
 
+{#snippet noAssetsSnippet()}
+	<div id="add_to_imagine-container">
+		<span style="margin: 1em; color: var(--imag-20); font-size: 1.2rem;">Add your first images</span>
+		<Button
+			id="add_to_collection-button"
+			style="padding: 2em 8em; display: flex; align-items: center; justify-content: center;"
+			title="Select Photos"
+			aria-label="Select Photos"
+			onclick={async () => addImagesToImagine()}
+		>
+			Select Photos
+			<MaterialIcon iconName="add" style="font-size: 2em;" />
+		</Button>
+	</div>
+{/snippet}
+
 <VizViewContainer name="Photos" bind:data={images} {hasMore} paginate={() => paginate()}>
 	{#if images.length > 0}
 		{#if selectedAssets.size > 1}
@@ -944,8 +978,8 @@
 		{/if}
 	{/if}
 	{#if groups.length === 0}
-		<div class="no-photos">
-			<p>No photos to display</p>
+		<div id="viz-no_assets">
+			{@render noAssetsSnippet()}
 		</div>
 	{:else}
 		<div class="photo-group-container">
@@ -996,15 +1030,6 @@
 <ContextMenu bind:showMenu={ctxShowMenu} items={ctxItems} anchor={ctxAnchor} offsetY={0} />
 
 <style lang="scss">
-	.no-photos {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: var(--imag-40);
-		font-size: 1.1rem;
-	}
-
 	.photo-group-container {
 		display: flex;
 		flex-direction: column;
@@ -1043,16 +1068,11 @@
 		padding: 0.25rem;
 	}
 
-	// :global(.toolbar-button) {
-	// 	border: none;
-	// 	background: transparent;
-	// 	color: var(--imag-10);
-	// 	display: inline-flex;
-	// 	align-items: center;
-	// 	justify-content: center;
-	// 	cursor: pointer;
-	// 	font-size: 0.9rem;
-	// }
+	#add_to_imagine-container {
+		display: flex;
+		flex-direction: column;
+		justify-content: left;
+	}
 
 	.drop-overlay {
 		position: fixed;
@@ -1077,6 +1097,14 @@
 		border-radius: 1rem;
 		padding: 3rem 4rem;
 		background: rgba(0, 0, 0, 0.5);
+	}
+
+	#viz-no_assets {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 	}
 
 	.add-to-collection-box {
