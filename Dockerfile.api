@@ -51,7 +51,8 @@ RUN --mount=type=cache,id=go-mods,target=/go/pkg/mod \
     if [ -f Makefile ]; then \
     echo "Building via Makefile (build-api)..."; \
     make build-api; \
-    mv build/imagine /app/build/imagine; \
+    # Support both legacy output 'build/imagine' and Makefile's 'build/api'
+    if [ -f build/api ]; then mv build/api /app/build/imagine; elif [ -f build/imagine ]; then mv build/imagine /app/build/imagine; else echo "Expected built binary not found"; exit 1; fi; \
     else \
     go build -o /app/build/imagine ./cmd/api; \
     fi
