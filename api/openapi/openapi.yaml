@@ -682,6 +682,41 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /images/{uid}:
+    get:
+      summary: Get image metadata
+      operationId: getImage
+      parameters:
+        - in: path
+          name: uid
+          required: true
+          schema:
+            type: string
+          description: Image UID
+      responses:
+        "200":
+          description: Image resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Image"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       summary: Update image metadata
       operationId: updateImage
