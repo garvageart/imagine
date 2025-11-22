@@ -775,6 +775,26 @@ export function getImageExif(uid: string, { simple }: {
     });
 }
 /**
+ * Get image metadata
+ */
+export function getImage(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: Image;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/images/${encodeURIComponent(uid)}`, {
+        ...opts
+    });
+}
+/**
  * Update image metadata
  */
 export function updateImage(uid: string, imageUpdate: ImageUpdate, opts?: Oazapfts.RequestOpts) {

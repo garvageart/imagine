@@ -11,14 +11,14 @@
 	import { getFullImagePath } from "$lib/api";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { SvelteSet } from "svelte/reactivity";
-	import { listImages, deleteImagesBulk, signDownload, downloadImagesBlob, getImageFile } from "$lib/api/client";
+	import { listImages, deleteImagesBulk, signDownload, downloadImagesBlob, getImageFile, getImage } from "$lib/api/client";
 	import { getTakenAt, compareByTakenAtDesc } from "$lib/utils/images.js";
 	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
 	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import { fade } from "svelte/transition";
 	import hotkeys from "hotkeys-js";
-	import UploadManager from "$lib/upload/manager.svelte";
+	import UploadManager, { type ImageUploadSuccess } from "$lib/upload/manager.svelte";
 	import { createCollection, addCollectionImages } from "$lib/api/client";
 	import { SUPPORTED_IMAGE_TYPES, SUPPORTED_RAW_FILES, type SupportedImageTypes } from "$lib/types/images";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
@@ -803,6 +803,73 @@
 		}
 	}
 
+	let pendingNewRaw: ImageUploadSuccess[] = [];
+	let addImagesDebounceTimer: number | undefined;
+	const ADD_IMAGES_DEBOUNCE_MS = 550;
+
+	async function resolveRawToImages(items: ImageUploadSuccess[]): Promise<Image[]> {
+		if (!items || items.length === 0) {
+			return [];
+		}
+
+		const results: Image[] = [];
+		const fetchPromises = items.map(async (it) => {
+			if (!it) {
+				return null;
+			}
+
+			const uid = it.uid;
+			if (!uid) {
+				return null;
+			}
+
+			try {
+				const res = await getImage(uid);
+
+				if (res.status === 200) {
+					return res.data;
+				}
+
+				throw new Error(res.data.error);
+			} catch (err) {
+				console.warn("Failed to fetch image metadata for", uid, err);
+				return null;
+			}
+		});
+
+		const fetched = await Promise.all(fetchPromises);
+		for (const f of fetched) {
+			if (f) {
+				results.push(f);
+			}
+		}
+
+		return results;
+	}
+
+	function scheduleAddImages(newRaw: ImageUploadSuccess[]) {
+		if (!newRaw || newRaw.length === 0) {
+			return;
+		}
+
+		pendingNewRaw.push(...newRaw);
+
+		if (addImagesDebounceTimer) {
+			clearTimeout(addImagesDebounceTimer);
+		}
+
+		addImagesDebounceTimer = window.setTimeout(async () => {
+			const batch = pendingNewRaw.slice();
+			pendingNewRaw = [];
+			addImagesDebounceTimer = undefined;
+
+			const imagesToAdd = await resolveRawToImages(batch);
+			if (imagesToAdd.length > 0) {
+				images.push(...imagesToAdd);
+			}
+		}, ADD_IMAGES_DEBOUNCE_MS) as unknown as number;
+	}
+
 	async function addImagesToImagine() {
 		const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
 		const uploadedImages = await manager.openPickerAndUpload();
@@ -811,13 +878,7 @@
 			return;
 		}
 
-		toastState.addToast({
-			message: `Added ${uploadedImages.length} photo(s)`,
-			type: "success",
-			timeout: 3000
-		});
-
-		await invalidateAll();
+		scheduleAddImages(uploadedImages);
 	}
 
 	function handleDragEnter(e: DragEvent) {
