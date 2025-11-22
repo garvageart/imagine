@@ -217,7 +217,16 @@ func main() {
 	}
 
 	// Lmao I hate this
-	client := server.ConnectToDatabase(entities.Image{}, entities.Collection{}, entities.Session{}, entities.APIKey{}, entities.User{}, entities.DownloadToken{}, entities.WorkerJob{})
+	client := server.ConnectToDatabase(
+		entities.Image{},
+		entities.Collection{},
+		entities.Session{},
+		entities.APIKey{},
+		entities.User{},
+		entities.DownloadToken{},
+		entities.WorkerJob{},
+		entities.UserWithPassword{},
+	)
 	server.ImagineServer.Database.Client = client
 
 	srv := server.Launch(router)

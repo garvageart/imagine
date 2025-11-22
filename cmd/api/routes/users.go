@@ -75,12 +75,11 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		hashedPass, _ := argon.Hash([]byte(create.Password), salt)
 		hashed := hex.EncodeToString(salt) + ":" + hex.EncodeToString(hashedPass)
 
+		// Create the user and password in a single operation using the
+		// non-generated wrapper type so the DTOs remain unchanged.
+		uwp := entities.FromUser(userEnt, &hashed)
 		txErr := db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&userEnt).Error; err != nil {
-				return err
-			}
-
-			if err := tx.Table("users").Where("uid = ?", id).Update("password", hashed).Error; err != nil {
+			if err := tx.Create(&uwp).Error; err != nil {
 				return err
 			}
 
