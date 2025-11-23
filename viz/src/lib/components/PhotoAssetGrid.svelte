@@ -2,11 +2,12 @@
 	export type AssetGridView = "grid" | "list" | "cards";
 </script>
 
-<script lang="ts" generics="T extends { uid: string } & Record<string, any>">
+<script lang="ts">
 	import AssetGrid from "./AssetGrid.svelte";
 	import { getFullImagePath, type Image } from "$lib/api";
 	import { DateTime } from "luxon";
-	import type { ComponentProps, Snippet } from "svelte";
+	import type { ComponentProps } from "svelte";
+	import type { SvelteSnippet } from "$lib/types/snippet";
 	import { SvelteSet } from "svelte/reactivity";
 	import { thumbHashToDataURL } from "thumbhash";
 	import { normalizeBase64 } from "$lib/utils/misc";
@@ -18,7 +19,7 @@
 
 	interface PhotoSpecificProps {
 		/** Custom photo card snippet - if not provided, uses default photo card */
-		photoCardSnippet?: Snippet<[Image]>;
+		photoCardSnippet?: SvelteSnippet<[Image]>;
 		/** Complete flat list of all images for cross-group range selection */
 		allData?: Image[];
 	}
@@ -65,7 +66,6 @@
 	const dateGroupCount = $derived(Object.keys(dateGroupCounts).length);
 
 	// Virtualized photo-grid state
-	let gridItemSize: number = $state(640); // legacy fallback for square grid; used as a base size hint
 	let gridGap: number = $state(8); // gap between items and rows
 	let totalHeight: number = $state(0);
 	let scrollTop: number = $state(0);
@@ -326,7 +326,6 @@
 	function getSizedPreviewUrl(asset: Image, desiredWidth?: number, desiredHeight?: number): string {
 		// Prefer pre-generated thumbnail when available (cheaper, cached).
 		// Use a smaller preview size for grid thumbnails to reduce bandwidth/cpu.
-		const THUMB_SIZE = 400;
 		const checksum = asset.image_metadata?.checksum;
 
 		if (asset.image_paths?.thumbnail) {
@@ -625,7 +624,7 @@
 		{columns}
 		{table}
 		{assetGridDisplayProps}
-		assetSnippet={(photoCardSnippet ?? imageCard) as unknown as Snippet<[Image]>}
+		assetSnippet={(photoCardSnippet ?? imageCard) as unknown as SvelteSnippet<[Image]>}
 	/>
 {/if}
 

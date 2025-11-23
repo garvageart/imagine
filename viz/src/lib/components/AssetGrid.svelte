@@ -4,7 +4,7 @@
 	import { SvelteSet } from "svelte/reactivity";
 	import hotkeys from "hotkeys-js";
 	import type { AssetGridArray, AssetSortBy } from "$lib/types/asset";
-	import { type Snippet } from "svelte";
+	import type { SvelteSnippet } from "$lib/types/snippet";
 	import { sort } from "$lib/states/index.svelte";
 	import MaterialIcon from "./MaterialIcon.svelte";
 	import { DateTime } from "luxon";
@@ -14,7 +14,7 @@
 
 	interface Props {
 		data: T[];
-		assetSnippet: Snippet<[T]>;
+		assetSnippet: SvelteSnippet<[T]>;
 		singleSelectedAsset?: T;
 		selectedAssets: SvelteSet<T>;
 		assetGridArray?: AssetGridArray<T>;
