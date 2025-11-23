@@ -20,6 +20,10 @@
 		typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 	$effect(() => {
+		upload.concurrency = Math.min(Math.max(upload.concurrency || 1, 1), 10);
+	});
+
+	$effect(() => {
 		if (!listEl) {
 			return;
 		}
@@ -90,7 +94,6 @@
 						min="1"
 						max="10"
 						bind:value={upload.concurrency}
-						oninput={(e) => (upload.concurrency = Math.min(Math.max(parseInt(e.currentTarget.value) || 1, 1), 10))}
 						style="width: 3em; margin-left: 0.25em;"
 					/>
 				</label>

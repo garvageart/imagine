@@ -69,7 +69,7 @@ export default class UploadManager {
             return [];
         }
 
-        const results = await this.uploadWithConcurrency(pending, upload.concurrency);
+        const results = await this.uploadWithConcurrency(pending);
 
         // Update stats based on task states
         const successfulCount = pending.filter(t => t.state === UploadState.DONE).length;
@@ -103,8 +103,7 @@ export default class UploadManager {
      * Upload tasks with concurrency limit using a proper queue.
      */
     private async uploadWithConcurrency(
-        tasks: UploadImage[],
-        maxConcurrent: number
+        tasks: UploadImage[]
     ): Promise<(ImageUploadSuccess | undefined)[]> {
         const results: (ImageUploadSuccess | undefined)[] = new Array(tasks.length);
         let activeCount = 0;
@@ -119,7 +118,7 @@ export default class UploadManager {
                 }
 
                 // Start new tasks while under concurrency limit
-                while (activeCount < maxConcurrent && nextIndex < tasks.length) {
+                while (activeCount < upload.concurrency && nextIndex < tasks.length) {
                     const index = nextIndex++;
                     const task = tasks[index];
 
