@@ -5,7 +5,8 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": "never"
         }
-    }
+    },
+    "makefile.configureOnOpen": false
 }
 // {
 //     "json.schemas": [

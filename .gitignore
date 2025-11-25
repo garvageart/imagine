@@ -9,7 +9,7 @@ security
 
 # Misc files
 auth/*.json
-
+.aiexclude
 #Security
 .crt
 .key

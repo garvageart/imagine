@@ -55,6 +55,7 @@
 		"lodash-es": "^4.17.21",
 		"luxon": "^3.7.2",
 		"material-symbols": "^0.31.9",
-		"thumbhash": "^0.1.1"
+		"thumbhash": "^0.1.1",
+		"tippy.js": "^6.3.7"
 	}
 }
