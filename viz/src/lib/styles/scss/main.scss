@@ -68,6 +68,7 @@ body {
     flex-direction: column;
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .no-select {

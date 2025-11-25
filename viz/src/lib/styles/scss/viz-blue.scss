@@ -1,11 +1,12 @@
 @use "sass:color";
 @use "viz-mixins";
 
+/* Colours */
 $bg-color: #0F1726;
 $base-color: color.adjust(
-    color.mix($bg-color, white, 88%),
+    color.mix($bg-color, white, 89%),
     $saturation: 20%,
-    $lightness: -6%
+    $lightness: -4%
 );
 $text-color: #F7F9F9;
 $primary-color: #1885df;
@@ -18,62 +19,38 @@ $secondary-color: #06589b;
     --imag-secondary: #{$secondary-color};
 }
 
-/* Colours */
-
-/* Light theme: use a blue base so --imag-100 is the lightest blue and
-   --imag-10 is the darkest (in 10% steps). */
-:root[data-theme="light"],
-[data-theme="light"] {
-    @include viz-mixins.generate-imag-colors(
-        $bg-color: $bg-color,
-        $text-color: $text-color,
-        $base-color: $base-color,
-        $is-light-theme: true,
-        $flip-bg-color: rgb(230, 231, 242),
-        $flip-bg-pct: 5%,
-        $flip-text-color: black,
-        $flip-text-pct: 7%
-    );
-}
-
-/* Dark theme: opposite mapping so --imag-100 is the darkest (base 100%) and
-   --imag-10 is lightest. */
-:root[data-theme="dark"],
-[data-theme="dark"] {
-    @include viz-mixins.generate-imag-colors(
-        $bg-color: $bg-color,
-        $text-color: $text-color,
-        $base-color: $base-color,
-        $is-light-theme: false
-    );
-}
-
-/* If user prefers dark and no explicit theme is set, generate dark palette */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) {
+@mixin imag-theme($sel, $is-light, $flip-bg: null, $flip-bg-pct: 0%, $flip-text: null, $flip-text-pct: 0%) {
+    #{$sel} {
         @include viz-mixins.generate-imag-colors(
             $bg-color: $bg-color,
             $text-color: $text-color,
             $base-color: $base-color,
-            $is-light-theme: false
+            $is-light-theme: $is-light,
+            $flip-bg-color: $flip-bg,
+            $flip-bg-pct: $flip-bg-pct,
+            $flip-text-color: $flip-text,
+            $flip-text-pct: $flip-text-pct
         );
     }
+}
+
+/* Light theme: use a blue base so --imag-100 is the lightest blue and
+   --imag-10 is the darkest (in 10% steps). */
+$light-theme-sel: ':root[data-theme="light"], [data-theme="light"]';
+@include imag-theme($light-theme-sel, true, white, 0%, black, 15%);
+
+/* Dark theme: opposite mapping so --imag-100 is the darkest (base 100%) and
+   --imag-10 is lightest. */
+@include imag-theme(':root[data-theme="dark"], [data-theme="dark"]', false);
+
+/* If user prefers dark and no explicit theme is set, generate dark palette */
+@media (prefers-color-scheme: dark) {
+    @include imag-theme(':root:not([data-theme])', false);
 }
 
 /* If user prefers light and no explicit theme is set, generate light palette */
 @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) {
-        @include viz-mixins.generate-imag-colors(
-            $bg-color: $bg-color,
-            $text-color: $text-color,
-            $base-color: $base-color,
-            $is-light-theme: true,
-            $flip-bg-color: rgb(230, 231, 242),
-            $flip-bg-pct: 5%,
-            $flip-text-color: black,
-            $flip-text-pct: 7%
-        );
-    }
+    @include imag-theme($light-theme-sel, true, white, 0%, black, 15%);
 }
 
 /* Up */

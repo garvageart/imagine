@@ -3,6 +3,7 @@
 	import MaterialIcon from "./MaterialIcon.svelte";
 
 	interface Props {
+		inputId: string;
 		loading?: boolean;
 		value: string;
 		element?: HTMLInputElement;
@@ -18,6 +19,7 @@
 		placeholder = "Search",
 		searchInputHasFocus = $bindable(),
 		performSearch,
+		inputId,
 		...props
 	}: Props & SvelteHTMLElements["div"] = $props();
 
@@ -37,9 +39,10 @@
 		onkeydown={handleSearch}
 		disabled={loading}
 	>
-		<MaterialIcon iconName="search" style="margin: 0 0.2em; color: var(--imag-10);" />
+		<MaterialIcon iconName="search" style="margin: 0 0.2em; color: var(--imag-20);" />
 	</button>
 	<input
+		id={inputId}
 		type="search"
 		class="search-input__field"
 		{placeholder}

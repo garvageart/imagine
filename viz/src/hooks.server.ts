@@ -17,6 +17,10 @@ const DEFAULT_THEME = 'viz-blue';
 /**
  * SvelteKit server hook to dynamically inject theme-specific CSS.
  * This prevents a Flash of Unstyled Content (FOUC).
+ * 
+ * As far as I know, this only runs during build, especially since this
+ * is a client-side rendered app, so idk maybe this needs to come from the
+ * server/api/backend itself in future? Idk
  */
 export const handle: Handle = async ({ event, resolve }) => {
     const themeCookieStore = new VizCookieStorage('theme', event.cookies);
@@ -50,7 +54,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             // Load the entire CSS content, as it contains both light and dark modes
             const cssContent = (await themeImporters[themePath]()) as string;
             if (cssContent) {
-                criticalCss = `<style id="critical-theme-styles">${cssContent}</style>`;
+                criticalCss = `<style id="generated-theme">${cssContent}</style>`;
                 criticalCssCache.set(cacheKey, criticalCss);
             }
         } catch (error) {

@@ -86,7 +86,7 @@
 			}
 		</style>
 
-		<script>
+		<script id="theme-ready-script">
 			(function () {
 				try {
 					const storedTheme = localStorage.getItem('viz:theme');
@@ -94,7 +94,7 @@
 					const theme = storedTheme || osTheme;
 					document.documentElement.setAttribute('data-theme', theme);
 				} catch (e) {
-					document.documentElement.setAttribute('data-theme', 'light');
+					document.documentElement.setAttribute('data-theme', 'dark');
 				}
 			})();
 		</script>

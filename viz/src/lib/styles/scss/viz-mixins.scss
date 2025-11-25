@@ -14,29 +14,44 @@
     $flip-bg-pct: 0%,
     $flip-text-color: null,
     $flip-text-pct: 0%) {
-    // optionally mix the provided flip colors into the bg/text
-    $out-bg-color: if($flip-bg-color !=null, color.mix($bg-color, $flip-bg-color, $flip-bg-pct), $bg-color);
-    $out-text-color: if($flip-text-color !=null, color.mix($text-color, $flip-text-color, $flip-text-pct), $text-color);
+    
+    $bg: $bg-color;
+    $base: $base-color;
+    $text: $text-color;
 
-    --imag-bg-color: #{$out-bg-color};
-    --imag-text-color: #{$out-text-color};
+    // If flip colors are provided, tint the originals by the flip percentage.
+    // We pass the flip color as the FIRST argument so `$flip-*-pct` represents
+    // how much of the flip color to include.
+    @if $flip-bg-color != null {
+        $bg: color.mix($flip-bg-color, $bg, $flip-bg-pct);
+        $base: color.mix($flip-bg-color, $base, $flip-bg-pct);
+    }
 
-    $pct: 0%;
+    @if $flip-text-color != null {
+        $text: color.mix($flip-text-color, $text, $flip-text-pct);
+    }
 
-    // Use 20 steps (5% increments) producing --imag-100, --imag-95, ... --imag-5
+    @if $is-light-theme {
+        $bg: color.change($bg, $lightness: 100% - color.channel($bg, "lightness", $space: hsl), $space: hsl);
+        $base: color.change($base, $lightness: 100% - color.channel($base, "lightness", $space: hsl), $space: hsl);
+        $text: color.change($text, $lightness: 100% - color.channel($text, "lightness", $space: hsl), $space: hsl);
+    }
+
+    --imag-bg-color: #{$bg};
+    --imag-text-color: #{$text};
+
     @for $j from 0 through 19 {
         $level: 100 - $j * 5;
+        $mixPct: $j * 5%;
 
         @if $is-light-theme {
-            $pct: (
-                5 + $j * 5) * 1%;
+            // Light theme: imag-100 is the (lightness-inverted) base; lower
+            // levels should be progressively darker by mixing with black.
+            --imag-#{$level}: #{color.mix(black, $base, $mixPct)};
+        } @else {
+            // Dark theme: imag-100 is the provided base; lower levels should
+            // be progressively lighter by mixing with white.
+            --imag-#{$level}: #{color.mix(white, $base, $mixPct)};
         }
-
-        @else {
-            $pct: (
-                100 - $j * 5) * 1%;
-        }
-
-        --imag-#{$level}: #{color.mix($base-color, white, $pct)};
     }
 }

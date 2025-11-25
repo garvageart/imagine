@@ -8,9 +8,9 @@
 	import type { SvelteHTMLElements } from "svelte/elements";
 	import { onMount } from "svelte";
 	import { registerReady } from "$lib/stores/appReady";
-	import { SvelteMap } from "svelte/reactivity";
+	import { SvelteMap, SvelteSet } from "svelte/reactivity";
 	import type { Component } from "svelte";
-	import { building } from "$app/environment";
+	import { building, dev } from "$app/environment";
 
 	const fontLoadMap = new SvelteMap<string, Promise<any>>();
 
@@ -50,6 +50,7 @@
 		eager: true
 	});
 	const ICON_MODULES: Record<string, () => Promise<any>> = import.meta.glob("$lib/components/icons/generated/**/*.svelte");
+	const warnedMissing = new SvelteSet();
 
 	let GeneratedComponent: Component | null = $state(null);
 
@@ -66,24 +67,63 @@
 		GeneratedComponent = null;
 
 		const base = normalizeName(String(iconName));
-		const stylePart = iconStyle ? "_" + String(iconStyle).toLowerCase() : "";
-		const candidates = [
-			// most specific
-			`$lib/components/icons/generated/Icon${base}${stylePart}.svelte`,
-			`$lib/components/icons/generated/Icon${base}.svelte`
+		const styleSuffixPascal = iconStyle ? String(iconStyle)[0].toUpperCase() + String(iconStyle).slice(1) : "";
+		const weightSuffix = `W${String(weight).replace(/[^0-9]/g, "")}`;
+
+		// Prefer base component first to avoid many failed imports when only
+		// multi-weight/base components exist. From there try weight-specific,
+		// then style-specific, then style+weight as a last resort.
+		const symbolCandidates = [
+			`Icon${base}`,
+			`Icon${base}${weightSuffix}`,
+			`Icon${base}${styleSuffixPascal}`,
+			`Icon${base}${styleSuffixPascal}${weightSuffix}`
 		];
+
+		// Module path candidates mirror the symbolCandidates order so we can
+		// dynamically import by path if manifest lookup fails.
+		const pathCandidates = symbolCandidates.map((sym) => `$lib/components/icons/generated/${sym}.svelte`);
+
+		function anyCandidateExists() {
+			for (const p of pathCandidates) {
+				if (p in ICON_MODULES_EAGER) {
+					return true;
+				}
+
+				if (p in ICON_MODULES) {
+					return true;
+				}
+			}
+			return false;
+		}
 
 		// If we're in the build / prerender phase, prefer the eager map so the
 		// generated SVG component is available synchronously and becomes part of
 		// the server-rendered output (avoids font-ligature flash on first paint).
 		if (building) {
-			for (const p of candidates) {
+			let matched = null;
+			for (const p of pathCandidates) {
 				if (p in ICON_MODULES_EAGER) {
 					try {
 						GeneratedComponent = ICON_MODULES_EAGER[p].default;
-						return;
+						matched = p;
+						break;
 					} catch (e) {
 						// ignore and continue
+					}
+				}
+			}
+
+			if (!GeneratedComponent) {
+				// Only warn if there were generated candidates present; if no files
+				// exist for this icon at all, the warning is noisy — skip it.
+				if (anyCandidateExists()) {
+					if (!warnedMissing.has(String(iconName))) {
+						console.warn(
+							`[MaterialIcon] No generated component found for "${iconName}" (style=${iconStyle}, weight=${weight}) — falling back to font ligature.`
+						);
+						console.info(`[MaterialIcon] Candidates tried: ${pathCandidates.join(", ")}`);
+						warnedMissing.add(String(iconName));
 					}
 				}
 			}
@@ -95,14 +135,75 @@
 			return;
 		}
 
-		for (const p of candidates) {
-			if (p in ICON_MODULES) {
-				try {
-					const mod = await ICON_MODULES[p]();
-					GeneratedComponent = mod.default;
-					return;
-				} catch (e) {
-					// ignore and continue
+		// First try the manifest (HMR-friendly) using symbol names, then
+		// fall back to dynamic module imports by path.
+		let matched = null;
+		if (!GeneratedComponent) {
+			try {
+				const manifest = await import("$lib/components/icons/generated/index");
+				for (const sym of symbolCandidates) {
+					if (manifest && (manifest as any)[sym]) {
+						GeneratedComponent = (manifest as any)[sym];
+						matched = `manifest:${sym}`;
+						break;
+					}
+				}
+			} catch (e) {
+				// manifest import may fail in some runtimes; ignore and continue
+			}
+		}
+
+		if (!GeneratedComponent) {
+			for (const p of pathCandidates) {
+				if (p in ICON_MODULES) {
+					try {
+						const mod = await ICON_MODULES[p]();
+						GeneratedComponent = mod.default;
+						matched = p;
+						break;
+					} catch (e) {
+						// ignore and continue
+					}
+				}
+			}
+		}
+
+		// Fallback: try the generated `index.ts` manifest which is updated by the
+		// generator. Importing it picks up HMR updates so newly-generated icons
+		// become available without restarting the dev server.
+		if (!GeneratedComponent) {
+			try {
+				const manifest = await import("$lib/components/icons/generated/index");
+				const styleSuffixPascal = iconStyle ? String(iconStyle)[0].toUpperCase() + String(iconStyle).slice(1) : "";
+				const weightSuffix = `W${String(weight).replace(/[^0-9]/g, "")}`;
+				const symbolCandidates = [
+					`Icon${base}${styleSuffixPascal}${weightSuffix}`,
+					`Icon${base}${styleSuffixPascal}`,
+					`Icon${base}${weightSuffix}`,
+					`Icon${base}`
+				];
+
+				for (const sym of symbolCandidates) {
+					if (manifest && (manifest as any)[sym]) {
+						GeneratedComponent = (manifest as any)[sym];
+						matched = `manifest:${sym}`;
+						break;
+					}
+				}
+			} catch (e) {
+				// ignore - manifest may not exist or import may fail in some runtimes
+			}
+		}
+
+		if (dev) {
+			if (!GeneratedComponent) {
+				if (anyCandidateExists()) {
+					if (!warnedMissing.has(String(iconName))) {
+						console.warn(
+							`[MaterialIcon] No generated component found for "${iconName}" (style=${iconStyle}, weight=${weight}) — falling back to font ligature.`
+						);
+						warnedMissing.add(String(iconName));
+					}
 				}
 			}
 		}
@@ -142,7 +243,7 @@
 </script>
 
 {#if GeneratedComponent}
-	<GeneratedComponent {...props} class={props.class} />
+	<GeneratedComponent {...props} className={props.class || ""} {weight} />
 {:else}
 	<span
 		{...props}
