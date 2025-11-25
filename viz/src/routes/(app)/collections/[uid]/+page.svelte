@@ -520,7 +520,7 @@
 {/snippet}
 
 {#snippet searchInputSnippet()}
-	<SearchInput style="margin: 0em 1em; height: 2em;" bind:value={searchValue} />
+	<SearchInput inputId="collection-search" style="margin: 0em 1em; height: 2em;" bind:value={searchValue} />
 	<div id="coll-tools">
 		<Button
 			id="upload_to_collection"

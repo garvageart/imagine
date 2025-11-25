@@ -114,6 +114,7 @@
 		<AppMenu bind:isOpen={openAppMenu} bind:anchor={appMenuButton} />
 	</div>
 	<SearchInput
+		inputId="header-search"
 		placeholder="Search (Ctrl/Cmd + K)"
 		bind:searchInputHasFocus
 		bind:loading={search.loading}

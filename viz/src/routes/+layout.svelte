@@ -13,7 +13,6 @@
 
 <script>
 	import { dev } from "$app/environment";
-	import { CAN_DEBUG } from "$lib/constants";
 	import { debugState, themeState } from "$lib/states/index.svelte";
 	import type { VizConfig } from "$lib/types/config.types";
 	import "@fontsource-variable/manrope";
@@ -27,6 +26,13 @@
 	};
 
 	let { children } = $props();
+
+	$effect(() => {
+		const themeScript = document.getElementById("theme-ready-script") 
+		if (themeScript) {
+			themeScript.remove()
+		}
+	})
 
 	$effect(() => {
 		debugState.storage.set(debugState.value);

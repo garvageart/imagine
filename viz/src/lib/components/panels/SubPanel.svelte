@@ -740,7 +740,7 @@ for Splitpanes
 							if (dev) {
 								if (activeView.id === view.id) {
 									if (view.path) {
-										await goto(view.path);
+										goto(view.path);
 										return;
 									}
 								}

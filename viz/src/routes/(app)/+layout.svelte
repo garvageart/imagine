@@ -7,9 +7,6 @@
 	import { registerReady } from "$lib/stores/appReady";
 	import { loadRuntimeConfig } from "$lib/runtime-config";
 	import { onMount } from "svelte";
-	import { dev } from "$app/environment";
-	import { CLIENT_IS_PRODUCTION } from "$lib/constants";
-	import { VizLocalStorage } from "$lib/server.utils";
 
 	let { children } = $props();
 
