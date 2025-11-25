@@ -120,7 +120,7 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 
 	loggerFields := watermill.LogFields{
 		"uid":      imgEnt.Uid,
-		"filename": imgEnt.ImageMetadata.FileName,
+		"name": imgEnt.Name,
 	}
 
 	jobs.Logger.Info("saving thumbnail to disk", loggerFields)
@@ -152,6 +152,78 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 	thumbhash, err := imageops.GenerateThumbhash(smallThumbImg)
 	if err != nil {
 		return fmt.Errorf("failed to generate thumbhash: %w", err)
+	}
+
+	if onProgress != nil {
+		onProgress("Generating transforms", 80)
+	}
+
+	ext := imgEnt.ImageMetadata.FileType
+
+	var transformParams *imageops.TransformParams
+	var terr error
+	
+	// Generate thumbnail transform (permanent paths)
+	tstart := time.Now()
+	if imgEnt.ImagePaths.Thumbnail != "" {
+		jobs.Logger.Debug("GenerateTransformFromPath: generating transform", loggerFields.Add(watermill.LogFields{
+			"path": imgEnt.ImagePaths.Thumbnail,
+		}))
+
+		transformParams, terr = imageops.ParseTransformParams(imgEnt.ImagePaths.Thumbnail)
+		if terr != nil {
+			return terr
+		}
+		
+		result, terr := imageops.GenerateTransform(transformParams, imgEnt, originalData)
+		if terr != nil {
+			return terr
+		}
+
+		// Write cache
+		if terr := images.WriteCachedTransform(imgEnt.Uid, *result.TransformHash, ext, result.ImageData); terr != nil {
+			return fmt.Errorf("failed to write cached transform: %w", terr)
+		}
+
+		jobs.Logger.Debug("GenerateTransformFromPath: finished generating transform", watermill.LogFields{
+			"uid":         imgEnt.Uid,
+			"path":        imgEnt.ImagePaths.Thumbnail,
+			"duration_ms": time.Since(tstart).Milliseconds(),
+		})
+
+		jobs.Logger.Debug("finished generating thumbnail transform", loggerFields)
+	}
+
+	// Generate preview transform
+	tstart = time.Now()
+	if imgEnt.ImagePaths.Preview != "" {
+		jobs.Logger.Debug("GenerateTransformFromPath: generating transform", watermill.LogFields{
+			"uid":  imgEnt.Uid,
+			"path": imgEnt.ImagePaths.Preview,
+		})
+
+		transformParams, terr = imageops.ParseTransformParams(imgEnt.ImagePaths.Thumbnail)
+		if terr != nil {
+			return terr
+		}
+		
+		result, terr := imageops.GenerateTransform(transformParams, imgEnt, originalData)
+		if terr != nil {
+			return terr
+		}
+
+		// Write cache
+		if terr = images.WriteCachedTransform(imgEnt.Uid, *result.TransformHash, ext, result.ImageData); terr != nil {
+			return fmt.Errorf("failed to write cached transform: %w", terr)
+		}
+
+		jobs.Logger.Debug("GenerateTransformFromPath: finished generating transform", watermill.LogFields{
+			"uid":         imgEnt.Uid,
+			"path":        imgEnt.ImagePaths.Preview,
+			"duration_ms": time.Since(tstart).Milliseconds(),
+		})
+
+		jobs.Logger.Debug("finished generating preview transform", loggerFields)
 	}
 
 	jobs.Logger.Debug("finished generating thumbhash", loggerFields.Add(watermill.LogFields{
