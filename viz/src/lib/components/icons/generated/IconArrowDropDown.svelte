@@ -1,5 +1,5 @@
 <script lang="ts">
-    const variants = {
+    const variants: Record<string, string> = {
     "200": "<path d=\"M480-387.69 327.69-539.77h304.62z\" />",
     "300": "<path d=\"M480-373.85 303.85-549.38h352.3z\" />",
     "400": "<path d=\"M480-360 280-559h400z\" />",
