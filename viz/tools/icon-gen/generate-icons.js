@@ -315,7 +315,7 @@ async function main () {
 
         const svelte = `
 <script lang="ts">
-    const variants = ${variantsJson};
+    const variants: Record<string, string> = ${variantsJson};
     let { size = "1.5em", className = "", title = "${compName}", viewBox = "0 0 24 24", weight = "400" } = $props();
     const inner = variants[String(weight)] || variants["400"] || Object.values(variants)[0];
 </script>
