@@ -241,305 +241,44 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, response)
 	})
 
-	// TODO: Get param values to serve the original file in different
-	// formats, resolutions and sizes
-	// TODO TODO: Finalize route name. "/file/" isn't exactly honest in my opinion
 	router.Get("/{uid}/file", func(res http.ResponseWriter, req *http.Request) {
 		uid := chi.URLParam(req, "uid")
-		params, err := imageops.ParseTransformParams(req.URL.Path)
+		logger := logger.With(slog.String("uid", uid))
+
+		params, err := imageops.ParseTransformParams(req.URL.String())
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
 			render.JSON(res, req, dto.ErrorResponse{Error: "invalid transform parameters"})
 			return
 		}
 
-		// Explicitly exclude soft-deleted images
-		tx := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid)
 		var imgEnt entities.Image
-		result := tx.Preload("UploadedBy").First(&imgEnt)
-		if result.Error != nil {
+		if result := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt); result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
 				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
 				return
 			}
+			logger.Error("failed to fetch image from database", slog.Any("error", result.Error))
 			render.Status(req, http.StatusInternalServerError)
 			render.JSON(res, req, dto.ErrorResponse{Error: "failed to fetch image from database"})
 			return
 		}
 
-		// If no transform parameters are present, serve the original image.
-		// Previously this checked len(req.Form) which treated any query param
-		// (including download=1) as a transform request and caused parse errors.
-		// Build a canonical request URI (path + query) and determine once
-		// whether this request matches any stored image path in the DB.
-		var reqURI = req.URL.Path
-		var isPermanent = false
-		if req.URL.RawQuery != "" {
-			reqURI = reqURI + "?" + req.URL.RawQuery
-		}
-
-		if imgEnt.ImagePaths.Thumbnail == reqURI || imgEnt.ImagePaths.Preview == reqURI || imgEnt.ImagePaths.Original == reqURI {
-			isPermanent = true
-		}
-
-		if imgEnt.ImagePaths.Raw != nil && *imgEnt.ImagePaths.Raw == reqURI {
-			isPermanent = true
+		isDownload := req.URL.Query().Get("download") == "1"
+		if isDownload {
+			if !validateDownloadRequest(res, req, db, uid) {
+				return
+			}
 		}
 
 		hasTransformParams := params.Format != "" || params.Width > 0 || params.Height > 0 || params.Quality > 0 || params.Rotate > 0 || params.Flip != ""
-
 		if !hasTransformParams {
-			imageData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
-			if err != nil {
-				render.Status(req, http.StatusInternalServerError)
-				render.JSON(res, req, dto.ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			// Set cache headers based on permanence
-			if isPermanent {
-				res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else {
-				// Cache for 1 day in browser, but prevent shared caches from storing.
-				res.Header().Set("Cache-Control", "private, max-age=86400, no-transform")
-			}
-			res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum) // Use checksum as ETag
-			// Last-Modified from DB metadata so proxies and clients can use If-Modified-Since
-			res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-			res.Header().Set("Content-Type", "image/"+imgEnt.ImageMetadata.FileType)
-			res.Header().Set("Content-Length", strconv.Itoa(len(imageData)))
-			res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
-
-			// If this is a download request, validate token details
-			// For non-download requests allow normal 304/NotModified behavior.
-			if req.FormValue("download") == "1" {
-				// Validate opaque token with password support
-				token := req.URL.Query().Get("token")
-				password := req.URL.Query().Get("password")
-
-				if token == "" {
-					render.Status(req, http.StatusBadRequest)
-					render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
-					return
-				}
-
-				uids, tokenEntity, ok := downloads.ValidateTokenWithPassword(db, token, password)
-				if !ok {
-					if tokenEntity != nil && tokenEntity.Password != nil {
-						render.Status(req, http.StatusUnauthorized)
-						render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
-						return
-					}
-					render.Status(req, http.StatusUnauthorized)
-					render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
-					return
-				}
-
-				// Check if downloads are allowed
-				if !tokenEntity.AllowDownload {
-					render.Status(req, http.StatusForbidden)
-					render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
-					return
-				}
-
-				// Validate embed access (prevents hotlinking if AllowEmbed is false)
-				if !downloads.ValidateEmbedAccess(tokenEntity, req) {
-					render.Status(req, http.StatusForbidden)
-					render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
-					return
-				}
-
-				// Ensure token is valid for this UID
-				allowed := slices.Contains(uids, uid)
-				if !allowed {
-					render.Status(req, http.StatusUnauthorized)
-					render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
-					return
-				}
-			} else {
-				if match := req.Header.Get("If-None-Match"); match == imgEnt.ImageMetadata.Checksum {
-					res.Header().Set("ETag", imgEnt.ImageMetadata.Checksum)
-					res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-					res.WriteHeader(http.StatusNotModified)
-					return
-				}
-			}
-
-			res.WriteHeader(http.StatusOK)
-			res.Write(imageData)
+			serveOriginalImage(res, req, logger, &imgEnt, isDownload)
 			return
 		}
 
-		if params.Width < 0 || params.Height < 0 {
-			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "width/height cannot be negative"})
-			return
-		}
-
-		// Generate ETag for transformed image based on params BEFORE processing
-		transformETag := fmt.Sprintf("%s-%dx%d-%s-%d-%d-%s-%s", imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel)
-
-		ext := params.Format
-		if ext == "" {
-			ext = imgEnt.ImageMetadata.FileType
-		}
-
-		// If this request is for a permanent path (stored in ImagePaths), try to serve
-		// the pre-generated cached transform and do not attempt on-demand processing.
-		if isPermanent {
-			cached, cerr := images.ReadCachedTransform(imgEnt.Uid, transformETag, ext)
-			if cerr != nil {
-				if cerr.Error() == images.CacheErrTransformNotFound {
-					// Cache miss for a permanent transform — enqueue background job
-					logger.Info("permanent transform cache miss; enqueueing image process job", slog.String("uid", imgEnt.Uid), slog.String("tag", transformETag))
-
-					workerJob := &workers.ImageProcessJob{Image: imgEnt}
-					if _, err := jobs.Enqueue(db, workers.TopicImageProcess, workerJob, nil, &imgEnt.Uid); err != nil {
-						logger.Warn("failed to enqueue transform generation", slog.Any("err", err), slog.String("uid", imgEnt.Uid))
-						render.Status(req, http.StatusInternalServerError)
-						render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue transform generation"})
-						return
-					}
-
-					render.Status(req, http.StatusAccepted)
-					render.JSON(res, req, dto.ErrorResponse{Error: "transform queued"})
-					return
-				}
-
-				// Other cache read error
-				logger.Warn("failed to read cached permanent transform", slog.Any("error", cerr))
-				render.Status(req, http.StatusInternalServerError)
-				render.JSON(res, req, dto.ErrorResponse{Error: "failed to read cached transform"})
-				return
-			}
-
-			// Serve cached bytes with long-lived immutable cache headers
-			res.Header().Set("Content-Type", "image/"+ext)
-			res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			res.Header().Set("ETag", transformETag)
-			res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-			res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
-			res.Header().Set("Content-Length", fmt.Sprintf("%d", len(cached)))
-			render.Status(req, http.StatusOK)
-			res.Write(cached)
-			return
-		}
-
-		// On-demand transform: check cache first
-		cached, cerr := images.ReadCachedTransform(imgEnt.Uid, transformETag, ext)
-		if cerr == nil {
-			// Cache hit: serve cached file
-			logger.Debug("on-demand transform cache hit", slog.String("uid", imgEnt.Uid), slog.String("tag", transformETag))
-			if req.FormValue("download") != "1" {
-				if match := req.Header.Get("If-None-Match"); match == transformETag {
-					res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
-					res.Header().Set("ETag", transformETag)
-					res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-					res.WriteHeader(http.StatusNotModified)
-					return
-				}
-			}
-
-			res.Header().Set("Content-Type", "image/"+ext)
-			res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
-			res.Header().Set("ETag", transformETag)
-			res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-			res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
-			res.Header().Set("Content-Length", fmt.Sprintf("%d", len(cached)))
-			res.WriteHeader(http.StatusOK)
-			res.Write(cached)
-			return
-		}
-
-		if cerr.Error() != images.CacheErrTransformNotFound {
-			logger.Warn("failed to read cached transform", slog.Any("error", cerr))
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read cached transform"})
-			return
-		}
-
-		// Cache miss: generate, cache, and serve
-		logger.Info("on-demand transform cache miss; generating", slog.String("uid", imgEnt.Uid), slog.String("tag", transformETag))
-
-		originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
-		if err != nil {
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read original image"})
-			return
-		}
-
-		tresult, err := imageops.GenerateTransform(params, imgEnt, originalData)
-		if err != nil {
-			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to generate transform"})
-			return
-		}
-
-		// Write to cache
-		go func() {
-			if err := images.WriteCachedTransform(imgEnt.Uid, *tresult.TransformHash, ext, tresult.ImageData); err != nil {
-				logger.Warn("failed to write on-demand transform to cache", slog.Any("error", err))
-			}
-		}()
-
-		// Set response headers for transform result
-		res.Header().Set("Content-Type", "image/"+ext)
-		res.Header().Set("Cache-Control", "public, max-age=604800, no-transform")
-		res.Header().Set("ETag", transformETag)
-		res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
-		res.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", imgEnt.ImageMetadata.FileName))
-
-		// If this is a download request, validate token with details
-		if req.FormValue("download") == "1" {
-			// Validate opaque token with password support
-			token := req.URL.Query().Get("token")
-			password := req.URL.Query().Get("password")
-
-			if token == "" {
-				render.Status(req, http.StatusBadRequest)
-				render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
-				return
-			}
-
-			uids, tokenEntity, ok := downloads.ValidateTokenWithPassword(db, token, password)
-			if !ok {
-				if tokenEntity != nil && tokenEntity.Password != nil {
-					render.Status(req, http.StatusUnauthorized)
-					render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
-					return
-				}
-				render.Status(req, http.StatusUnauthorized)
-				render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
-				return
-			}
-
-			// Check if downloads are allowed
-			if !tokenEntity.AllowDownload {
-				render.Status(req, http.StatusForbidden)
-				render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
-				return
-			}
-
-			// Validate embed access (prevents hotlinking if AllowEmbed is false)
-			if !downloads.ValidateEmbedAccess(tokenEntity, req) {
-				render.Status(req, http.StatusForbidden)
-				render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
-				return
-			}
-
-			// Ensure token is valid for this UID
-			allowed := slices.Contains(uids, uid)
-			if !allowed {
-				render.Status(req, http.StatusUnauthorized)
-				render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
-				return
-			}
-		}
-
-		res.Header().Set("Content-Length", strconv.Itoa(len(tresult.ImageData)))
-		res.WriteHeader(http.StatusOK)
-		res.Write(tresult.ImageData)
+		serveTransformedImage(res, req, logger, &imgEnt, params, isDownload)
 	})
 
 	router.Get("/{uid}/exif", func(res http.ResponseWriter, req *http.Request) {
@@ -649,10 +388,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				return
 			}
 
-			libhttp.ServerError(res, req, err, logger, nil,
-				"Failed to update image",
-				"Something went wrong, please try again later",
-			)
+			logger.Error("Failed to update image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Something went wrong, please try again later"})
 			return
 		}
 
@@ -744,10 +482,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		imageEntity, err := createNewImageEntity(logger, fileImageUpload.FileName, libvipsImg)
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to process image data",
-			)
+			logger.Error("Failed to process image data", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to process image data"})
 			return
 		}
 
@@ -760,10 +497,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		} else {
 			hasher := sha1.New()
 			if _, err := hasher.Write(imageFileData); err != nil {
-				libhttp.ServerError(res, req, err, logger, nil,
-					"",
-					"Failed to create image",
-				)
+				logger.Error("Failed to create image", slog.Any("error", err))
+				render.Status(req, http.StatusInternalServerError)
+				render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 				return
 			}
 			checksum = hex.EncodeToString(hasher.Sum(nil))
@@ -780,20 +516,18 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			render.JSON(res, req, dto.ImageUploadResponse{Uid: existing.Uid})
 			return
 		} else if dupErr != gorm.ErrRecordNotFound {
-			libhttp.ServerError(res, req, dupErr, logger, nil,
-				"",
-				"Failed to check for duplicates",
-			)
+			logger.Error("Failed to check for duplicates", slog.Any("error", dupErr))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to check for duplicates"})
 			return
 		}
 
 		logger.Info("adding images to database", slog.String("id", imageEntity.Uid))
 		dbCreateTx := db.Create(&imageEntity)
 		if dbCreateTx.Error != nil {
-			libhttp.ServerError(res, req, dbCreateTx.Error, logger, nil,
-				"",
-				"Failed to create image",
-			)
+			logger.Error("Failed to create image", slog.Any("error", dbCreateTx.Error))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 			return
 		}
 
@@ -804,19 +538,17 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		err = images.SaveImage(imageFileData, imageEntity.Uid, imageEntity.ImageMetadata.FileName)
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to save image",
-			)
+			logger.Error("Failed to save image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to save image"})
 			return
 		}
 
 		jobUid, err := jobs.Enqueue(db, workers.TopicImageProcess, workerJob, nil, &imageEntity.Uid)
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to create image",
-			)
+			logger.Error("Failed to create image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 			return
 		}
 
@@ -826,7 +558,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		render.JSON(res, req, dto.ImageUploadResponse{
 			Uid: imageEntity.Uid,
 			Metadata: &map[string]interface{}{
-				"job_uid": jobUid, 
+				"job_uid":   jobUid,
 				"file_name": fileImageUpload.FileName,
 				"duplicate": dupErr == nil,
 			},
@@ -886,10 +618,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		imageEntity, err := createNewImageEntity(logger, fileName, libvipsImg)
 
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to process image data",
-			)
+			logger.Error("Failed to process image data", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to process image data"})
 			return
 		}
 
@@ -899,10 +630,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		hasher := sha1.New()
 		if _, err := io.Copy(hasher, bytes.NewReader(fileBytes)); err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to create image",
-			)
+			logger.Error("Failed to create image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 			return
 		}
 
@@ -919,10 +649,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			render.JSON(res, req, dto.ImageUploadResponse{Uid: existing.Uid})
 			return
 		} else if dupErr != gorm.ErrRecordNotFound {
-			libhttp.ServerError(res, req, dupErr, logger, nil,
-				"",
-				"Failed to check for duplicates",
-			)
+			logger.Error("Failed to check for duplicates", slog.Any("error", dupErr))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to check for duplicates"})
 			return
 		}
 
@@ -930,10 +659,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		dbCreateTx := db.Create(&imageEntity)
 
 		if dbCreateTx.Error != nil {
-			libhttp.ServerError(res, req, dbCreateTx.Error, logger, nil,
-				"",
-				"Failed to create image",
-			)
+			logger.Error("Failed to create image", slog.Any("error", dbCreateTx.Error))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 			return
 		}
 
@@ -944,26 +672,24 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		err = images.SaveImage(fileBytes, imageEntity.Uid, imageEntity.ImageMetadata.FileName)
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to process image",
-			)
+			logger.Error("Failed to process image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to process image"})
 			return
 		}
 
 		_, err = jobs.Enqueue(db, workers.TopicImageProcess, workerJob, nil, &imageEntity.Uid)
 		if err != nil {
-			libhttp.ServerError(res, req, err, logger, nil,
-				"",
-				"Failed to process image",
-			)
+			logger.Error("Failed to process image", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to process image"})
 			return
 		}
 
 		logger.Info("upload images success", slog.String("id", imageEntity.Uid))
 
 		render.Status(req, http.StatusCreated)
-		render.JSON(res, req, dto.ImageUploadResponse{Uid: imageEntity.Uid})
+		render.JSON(res, req, dto.ErrorResponse{Error: imageEntity.Uid})
 	})
 
 	router.Delete("/", func(res http.ResponseWriter, req *http.Request) {
@@ -1096,6 +822,161 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	})
 
 	return router
+}
+
+func serveOriginalImage(res http.ResponseWriter, req *http.Request, logger *slog.Logger, imgEnt *entities.Image, isDownload bool) {
+	imageData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
+	if err != nil {
+		logger.Error("failed to read original image", slog.Any("error", err))
+		render.Status(req, http.StatusInternalServerError)
+		render.JSON(res, req, dto.ErrorResponse{Error: "failed to read original image"})
+		return
+	}
+
+	res.Header().Set("Etag", fmt.Sprintf(`"%s"`, imgEnt.ImageMetadata.Checksum))
+	res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+
+	if isDownload {
+		res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
+		res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
+	} else {
+		res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
+
+	http.ServeContent(res, req, imgEnt.ImageMetadata.FileName, imgEnt.UpdatedAt, bytes.NewReader(imageData))
+}
+
+func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *slog.Logger, imgEnt *entities.Image, params *imageops.TransformParams, isDownload bool) {
+	// 1. Determine if this is a "permanent" transform path
+	reqURI := req.URL.String()
+	isPermanent := imgEnt.ImagePaths.Thumbnail == reqURI || imgEnt.ImagePaths.Preview == reqURI
+
+	// 2. Generate ETag for the transform
+	transformETag := fmt.Sprintf(`"%s-%dx%d-%s-%d-%d-%s-%s"`, imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel)
+
+	// 3. Check client-side cache first
+	if match := req.Header.Get("If-None-Match"); match == transformETag {
+		res.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	ext := params.Format
+	if ext == "" {
+		ext = imgEnt.ImageMetadata.FileType
+	}
+
+	res.Header().Set("Content-Type", "image/"+ext)
+
+	// 4. Check our server-side cache
+	cacheKey := strings.Trim(transformETag, `"`)
+	cachedData, err := images.ReadCachedTransform(imgEnt.Uid, cacheKey, ext)
+
+	if err == nil {
+		// Cache HIT: Serve the cached file
+		logger.Debug("serving transformed image from cache", slog.String("key", cacheKey))
+		res.Header().Set("Etag", transformETag)
+		res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+		if isDownload {
+			res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
+			res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
+		} else if isPermanent {
+			res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			res.Header().Set("Cache-Control", "public, max-age=604800")
+		}
+		http.ServeContent(res, req, imgEnt.Name, imgEnt.UpdatedAt, bytes.NewReader(cachedData))
+		return
+	}
+
+	// 5a. If permanent path and not in cache, it's still processing.
+	if isPermanent {
+		logger.Info("permanent transform not ready, telling client to retry", "path", reqURI)
+		res.Header().Set("Retry-After", "10") // Tell client to retry after 10 seconds
+		res.WriteHeader(http.StatusAccepted)
+		return
+	}
+
+	// 5b. If not permanent, generate on-the-fly
+	logger.Info("generating on-demand transform", "key", cacheKey)
+	originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
+	if err != nil {
+		logger.Error("failed to read original for transform", slog.Any("error", err))
+		render.Status(req, http.StatusInternalServerError)
+		render.JSON(res, req, dto.ErrorResponse{Error: "failed to read original for transform"})
+		return
+	}
+
+	tresult, err := imageops.GenerateTransform(params, *imgEnt, originalData)
+	if err != nil {
+		logger.Error("failed to generate transform", slog.Any("error", err))
+		render.Status(req, http.StatusInternalServerError)
+		render.JSON(res, req, dto.ErrorResponse{Error: "failed to generate transform"})
+		return
+	}
+
+	// Write to cache in the background
+	go func() {
+		if err := images.WriteCachedTransform(imgEnt.Uid, cacheKey, ext, tresult.ImageData); err != nil {
+			logger.Warn("failed to write on-demand transform to cache", slog.Any("error", err))
+		}
+	}()
+
+	// Serve the newly generated image
+	res.Header().Set("Etag", transformETag)
+	res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+	if isDownload {
+		res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
+		res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
+	} else {
+		res.Header().Set("Cache-Control", "public, max-age=604800")
+	}
+
+	res.Header().Set("Content-Length", strconv.Itoa(len(tresult.ImageData)))
+	res.WriteHeader(http.StatusOK)
+	res.Write(tresult.ImageData)
+}
+
+func validateDownloadRequest(res http.ResponseWriter, req *http.Request, db *gorm.DB, uid string) bool {
+	token := req.URL.Query().Get("token")
+	password := req.URL.Query().Get("password")
+
+	if token == "" {
+		render.Status(req, http.StatusBadRequest)
+		render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
+		return false
+	}
+
+	uids, tokenEntity, ok := downloads.ValidateTokenWithPassword(db, token, password)
+	if !ok {
+		if tokenEntity != nil && tokenEntity.Password != nil {
+			render.Status(req, http.StatusUnauthorized)
+			render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
+			return false
+		}
+		render.Status(req, http.StatusUnauthorized)
+		render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
+		return false
+	}
+
+	if !tokenEntity.AllowDownload {
+		render.Status(req, http.StatusForbidden)
+		render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
+		return false
+	}
+
+	if !downloads.ValidateEmbedAccess(tokenEntity, req) {
+		render.Status(req, http.StatusForbidden)
+		render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
+		return false
+	}
+
+	if !slices.Contains(uids, uid) {
+		render.Status(req, http.StatusUnauthorized)
+		render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
+		return false
+	}
+
+	return true
 }
 
 // updateImageFromDTO updates image entity fields from a small ImageUpdate

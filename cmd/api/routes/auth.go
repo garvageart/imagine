@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -247,8 +246,6 @@ func AuthRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		default:
 			res.WriteHeader(http.StatusBadRequest)
 			res.Write([]byte("OAuth provider unsupported"))
-			vizServer := libhttp.ImagineServers["viz"]
-			http.Redirect(res, req, fmt.Sprintf("%s:%d", vizServer.Host, vizServer.Port), http.StatusTemporaryRedirect)
 		}
 
 		expiryTime := carbon.Now().AddYear().StdTime()
