@@ -160,7 +160,12 @@ func StartTransformCacheGC(ctx context.Context, logger *slog.Logger) {
 				cleanupIntervalMinutes = cfg.GetInt("cache.cleanup_interval_minutes")
 			}
 		} else if logger != nil {
-			logger.Warn("cache gc: failed to read config, using defaults", slog.Any("error", err))
+			logger.Warn("cache gc: failed to read config, using defaults", slog.Group("config",
+				slog.Any("error", err),
+				slog.Int64("max_size_bytes", maxSizeBytes),
+				slog.Int("max_age_days", maxAgeDays),
+				slog.Int("cleanup_interval_minutes", cleanupIntervalMinutes),
+			))
 		}
 
 		interval := time.Duration(cleanupIntervalMinutes) * time.Minute
