@@ -288,6 +288,7 @@
 							alt={lightboxImage!.name}
 							title={lightboxImage!.name}
 							loading="eager"
+							crossorigin="use-credentials"
 							data-image-id={lightboxImage!.uid}
 							in:fade
 							out:fade

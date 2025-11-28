@@ -73,12 +73,7 @@
 		// Prefer base component first to avoid many failed imports when only
 		// multi-weight/base components exist. From there try weight-specific,
 		// then style-specific, then style+weight as a last resort.
-		const symbolCandidates = [
-			`Icon${base}`,
-			`Icon${base}${weightSuffix}`,
-			`Icon${base}${styleSuffixPascal}`,
-			`Icon${base}${styleSuffixPascal}${weightSuffix}`
-		];
+		const symbolCandidates = [`Icon${base}`];
 
 		// Module path candidates mirror the symbolCandidates order so we can
 		// dynamically import by path if manifest lookup fails.
@@ -138,20 +133,6 @@
 		// First try the manifest (HMR-friendly) using symbol names, then
 		// fall back to dynamic module imports by path.
 		let matched = null;
-		if (!GeneratedComponent) {
-			try {
-				const manifest = await import("$lib/components/icons/generated/index");
-				for (const sym of symbolCandidates) {
-					if (manifest && (manifest as any)[sym]) {
-						GeneratedComponent = (manifest as any)[sym];
-						matched = `manifest:${sym}`;
-						break;
-					}
-				}
-			} catch (e) {
-				// manifest import may fail in some runtimes; ignore and continue
-			}
-		}
 
 		if (!GeneratedComponent) {
 			for (const p of pathCandidates) {
@@ -165,33 +146,6 @@
 						// ignore and continue
 					}
 				}
-			}
-		}
-
-		// Fallback: try the generated `index.ts` manifest which is updated by the
-		// generator. Importing it picks up HMR updates so newly-generated icons
-		// become available without restarting the dev server.
-		if (!GeneratedComponent) {
-			try {
-				const manifest = await import("$lib/components/icons/generated/index");
-				const styleSuffixPascal = iconStyle ? String(iconStyle)[0].toUpperCase() + String(iconStyle).slice(1) : "";
-				const weightSuffix = `W${String(weight).replace(/[^0-9]/g, "")}`;
-				const symbolCandidates = [
-					`Icon${base}${styleSuffixPascal}${weightSuffix}`,
-					`Icon${base}${styleSuffixPascal}`,
-					`Icon${base}${weightSuffix}`,
-					`Icon${base}`
-				];
-
-				for (const sym of symbolCandidates) {
-					if (manifest && (manifest as any)[sym]) {
-						GeneratedComponent = (manifest as any)[sym];
-						matched = `manifest:${sym}`;
-						break;
-					}
-				}
-			} catch (e) {
-				// ignore - manifest may not exist or import may fail in some runtimes
 			}
 		}
 

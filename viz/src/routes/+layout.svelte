@@ -28,7 +28,7 @@
 	let { children } = $props();
 
 	$effect(() => {
-		const themeScript = document.getElementById("theme-ready-script") 
+		const themeScript = document.getElementById("theme-ready-script")
 		if (themeScript) {
 			themeScript.remove()
 		}

@@ -71,8 +71,9 @@ export function blurOnEsc(event: KeyboardEvent) {
     }
 }
 
-export async function loadImage(url: string, element: HTMLImageElement): Promise<boolean> {
+export async function loadImage(url: string, element: HTMLImageElement, crossOrigin: string | null = null): Promise<boolean> {
     return new Promise((resolve, reject) => {
+        element.crossOrigin = crossOrigin;
         element.src = url;
         element.onload = () => {
             resolve(true);

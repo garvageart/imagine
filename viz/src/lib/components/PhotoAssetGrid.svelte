@@ -84,10 +84,6 @@
 
 	let photoGridEl: HTMLDivElement | undefined = $state();
 
-	// Scrolling / lazy-load helpers
-	let isScrolling: boolean = $state(false);
-	let scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
-
 	const tippyAction = (node: HTMLElement, initialParams: { asset: Image } & Partial<TippyProps>) => {
 		let { asset, ...params } = initialParams;
 		const contentNode = document.createElement("div");
@@ -130,13 +126,10 @@
 		};
 	};
 
+	// Scrolling / lazy-load helpers
+	let isScrolling: boolean = $state(false);
+	let scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
 	const pendingLazyNodes = new SvelteSet<HTMLImageElement>();
-	// Track actively-loading <img> elements so we can abort their fetches on navigation
-	const activeImageElements = new SvelteSet<HTMLImageElement>();
-	// Map from <img> element -> AbortController for its fetch
-	const imgToController = new WeakMap<HTMLImageElement, AbortController>();
-	// Track programmatic prefetch controllers keyed by asset UID
-	const lightboxPrefetchMap = new Map<string, AbortController>();
 
 	function loadImageNode(img: HTMLImageElement) {
 		const data = img.dataset.src;
@@ -146,47 +139,7 @@
 		if (img.src === data) {
 			return;
 		}
-		// If there's an existing controller for this img, abort it first
-		try {
-			const prev = imgToController.get(img);
-			if (prev) {
-				prev.abort();
-				imgToController.delete(img);
-			}
-		} catch (e) {}
-
-		const controller = new AbortController();
-		imgToController.set(img, controller);
-		activeImageElements.add(img);
-
-		// Use fetch + AbortController to allow reliable cancellation.
-		// We don't create an object URL; instead we rely on the browser HTTP cache.
-		fetch(data, { signal: controller.signal, cache: "force-cache", credentials: "include" })
-			.then((res) => {
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
-				// Fetch completed successfully; set the image src to the original URL.
-				// If the response is cacheable, the browser will serve from cache and avoid duplicate download.
-				img.src = data;
-			})
-			.catch((err) => {
-				// If aborted or failed, ensure src is cleared
-				try {
-					if ((err && (err as any).name === "AbortError") || !err) {
-						// aborted
-					}
-					if (img.src && img.dataset.src && img.src === img.dataset.src) {
-						img.src = "";
-					}
-				} catch (e) {}
-			})
-			.finally(() => {
-				try {
-					imgToController.delete(img);
-				} catch (e) {}
-				try {
-					activeImageElements.delete(img);
-				} catch (e) {}
-			});
+		img.src = data;
 	}
 
 	function lazyLoad(node: HTMLImageElement, params: { src: string }) {
@@ -242,13 +195,6 @@
 			destroy() {
 				observer.disconnect();
 				pendingLazyNodes.delete(node);
-				// if this node was actively loading, try to cancel by clearing src
-				try {
-					if (node.src && node.dataset.src && node.src === node.dataset.src) {
-						node.src = "";
-					}
-				} catch (e) {}
-				activeImageElements.delete(node);
 			}
 		};
 	}
@@ -450,7 +396,6 @@
 	// --- Lightbox prefetch helpers ---
 	// Simple in-memory cache to avoid repeated prefetches for the same asset UID
 	const lightboxPrefetchCache = new SvelteSet<string>();
-
 	function prefetchLightboxImage(asset: Image) {
 		if (!asset.uid) {
 			return;
@@ -461,70 +406,21 @@
 		}
 
 		lightboxPrefetchCache.add(asset.uid);
+		const img = new Image();
+		// TODO: Do manual fetch to include credentials
+		// and stop 401's
+		// also why the fuck is our memory usage so high?
+		// 2GB in on certain refreshes
+		img.src = getFullImagePath(asset.image_paths.preview);
+		img.onload = () => {
+			// loaded & cached by browser; keep UID in cache to avoid re-fetching
+		};
 
-		// AbortController-based prefetch: fetch the resource (with credentials) and rely on HTTP cache.
-		const url = getFullImagePath(asset.image_paths.preview);
-		const controller = new AbortController();
-		lightboxPrefetchMap.set(asset.uid, controller);
-
-		fetch(url, { signal: controller.signal, cache: "force-cache", credentials: "include" })
-			.then((res) => {
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
-				// On success, browser cache should have the resource so subsequent img.src will be fast
-				lightboxPrefetchMap.delete(asset.uid);
-			})
-			.catch((err) => {
-				try {
-					lightboxPrefetchCache.delete(asset.uid);
-					lightboxPrefetchMap.delete(asset.uid);
-				} catch (e) {}
-			});
+		img.onerror = () => {
+			// If loading fails, allow future retries
+			lightboxPrefetchCache.delete(asset.uid);
+		};
 	}
-
-	// When navigating away from this route, try to abort any active image loads
-	beforeNavigate(() => {
-		try {
-			// Abort any ongoing fetches for visible images
-			for (const img of Array.from(activeImageElements)) {
-				try {
-					const c = imgToController.get(img);
-					if (c) c.abort();
-				} catch (e) {}
-				try {
-					if (img && img.src && img.dataset && img.dataset.src && img.src === img.dataset.src) {
-						img.src = "";
-					}
-				} catch (e) {}
-				try {
-					imgToController.delete(img);
-				} catch (e) {}
-				try {
-					activeImageElements.delete(img);
-				} catch (e) {}
-			}
-		} catch (e) {}
-
-		try {
-			pendingLazyNodes.clear();
-		} catch (e) {}
-
-		try {
-			// Abort any programmatic prefetches
-			for (const [uid, controller] of Array.from(lightboxPrefetchMap.entries())) {
-				try {
-					controller.abort();
-				} catch (e) {}
-				try {
-					lightboxPrefetchMap.delete(uid);
-				} catch (e) {}
-			}
-		} catch (e) {}
-
-		try {
-			// Clear cache markers so future navigations can retry prefetch
-			lightboxPrefetchCache.clear();
-		} catch (e) {}
-	});
 
 	$effect(() => {
 		if (!photoGridEl || data.length === 0) {
@@ -549,22 +445,6 @@
 		}
 
 		scrollTop = photoGridEl.scrollTop;
-
-		// Throttle/mark scrolling state so we can defer non-essential loads while the user scrolls fast
-		isScrolling = true;
-		if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
-		scrollIdleTimer = setTimeout(() => {
-			isScrolling = false;
-			// flush pending lazy loads
-			for (const n of Array.from(pendingLazyNodes)) {
-				try {
-					loadImageNode(n);
-				} catch (err) {
-					// ignore
-				}
-				pendingLazyNodes.delete(n);
-			}
-		}, 150);
 
 		// Update visible rows on next frame to avoid layout thrash
 		requestAnimationFrame(() => {
@@ -711,17 +591,29 @@
 		{/if}
 		{#if asset.image_paths}
 			{@const thumbhashURL = getThumbhashURL(asset)}
+			{@const src = getSizedPreviewUrl(asset)}
 			<div class="tile-image-container" style={`height: 100%;`}>
 				{#if thumbhashURL}
-					<img class="tile-placeholder" src={thumbhashURL} alt="" aria-hidden="true" />
+					<img
+						class="tile-placeholder"
+						data-placeholder-uid={asset.uid}
+						src={thumbhashURL}
+						alt="Placeholder for {asset.name ?? asset.image_metadata?.file_name}"
+						aria-hidden="true"
+					/>
 				{/if}
 				<img
 					draggable="false"
 					class="tile-image"
-					use:lazyLoad={{ src: getSizedPreviewUrl(asset, dim?.width, dim?.height) }}
+					use:lazyLoad={{ src: src }}
 					alt={asset.name ?? asset.image_metadata?.file_name ?? ""}
 					loading="lazy"
-					onload={(e) => (e.currentTarget as HTMLImageElement).closest(".asset-photo")?.classList.add("img-loaded")}
+					crossOrigin="use-credentials"
+					onload={(e) => {
+						pendingLazyNodes.delete(e.currentTarget as HTMLImageElement);
+						(e.currentTarget as HTMLImageElement).closest(".asset-photo")?.classList.add("img-loaded");
+						document.querySelector(`img[data-placeholder-uid="${asset.uid}"]`)?.remove();
+					}}
 				/>
 			</div>
 			{#if isSelected && isMultiSelecting}
