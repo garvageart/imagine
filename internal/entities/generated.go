@@ -20,8 +20,8 @@ type APIKey struct {
 	Name        *string
 	Revoked     bool
 	RevokedAt   *time.Time
-	Scopes      *[]string `gorm:"serializer:json;type:JSONB"`
-	Uid         string    `gorm:"uniqueIndex"`
+	Scopes      []string `gorm:"serializer:json;type:JSONB"`
+	Uid         string   `gorm:"uniqueIndex"`
 	UserID      *string
 	User        *User `gorm:"foreignKey:UserID;references:Uid"`
 }

@@ -13,6 +13,7 @@ import (
 	"log/slog"
 
 	"imagine/internal/config"
+	"imagine/internal/dto"
 )
 
 const (
@@ -136,6 +137,95 @@ func PurgeTransformsForUID(uid string) error {
 		return nil
 	}
 	return os.RemoveAll(dir)
+}
+
+// GetCacheStatus calculates and returns the current status of the image transform cache.
+func GetCacheStatus() (dto.CacheStatusResponse, error) {
+	var totalSize int64
+	var totalItems int64
+
+	entries, err := os.ReadDir(Directory)
+	if err != nil {
+		return dto.CacheStatusResponse{}, fmt.Errorf("failed to read images directory: %w", err)
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		transformsPath := filepath.Join(Directory, e.Name(), "transforms")
+		info, err := os.Stat(transformsPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return dto.CacheStatusResponse{}, fmt.Errorf("failed to stat transforms directory %s: %w", transformsPath, err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+
+		tfiles, err := os.ReadDir(transformsPath)
+		if err != nil {
+			return dto.CacheStatusResponse{}, fmt.Errorf("failed to read transforms directory %s: %w", transformsPath, err)
+		}
+
+		for _, tf := range tfiles {
+			if tf.IsDir() {
+				continue
+			}
+
+			base := tf.Name()
+			if len(base) >= len(TempTransformPrefix) && base[:len(TempTransformPrefix)] == TempTransformPrefix {
+				continue
+			}
+
+			finfo, err := tf.Info()
+			if err != nil {
+				return dto.CacheStatusResponse{}, fmt.Errorf("failed to get file info for %s: %w", filepath.Join(transformsPath, base), err)
+			}
+
+			totalSize += finfo.Size()
+			totalItems++
+		}
+	}
+
+	// For now, hits and misses are not tracked.
+	// If tracking is implemented, update these values.
+	var hitRatio float64
+	if totalItems > 0 {
+		hitRatio = float64(0) / float64(totalItems) // Placeholder
+	}
+
+	return dto.CacheStatusResponse{
+		Size:     int(totalSize),
+		Items:    int(totalItems),
+		Hits:     0,
+		Misses:   0,
+		HitRatio: float32(hitRatio),
+	}, nil
+}
+
+// ClearCache removes all cached transform files.
+func ClearCache(logger *slog.Logger) error {
+	entries, err := os.ReadDir(Directory)
+	if err != nil {
+		return fmt.Errorf("failed to read images directory: %w", err)
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		uid := e.Name()
+		if err := PurgeTransformsForUID(uid); err != nil {
+			return fmt.Errorf("failed to purge transforms for UID %s: %w", uid, err)
+		}
+
+		logger.Debug("cleared transform cache for UID", slog.String("uid", uid))
+	}
+	return nil
 }
 
 // StartTransformCacheGC starts a background goroutine that periodically

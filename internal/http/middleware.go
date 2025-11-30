@@ -79,8 +79,9 @@ func ClearSessionCache(token string) {
 type ctxKey string
 
 const (
-	ctxUserKey ctxKey = "currentUser"
-	ctxAPIKey  ctxKey = "apiKeyAuth"
+	ctxUserKey    ctxKey = "currentUser"
+	ctxAPIKey     ctxKey = "apiKey"
+	ctxAPIKeyAuth ctxKey = "apiKeyAuth"
 )
 
 // WithUser returns a request with the authenticated user added to the context.
@@ -99,6 +100,16 @@ func UserFromContext(r *http.Request) (*entities.User, bool) {
 	return u, ok
 }
 
+// APIKeyFromContext returns the authenticated API Key from the request context, if present.
+func APIKeyFromContext(r *http.Request) (*entities.APIKey, bool) {
+	v := r.Context().Value(ctxAPIKey)
+	if v == nil {
+		return nil, false
+	}
+	u, ok := v.(*entities.APIKey)
+	return u, ok
+}
+
 // AuthMiddleware validates the auth cookie against the sessions table, loads the user,
 // and injects it into the request context. 401 is returned for missing/invalid/expired sessions.
 func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) http.Handler {
@@ -109,7 +120,7 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 				hashed, _ := imaAuth.HashSecret(apiKey)
 
 				var key entities.APIKey
-				query := db.Where("key_hashed = ?", hashed).First(&key)
+				query := db.Where("key_hashed = ?", hashed).Preload("User").First(&key)
 				if query.Error != nil {
 					if query.Error == gorm.ErrRecordNotFound {
 						render.Status(r, http.StatusUnauthorized)
@@ -128,11 +139,13 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 					return
 				}
 
-				r = r.WithContext(context.WithValue(r.Context(), ctxAPIKey, true))
+				r = r.WithContext(context.WithValue(r.Context(), ctxAPIKey, &key))
+				r = r.WithContext(context.WithValue(r.Context(), ctxAPIKeyAuth, true))
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			// Fallback to cookie-based session authentication.
 			cookie, err := r.Cookie(AuthTokenCookie)
 			if err != nil || cookie == nil || cookie.Value == "" {
 				render.Status(r, http.StatusUnauthorized)
@@ -203,7 +216,56 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 					etag := fmt.Sprintf("W/\"%d-%s\"", u.UpdatedAt.UnixNano(), u.Uid)
 					w.Header().Set("Cache-Control", "private, max-age=60, must-revalidate")
 					w.Header().Set("ETag", etag)
-					w.Header().Set("X-User-Version", etag)
+					w.Header().Set(APIUserVersion, etag)
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// ScopeMiddleware requires that the request context contains an authenticated
+// API Key with the required scopes. It assumes AuthMiddleware has run
+// earlier in the chain to populate the API Key in context.
+func ScopeMiddleware(requiredScopes []imaAuth.Scope) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Cookie-based auth should bypass scope checks
+			if _, ok := UserFromContext(r); ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			apiKey, ok := APIKeyFromContext(r)
+			if !ok || apiKey == nil {
+				render.Status(r, http.StatusUnauthorized)
+				render.JSON(w, r, dto.ErrorResponse{Error: "unauthenticated"})
+				return
+			}
+
+			// Superadmin bypass
+			if apiKey.User != nil && (apiKey.User.Role == "admin" || apiKey.User.Role == "superadmin") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if len(apiKey.Scopes) == 0 {
+				render.Status(r, http.StatusForbidden)
+				render.JSON(w, r, dto.ErrorResponse{Error: "forbidden: insufficient scopes"})
+				return
+			}
+
+			userScopes := make(map[imaAuth.Scope]bool)
+			for _, s := range apiKey.Scopes {
+				userScopes[imaAuth.Scope(s)] = true
+			}
+
+			for _, requiredScope := range requiredScopes {
+				if !userScopes[requiredScope] {
+					render.Status(r, http.StatusForbidden)
+					render.JSON(w, r, dto.ErrorResponse{Error: "forbidden: insufficient scopes"})
+					return
 				}
 			}
 
@@ -245,10 +307,7 @@ func getAPIKeyFromRequest(r *http.Request) string {
 		}
 	}
 
-	apiKey := r.Header.Get("X-API-Key")
-	if apiKey == "" {
-		apiKey = r.Header.Get(APIKeyName)
-	}
+	apiKey := r.Header.Get(APIKeyName)
 	if apiKey != "" {
 		return apiKey
 	}

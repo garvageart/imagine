@@ -252,6 +252,12 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
+		if params.Height <= 0 || params.Width <= 0 {
+			render.Status(req, http.StatusBadRequest)
+			render.JSON(res, req, dto.ErrorResponse{Error: "invalid width/height parameters"})
+			return
+		}
+
 		var imgEnt entities.Image
 		if result := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt); result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
@@ -259,6 +265,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
 				return
 			}
+
 			logger.Error("failed to fetch image from database", slog.Any("error", result.Error))
 			render.Status(req, http.StatusInternalServerError)
 			render.JSON(res, req, dto.ErrorResponse{Error: "failed to fetch image from database"})
@@ -462,9 +469,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		if fileImageUpload.Checksum != nil && *fileImageUpload.Checksum != "" {
-			hasher := sha1.New()
-			hasher.Write(imageFileData)
-			calculatedChecksum := hex.EncodeToString(hasher.Sum(nil))
+			calculatedChecksum, err := images.CalculateImageChecksum(imageFileData)
+			if err != nil {
+				render.Status(req, http.StatusInternalServerError)
+				render.JSON(res, req, dto.ErrorResponse{Error: "failed to calculate checksum"})
+				return
+			}
+
 			if *fileImageUpload.Checksum != calculatedChecksum {
 				res.WriteHeader(http.StatusBadRequest)
 				render.JSON(res, req, dto.ErrorResponse{Error: "checksum mismatch"})
@@ -495,14 +506,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if fileImageUpload.Checksum != nil && *fileImageUpload.Checksum != "" {
 			checksum = *fileImageUpload.Checksum
 		} else {
-			hasher := sha1.New()
-			if _, err := hasher.Write(imageFileData); err != nil {
+			checksum, err = images.CalculateImageChecksum(imageFileData)
+			if err != nil {
 				logger.Error("Failed to create image", slog.Any("error", err))
 				render.Status(req, http.StatusInternalServerError)
 				render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create image"})
 				return
 			}
-			checksum = hex.EncodeToString(hasher.Sum(nil))
 		}
 
 		fileSize := int64(len(imageFileData))
@@ -522,7 +532,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
-		logger.Info("adding images to database", slog.String("id", imageEntity.Uid))
+		logger.Info("adding images to database", slog.String("uid", imageEntity.Uid))
 		dbCreateTx := db.Create(&imageEntity)
 		if dbCreateTx.Error != nil {
 			logger.Error("Failed to create image", slog.Any("error", dbCreateTx.Error))
@@ -531,7 +541,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
-		logger.Info("starting image processing", slog.String("id", imageEntity.Uid))
+		logger.Info("starting image processing", slog.String("uid", imageEntity.Uid))
 		workerJob := &workers.ImageProcessJob{
 			Image: *imageEntity,
 		}
@@ -851,13 +861,31 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 	reqURI := req.URL.String()
 	isPermanent := imgEnt.ImagePaths.Thumbnail == reqURI || imgEnt.ImagePaths.Preview == reqURI
 
+	// Check if a 'v' (version/checksum) query parameter is present
+	hasVersionParam := req.URL.Query().Get("v") != ""
+
 	// 2. Generate ETag for the transform
-	transformETag := fmt.Sprintf(`"%s-%dx%d-%s-%d-%d-%s-%s"`, imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel)
+	transformETag := *imageops.CreateTransformEtag(*imgEnt, params)
 
 	// 3. Check client-side cache first
-	if match := req.Header.Get("If-None-Match"); match == transformETag {
-		res.WriteHeader(http.StatusNotModified)
-		return
+	if match := req.Header.Get("If-None-Match"); match != "" {
+		// Strip quotes from the If-None-Match header value for comparison
+		match = strings.Trim(match, `"`)
+		if match == transformETag {
+			logger.Debug("client-side cache hit (If-None-Match)", slog.String("etag", transformETag))
+			res.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	if modifiedSince := req.Header.Get("If-Modified-Since"); modifiedSince != "" {
+		if t, err := http.ParseTime(modifiedSince); err == nil {
+			if !imgEnt.UpdatedAt.After(t) {
+				logger.Debug("client-side cache hit (If-Modified-Since)", slog.Time("last-modified", imgEnt.UpdatedAt))
+				res.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
 	}
 
 	ext := params.Format
@@ -873,31 +901,37 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 
 	if err == nil {
 		// Cache HIT: Serve the cached file
-		logger.Debug("serving transformed image from cache", slog.String("key", cacheKey))
+		logger.Debug("server-side cache hit", slog.String("key", cacheKey))
 		res.Header().Set("Etag", transformETag)
 		res.Header().Set("Last-Modified", imgEnt.UpdatedAt.UTC().Format(http.TimeFormat))
+
 		if isDownload {
 			res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 			res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
-		} else if isPermanent {
+		} else if isPermanent || hasVersionParam {
+			// If it's a permanent path or has a version parameter, it's immutable
 			res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
+			// Otherwise, use a shorter cache time
 			res.Header().Set("Cache-Control", "public, max-age=604800")
 		}
-		http.ServeContent(res, req, imgEnt.Name, imgEnt.UpdatedAt, bytes.NewReader(cachedData))
+
+		res.Header().Set("Content-Length", strconv.Itoa(len(cachedData)))
+		res.WriteHeader(http.StatusOK)
+		res.Write(cachedData)
 		return
 	}
 
 	// 5a. If permanent path and not in cache, it's still processing.
 	if isPermanent {
-		logger.Info("permanent transform not ready, telling client to retry", "path", reqURI)
+		logger.Info("permanent transform not ready, telling client to retry", slog.String("path", reqURI), slog.String("uid", imgEnt.Uid))
 		res.Header().Set("Retry-After", "10") // Tell client to retry after 10 seconds
 		res.WriteHeader(http.StatusAccepted)
 		return
 	}
 
 	// 5b. If not permanent, generate on-the-fly
-	logger.Info("generating on-demand transform", "key", cacheKey)
+	logger.Info("server-side cache miss, generating on-demand transform", slog.String("key", cacheKey))
 	originalData, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 	if err != nil {
 		logger.Error("failed to read original for transform", slog.Any("error", err))
@@ -927,6 +961,8 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 	if isDownload {
 		res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 		res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
+	} else if isPermanent || hasVersionParam {
+		res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
 		res.Header().Set("Cache-Control", "public, max-age=604800")
 	}

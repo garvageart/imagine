@@ -97,6 +97,12 @@ type ClientInterface interface {
 	// GetCurrentUser request
 	GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ClearImageCache request
+	ClearImageCache(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCacheStatus request
+	GetCacheStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AdminHealthcheck request
 	AdminHealthcheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -301,6 +307,30 @@ func (c *Client) RegisterUser(ctx context.Context, body RegisterUserJSONRequestB
 
 func (c *Client) GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCurrentUserRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClearImageCache(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearImageCacheRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCacheStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCacheStatusRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1129,6 +1159,60 @@ func NewGetCurrentUserRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/accounts/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClearImageCacheRequest generates requests for ClearImageCache
+func NewClearImageCacheRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/cache")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCacheStatusRequest generates requests for GetCacheStatus
+func NewGetCacheStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/cache/status")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2801,9 +2885,9 @@ func NewGetImageFileRequest(server string, uid string, params *GetImageFileParam
 
 		}
 
-		if params.W != nil {
+		if params.Width != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "w", runtime.ParamLocationQuery, *params.W); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "width", runtime.ParamLocationQuery, *params.Width); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -2817,9 +2901,9 @@ func NewGetImageFileRequest(server string, uid string, params *GetImageFileParam
 
 		}
 
-		if params.H != nil {
+		if params.Height != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "h", runtime.ParamLocationQuery, *params.H); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "height", runtime.ParamLocationQuery, *params.Height); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -3319,6 +3403,12 @@ type ClientWithResponsesInterface interface {
 	// GetCurrentUserWithResponse request
 	GetCurrentUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error)
 
+	// ClearImageCacheWithResponse request
+	ClearImageCacheWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearImageCacheResponse, error)
+
+	// GetCacheStatusWithResponse request
+	GetCacheStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCacheStatusResponse, error)
+
 	// AdminHealthcheckWithResponse request
 	AdminHealthcheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminHealthcheckResponse, error)
 
@@ -3537,6 +3627,56 @@ func (r GetCurrentUserResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCurrentUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ClearImageCacheResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MessageResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearImageCacheResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearImageCacheResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCacheStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CacheStatusResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCacheStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCacheStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4737,6 +4877,24 @@ func (c *ClientWithResponses) GetCurrentUserWithResponse(ctx context.Context, re
 	return ParseGetCurrentUserResponse(rsp)
 }
 
+// ClearImageCacheWithResponse request returning *ClearImageCacheResponse
+func (c *ClientWithResponses) ClearImageCacheWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearImageCacheResponse, error) {
+	rsp, err := c.ClearImageCache(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearImageCacheResponse(rsp)
+}
+
+// GetCacheStatusWithResponse request returning *GetCacheStatusResponse
+func (c *ClientWithResponses) GetCacheStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCacheStatusResponse, error) {
+	rsp, err := c.GetCacheStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCacheStatusResponse(rsp)
+}
+
 // AdminHealthcheckWithResponse request returning *AdminHealthcheckResponse
 func (c *ClientWithResponses) AdminHealthcheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminHealthcheckResponse, error) {
 	rsp, err := c.AdminHealthcheck(ctx, reqEditors...)
@@ -5358,6 +5516,100 @@ func ParseGetCurrentUserResponse(rsp *http.Response) (*GetCurrentUserResponse, e
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearImageCacheResponse parses an HTTP response from a ClearImageCacheWithResponse call
+func ParseClearImageCacheResponse(rsp *http.Response) (*ClearImageCacheResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearImageCacheResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCacheStatusResponse parses an HTTP response from a GetCacheStatusWithResponse call
+func ParseGetCacheStatusResponse(rsp *http.Response) (*GetCacheStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCacheStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CacheStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

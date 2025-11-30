@@ -11,6 +11,7 @@ import (
 
 	"imagine/internal/dto"
 	libhttp "imagine/internal/http"
+	"imagine/internal/images"
 	"imagine/internal/utils"
 )
 
@@ -27,7 +28,7 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	r.Post("/healthcheck", func(res http.ResponseWriter, req *http.Request) {
 		result := db.Exec("SELECT 1")
 		if result.Error != nil {
-			res.WriteHeader(http.StatusInternalServerError)
+			render.Status(req, http.StatusInternalServerError)
 			render.JSON(res, req, dto.ErrorResponse{Error: "healthcheck failed"})
 			return
 		}
@@ -41,8 +42,41 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		loveMessage := randomPositiveMessage[utils.RandomInt(0, len(randomPositiveMessage)-1)]
 
-		res.WriteHeader(http.StatusOK)
+		render.Status(req, http.StatusOK)
 		render.JSON(res, req, dto.MessageResponse{Message: loveMessage})
+	})
+
+	// Get cache status
+	r.Get("/cache/status", func(res http.ResponseWriter, req *http.Request) {
+		status, err := images.GetCacheStatus()
+		if err != nil {
+			logger.Error("failed to get cache status", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to get cache status"})
+			return
+		}
+
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.CacheStatusResponse{
+			Size:     status.Size,
+			Items:    status.Items,
+			Hits:     status.Hits,
+			Misses:   status.Misses,
+			HitRatio: status.HitRatio,
+		})
+	})
+
+	// Clear image cache
+	r.Delete("/cache", func(res http.ResponseWriter, req *http.Request) {
+		err := images.ClearCache(logger)
+		if err != nil {
+			logger.Error("failed to clear image cache", slog.Any("error", err))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to clear image cache"})
+			return
+		}
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.MessageResponse{Message: "image cache cleared"})
 	})
 
 	return r

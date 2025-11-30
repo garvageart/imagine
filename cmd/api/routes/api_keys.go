@@ -67,7 +67,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
             Revoked:     false,
             Name:        body.Name,
             Description: body.Description,
-            Scopes:      body.Scopes,
+            Scopes:      *body.Scopes,
             ExpiresAt:   body.ExpiresAt,
         }
 

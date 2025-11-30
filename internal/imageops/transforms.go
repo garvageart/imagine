@@ -18,13 +18,17 @@ type TransformResult struct {
 }
 
 type TransformParams struct {
-	Format  string
-	Width   int64
-	Height  int64
-	Quality int64
-	Rotate  int
-	Flip    string
-	Kernel  string
+	Format   string
+	Width    int64
+	Height   int64
+	Quality  int64
+	Rotate   int
+	Flip     string
+	Kernel   string
+}
+
+func CreateTransformEtag(imgEnt entities.Image, params *TransformParams) *string {
+	return utils.StringPtr(fmt.Sprintf("%s-%dx%d-%s-%d-%d-%s-%s", imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel))
 }
 
 func ParseTransformParams(pathStr string) (*TransformParams, error) {
@@ -32,7 +36,7 @@ func ParseTransformParams(pathStr string) (*TransformParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	q := u.Query()
 
 	params := &TransformParams{}
@@ -40,13 +44,23 @@ func ParseTransformParams(pathStr string) (*TransformParams, error) {
 	params.Flip = q.Get("flip")
 	params.Kernel = q.Get("kernel")
 
+	// Check for 'w' (short for width) first, then 'width'
 	if widthParam := q.Get("w"); widthParam != "" {
+		if w, err := strconv.ParseInt(widthParam, 10, 64); err == nil {
+			params.Width = w
+		}
+	} else if widthParam := q.Get("width"); widthParam != "" {
 		if w, err := strconv.ParseInt(widthParam, 10, 64); err == nil {
 			params.Width = w
 		}
 	}
 
+	// Check for 'h' (short for height) first, then 'height'
 	if heightParam := q.Get("h"); heightParam != "" {
+		if h, err := strconv.ParseInt(heightParam, 10, 64); err == nil {
+			params.Height = h
+		}
+	} else if heightParam := q.Get("height"); heightParam != "" {
 		if h, err := strconv.ParseInt(heightParam, 10, 64); err == nil {
 			params.Height = h
 		}
@@ -76,7 +90,7 @@ func GenerateTransform(params *TransformParams, imgEnt entities.Image, originalD
 	}
 
 	// Build transform ETag key same as route
-	transformEtag := utils.StringPtr(fmt.Sprintf("%s-%dx%d-%s-%d-%d-%s-%s", imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel))
+	transformEtag := CreateTransformEtag(imgEnt, params)
 
 	// If cached already exists, skip
 	if _, ok, cerr := images.FindCachedTransform(imgEnt.Uid, *transformEtag, ext); cerr == nil && ok {

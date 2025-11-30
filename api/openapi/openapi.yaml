@@ -79,6 +79,8 @@ paths:
     post:
       summary: Create a new API key
       operationId: createApiKey
+      security:
+        - BearerAuth: [apikeys:write]
       requestBody:
         required: true
         content:
@@ -102,6 +104,8 @@ paths:
     get:
       summary: List API keys for the authenticated user
       operationId: listApiKeys
+      security:
+        - BearerAuth: [apikeys:read]
       responses:
         "200":
           description: List of API keys
@@ -120,6 +124,8 @@ paths:
     get:
       summary: Get API key details
       operationId: getApiKey
+      security:
+        - BearerAuth: [apikeys:read]
       parameters:
         - name: uid
           in: path
@@ -143,6 +149,8 @@ paths:
     delete:
       summary: Delete an API key
       operationId: deleteApiKey
+      security:
+        - BearerAuth: [apikeys:write]
       parameters:
         - name: uid
           in: path
@@ -167,6 +175,8 @@ paths:
     post:
       summary: Revoke an API key
       operationId: revokeApiKey
+      security:
+        - BearerAuth: [apikeys:write]
       parameters:
         - name: uid
           in: path
@@ -185,6 +195,8 @@ paths:
     post:
       summary: Rotate an API key (revoke old, create new)
       operationId: rotateApiKey
+      security:
+        - BearerAuth: [apikeys:write]
       parameters:
         - name: uid
           in: path
@@ -384,6 +396,8 @@ paths:
     get:
       summary: List all images with pagination
       operationId: listImages
+      security:
+        - BearerAuth: [images:read]
       parameters:
         - name: limit
           in: query
@@ -414,6 +428,8 @@ paths:
     post:
       summary: Upload an image (multipart)
       operationId: uploadImage
+      security:
+        - BearerAuth: [images:write]
       requestBody:
         required: true
         content:
@@ -448,6 +464,8 @@ paths:
     delete:
       summary: Delete multiple asset UID directories (soft move to trash or force delete)
       operationId: deleteImagesBulk
+      security:
+        - BearerAuth: [images:write]
       requestBody:
         required: true
         content:
@@ -492,6 +510,8 @@ paths:
     post:
       summary: Upload an image by URL
       operationId: uploadImageByUrl
+      security:
+        - BearerAuth: [images:write]
       requestBody:
         required: true
         content:
@@ -544,13 +564,13 @@ paths:
             enum: [webp, png, jpg, jpeg, avif, heif]
           description: Output format for transformation
         - in: query
-          name: w
+          name: width
           schema:
             type: integer
             minimum: 0
           description: Width for transformation
         - in: query
-          name: h
+          name: height
           schema:
             type: integer
             minimum: 0
@@ -678,6 +698,8 @@ paths:
     get:
       summary: Get image metadata
       operationId: getImage
+      security:
+        - BearerAuth: [images:read]
       parameters:
         - in: path
           name: uid
@@ -713,6 +735,8 @@ paths:
     patch:
       summary: Update image metadata
       operationId: updateImage
+      security:
+        - BearerAuth: [images:write]
       parameters:
         - in: path
           name: uid
@@ -789,6 +813,8 @@ paths:
     get:
       summary: List collections
       operationId: listCollections
+      security:
+        - BearerAuth: [collections:read]
       parameters:
         - in: query
           name: limit
@@ -824,6 +850,8 @@ paths:
     post:
       summary: Create a collection
       operationId: createCollection
+      security:
+        - BearerAuth: [collections:write]
       requestBody:
         required: true
         content:
@@ -854,6 +882,8 @@ paths:
     get:
       summary: Get collection detail
       operationId: getCollection
+      security:
+        - BearerAuth: [collections:read]
       parameters:
         - in: path
           name: uid
@@ -883,6 +913,8 @@ paths:
     patch:
       summary: Update collection
       operationId: updateCollection
+      security:
+        - BearerAuth: [collections:write]
       parameters:
         - in: path
           name: uid
@@ -923,6 +955,8 @@ paths:
     delete:
       summary: Delete a collection
       operationId: deleteCollection
+      security:
+        - BearerAuth: [collections:write]
       parameters:
         - in: path
           name: uid
@@ -949,6 +983,8 @@ paths:
     get:
       summary: List images in a collection
       operationId: listCollectionImages
+      security:
+        - BearerAuth: [collections:read]
       parameters:
         - in: path
           name: uid
@@ -987,6 +1023,8 @@ paths:
     put:
       summary: Add images to a collection
       operationId: addCollectionImages
+      security:
+        - BearerAuth: [collections:write]
       parameters:
         - in: path
           name: uid
@@ -1165,6 +1203,70 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/cache/status:
+    get:
+      summary: Get cache status
+      operationId: getCacheStatus
+      security:
+        - BearerAuth: [admin:read]
+      responses:
+        "200":
+          description: Cache status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheStatusResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/cache:
+    delete:
+      summary: Clear the image cache
+      operationId: clearImageCache
+      security:
+        - BearerAuth: [admin:write]
+      responses:
+        "200":
+          description: Cache cleared
           content:
             application/json:
               schema:
@@ -1616,6 +1718,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: "API key for authentication. The key should be provided in the Authorization header as a Bearer token."
+
   schemas:
     ErrorResponse:
       type: object
@@ -2009,6 +2117,27 @@ components:
           updated_at,
         ]
 
+    CacheStatusResponse:
+      type: object
+      properties:
+        size:
+          type: integer
+          description: Current size of the cache in bytes
+        items:
+          type: integer
+          description: Number of items currently in the cache
+        hits:
+          type: integer
+          description: Number of cache hits
+        misses:
+          type: integer
+          description: Number of cache misses
+        hit_ratio:
+          type: number
+          format: float
+          description: Cache hit ratio
+      required: [size, items, hits, misses, hit_ratio]
+
     OAuthUserData:
       type: object
       properties:
@@ -2324,7 +2453,7 @@ components:
         expires_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-      required: [uid, revoked, key_hashed, created_at, updated_at]
+      required: [uid, revoked, key_hashed, created_at, updated_at, scopes]
 
     APIKeyCreate:
       type: object

@@ -9,6 +9,10 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+const (
+	BearerAuthScopes = "BearerAuth.Scopes"
+)
+
 // Defines values for UserRole.
 const (
 	UserRoleAdmin      UserRole = "admin"
@@ -69,7 +73,7 @@ type APIKey struct {
 	Name        *string    `json:"name,omitempty"`
 	Revoked     bool       `json:"revoked"`
 	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
-	Scopes      *[]string  `json:"scopes,omitempty"`
+	Scopes      []string   `json:"scopes"`
 	Uid         string     `json:"uid"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	User        *User      `json:"user,omitempty"`
@@ -99,6 +103,24 @@ type APIKeyListResponse struct {
 type AddImagesResponse struct {
 	Added bool    `json:"added"`
 	Error *string `json:"error,omitempty"`
+}
+
+// CacheStatusResponse defines model for CacheStatusResponse.
+type CacheStatusResponse struct {
+	// HitRatio Cache hit ratio
+	HitRatio float32 `json:"hit_ratio"`
+
+	// Hits Number of cache hits
+	Hits int `json:"hits"`
+
+	// Items Number of items currently in the cache
+	Items int `json:"items"`
+
+	// Misses Number of cache misses
+	Misses int `json:"misses"`
+
+	// Size Current size of the cache in bytes
+	Size int `json:"size"`
 }
 
 // Collection defines model for Collection.
@@ -640,11 +662,11 @@ type GetImageFileParams struct {
 	// Format Output format for transformation
 	Format *GetImageFileParamsFormat `form:"format,omitempty" json:"format,omitempty"`
 
-	// W Width for transformation
-	W *int `form:"w,omitempty" json:"w,omitempty"`
+	// Width Width for transformation
+	Width *int `form:"width,omitempty" json:"width,omitempty"`
 
-	// H Height for transformation
-	H *int `form:"h,omitempty" json:"h,omitempty"`
+	// Height Height for transformation
+	Height *int `form:"height,omitempty" json:"height,omitempty"`
 
 	// Quality Quality for transformation (0-100)
 	Quality *int `form:"quality,omitempty" json:"quality,omitempty"`

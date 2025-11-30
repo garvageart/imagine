@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/render"
 
 	"imagine/api/routes"
+	"imagine/internal/auth"
 	"imagine/internal/config"
 	"imagine/internal/db"
 	"imagine/internal/entities"
@@ -45,10 +46,6 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 	logger := server.Logger
 	serverLogger := slog.NewLogLogger(logger.Handler(), slog.LevelDebug)
 
-	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
-		Logger: serverLogger,
-	}))
-
 	// Setup general middleware - CORS must be first!
 	router.Use(cors.Handler(cors.Options{
 		// TODO: maybe make this configurable by admin since this might
@@ -57,11 +54,14 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 			return true
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "OPTIONS", "DELETE"},
-		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", libhttp.APIKeyName},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", libhttp.APIKeyName, "If-None-Match", "If-Modified-Since"},
 		// Expose Content-Disposition so client JS can read filenames from responses across origins
 		ExposedHeaders:   []string{"Set-Cookie", "Content-Disposition"},
 		AllowCredentials: true,
 		MaxAge:           300,
+	}))
+	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger: serverLogger,
 	}))
 	router.Use(middleware.AllowContentEncoding("deflate", "gzip"))
 	router.Use(middleware.RequestID)
@@ -90,7 +90,7 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 		}
 	} else {
 		// TODO: fix this error message, it sucks and is confusing
-		logger.Warn("libvipsLogLevel: matching server level is off. using default: info")
+		logger.Info("libvipsLogLevel: matching server level is off. using default: info")
 	}
 
 	var libvipsLogHandler libvips.LoggingHandlerFunction = func(messageDomain string, messageLevel libvips.LogLevel, message string) {
@@ -124,11 +124,47 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 	// Protected routes (auth required)
 	router.Group(func(r chi.Router) {
 		r.Use(libhttp.AuthMiddleware(server.Database.Client, logger))
-		r.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
-		r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
-		r.Mount("/images", routes.ImagesRouter(dbClient, logger))
-		r.Mount("/download", routes.DownloadRouter(dbClient, logger))
-		r.Mount("/api-keys", routes.APIKeysRouter(dbClient, logger))
+		r.Group(func(r chi.Router) {
+			r.Use(libhttp.ScopeMiddleware([]auth.Scope{auth.EventsReadScope}))
+			r.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(libhttp.ScopeMiddleware([]auth.Scope{
+				auth.CollectionsCreateScope, 
+				auth.CollectionsDeleteScope, 
+				auth.CollectionsReadScope, 
+				auth.CollectionsUpdateScope,
+			}))
+			r.Mount("/collections", routes.CollectionsRouter(dbClient, logger))
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(libhttp.ScopeMiddleware([]auth.Scope{
+				auth.ImagesReadScope, 
+				auth.ImagesDownloadScope, 
+				auth.ImagesDeleteScope, 
+				auth.ImagesUpdateScope, 
+				auth.ImagesUploadScope,
+			}))
+			r.Mount("/images", routes.ImagesRouter(dbClient, logger))
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(libhttp.ScopeMiddleware([]auth.Scope{
+				auth.DownloadsCreateScope,
+			}))
+			r.Mount("/download", routes.DownloadRouter(dbClient, logger))
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(libhttp.ScopeMiddleware([]auth.Scope{
+				auth.APIKeysReadScope, 
+				auth.APIKeysCreateScope,
+				auth.APIKeysRevokeScope,
+				auth.APIKeysListScope,
+				auth.APIKeysRotateScope,
+				auth.APIKeysDeleteScope,
+			}))
+			r.Mount("/api-keys", routes.APIKeysRouter(dbClient, logger))
+		})
 	})
 
 	// Admin routes (auth + admin required)
@@ -136,7 +172,6 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 	router.Mount("/jobs", routes.JobsRouter(dbClient, logger))
 
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
-
 	srv := &http.Server{Addr: address, Handler: router}
 
 	go func() {
@@ -195,7 +230,7 @@ func main() {
 		Port: func() int {
 			if appConfig.Database.Port == 0 {
 				return 5432
-			}  
+			}
 			return appConfig.Database.Port
 		}(),
 		User:     appConfig.Database.User,
@@ -213,7 +248,7 @@ func main() {
 
 			return "imagine"
 		}(),
-		Logger: logger,
+		Logger:   logger,
 		LogLevel: logLevel,
 	}
 
