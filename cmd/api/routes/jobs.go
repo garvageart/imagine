@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"slices"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -16,13 +17,14 @@ import (
 	"imagine/internal/dto"
 	"imagine/internal/entities"
 	libhttp "imagine/internal/http"
+	"imagine/internal/imageops"
 	"imagine/internal/images"
 	"imagine/internal/jobs"
 	"imagine/internal/jobs/workers"
 )
 
-// handleThumbnailGeneration processes thumbnail generation job requests
-func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCreateRequest, res http.ResponseWriter, req *http.Request) {
+// handleImageProcessing processes image processing job requests
+func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCreateRequest, res http.ResponseWriter, req *http.Request) {
 	command := string(body.Command)
 	if command == "" {
 		command = "all"
@@ -34,7 +36,7 @@ func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.Worker
 	// If UIDs provided and only one, treat as a single target
 	if body.Uids != nil && len(*body.Uids) == 1 {
 		var img entities.Image
-		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
+		if err = db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
 			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
 			return
@@ -56,58 +58,75 @@ func handleThumbnailGeneration(db *gorm.DB, logger *slog.Logger, body dto.Worker
 
 	switch command {
 	case "missing":
-		// Only images without thumbnails/thumbhash
-		err = db.Model(&entities.Image{}).Where("image_metadata->>'thumbhash' IS NULL").Count(&count).Error
-	case "all":
-		// All images
-		err = db.Model(&entities.Image{}).Count(&count).Error
-	// 'single' is now supported via body.Uids of length 1; handled above.
-	default:
-		render.Status(req, http.StatusBadRequest)
-		render.JSON(res, req, dto.ErrorResponse{Error: fmt.Sprintf("unknown command: %s", command)})
-		return
-	}
-
-	if err != nil {
-		render.Status(req, http.StatusInternalServerError)
-		render.JSON(res, req, dto.ErrorResponse{Error: "failed to count images"})
-		return
-	}
-
-	if count == 0 {
-		zeroCount := 0
-		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
-		return
-	}
-
-	// Enqueue jobs in background
-	go func(cmd string) {
-		var query *gorm.DB
-		if cmd == "missing" {
-			query = db.Where("image_metadata->>'thumbhash' IS NULL")
-		} else {
-			query = db.Session(&gorm.Session{})
+		// Find UIDs of images missing thumbhash
+		var thumbhashMissing []string
+		if err = db.Model(&entities.Image{}).Where("image_metadata->>'thumbhash' IS NULL").Pluck("uid", &thumbhashMissing).Error; err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to identify images missing thumbhash"})
+			return
 		}
 
-		var imgs []entities.Image
-		query.FindInBatches(&imgs, 100, func(tx *gorm.DB, batch int) error {
-			for _, img := range imgs {
-				job := &workers.ImageProcessJob{Image: img}
-				_, _ = jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
+		// Find UIDs of images with missing permanent transforms
+		transformsMissing, err := findMissingTransforms(db, logger)
+		if err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "failed to identify images with missing permanent transforms"})
+			return
+		}
+
+		// Combine and deduplicate UIDs
+		uniqueUids := make(map[string]struct{})
+		for _, uid := range thumbhashMissing {
+			uniqueUids[uid] = struct{}{}
+		}
+
+		for _, uid := range transformsMissing {
+			uniqueUids[uid] = struct{}{}
+		}
+
+		var finalUids []string
+		for uid := range uniqueUids {
+			finalUids = append(finalUids, uid)
+		}
+
+		count = int64(len(finalUids))
+
+		if count == 0 {
+			zeroCount := 0
+			render.Status(req, http.StatusOK)
+			render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+			return
+		}
+
+		// Enqueue jobs in background
+		go func(targetUids []string) {
+			// Batch process targetUids
+			batchSize := 100
+			for i := 0; i < len(targetUids); i += batchSize {
+				end := min(i+batchSize, len(targetUids))
+				batchUids := targetUids[i:end]
+
+				var imgs []entities.Image
+				if err := db.Where("uid IN ?", batchUids).Find(&imgs).Error; err != nil {
+					logger.Error("failed to fetch images for batch processing", slog.Any("error", err))
+					continue
+				}
+
+				for _, img := range imgs {
+					job := &workers.ImageProcessJob{Image: img}
+					_, _ = jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
+				}
 			}
-			return nil
+			logger.Info("image processing jobs enqueued", "command", "missing", "count", count)
+		}(finalUids)
+
+		jobCount := int(count)
+		render.Status(req, http.StatusAccepted)
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{
+			Message: fmt.Sprintf("thumbnail generation jobs enqueued (%s)", command),
+			Count:   &jobCount,
 		})
-
-		logger.Info("thumbnail generation jobs enqueued", "command", cmd, "count", count)
-	}(command)
-
-	jobCount := int(count)
-	render.Status(req, http.StatusAccepted)
-	render.JSON(res, req, dto.WorkerJobEnqueueResponse{
-		Message: fmt.Sprintf("thumbnail generation jobs enqueued (%s)", command),
-		Count:   &jobCount,
-	})
+	}
 }
 
 // handleXMPGeneration processes XMP sidecar file generation job requests
@@ -291,10 +310,12 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 		return
 	}
 
+	// looool i hate this so bad
+	missingQuery := "exif IS NULL OR (exif IS NOT NULL AND (exif->>'aperture' IS NULL OR exif->>'date_time' IS NULL OR exif->>'date_time_original' IS NULL OR exif->>'exif_version' IS NULL OR exif->>'exposure_time' IS NULL OR exif->>'exposure_value' IS NULL OR exif->>'f_number' IS NULL OR exif->>'flash' IS NULL OR exif->>'focal_length' IS NULL OR exif->>'iso' IS NULL OR exif->>'latitude' IS NULL OR exif->>'lens_model' IS NULL OR exif->>'longitude' IS NULL OR exif->>'make' IS NULL OR exif->>'model' IS NULL OR exif->>'modify_date' IS NULL OR exif->>'orientation' IS NULL OR exif->>'rating' IS NULL OR exif->>'resolution' IS NULL OR exif->>'software' IS NULL OR exif->>'white_balance' IS NULL))"
 	switch command {
 	case "missing":
 		// images without exif
-		err = db.Model(&entities.Image{}).Where("exif IS NULL").Count(&count).Error
+		err = db.Model(&entities.Image{}).Where(missingQuery).Count(&count).Error
 	case "all":
 		err = db.Model(&entities.Image{}).Count(&count).Error
 	// 'single' replaced by `uids`: handled above if provided.
@@ -320,7 +341,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 	go func(cmd string) {
 		var query *gorm.DB
 		if cmd == "missing" {
-			query = db.Where("exif IS NULL")
+			query = db.Where(missingQuery)
 		} else {
 			query = db.Session(&gorm.Session{})
 		}
@@ -343,6 +364,87 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 		Message: fmt.Sprintf("EXIF processing jobs enqueued (%s)", command),
 		Count:   &jobCount,
 	})
+}
+
+// containsUid is a helper for checking if a slice contains a UID.
+func containsUid(s []string, e string) bool {
+	return slices.Contains(s, e)
+}
+
+// checkMissingTransforms checks if a given image path's transform is missing from the cache.
+// If missing, it adds the image's UID to the missingUids slice.
+func checkMissingTransforms(img entities.Image, transformPath string, missingUids *[]string, logger *slog.Logger) error {
+	if transformPath == "" {
+		return nil // No path to check
+	}
+
+	if img.ImageMetadata == nil || img.ImageMetadata.Checksum == "" || img.ImageMetadata.FileType == "" {
+		logger.Debug("skipping transform check due to incomplete metadata", slog.String("uid", img.Uid), slog.String("path", transformPath))
+		return nil // Cannot check without complete metadata
+	}
+
+	params, err := imageops.ParseTransformParams(transformPath)
+	if err != nil {
+		logger.Warn("failed to parse transform params", slog.String("uid", img.Uid), slog.String("path", transformPath), slog.Any("error", err))
+		// If params cannot be parsed, treat as missing/invalid and enqueue for reprocessing
+		if !containsUid(*missingUids, img.Uid) {
+			*missingUids = append(*missingUids, img.Uid)
+		}
+		return fmt.Errorf("failed to parse transform params for %s: %w", transformPath, err)
+	}
+
+	transformEtag := *imageops.CreateTransformEtag(img, params)
+	ext := params.Format
+	if ext == "" {
+		ext = img.ImageMetadata.FileType // Fallback if format isn't specified in path
+	}
+
+	_, exists, err := images.FindCachedTransform(img.Uid, transformEtag, ext)
+	if err != nil {
+		logger.Error("failed to check for cached transform", slog.String("uid", img.Uid), slog.String("path", transformPath), slog.Any("error", err))
+		// Treat error as missing
+		if !containsUid(*missingUids, img.Uid) {
+			*missingUids = append(*missingUids, img.Uid)
+		}
+		return fmt.Errorf("failed to check cached transform for %s: %w", transformPath, err)
+	}
+
+	if !exists {
+		if !containsUid(*missingUids, img.Uid) {
+			*missingUids = append(*missingUids, img.Uid)
+		}
+	}
+	return nil
+}
+
+// findMissingTransforms finds UIDs of images that have permanent paths (thumbnail/preview) defined
+// but the corresponding cached transform files are missing.
+func findMissingTransforms(db *gorm.DB, logger *slog.Logger) ([]string, error) {
+	var allImages []entities.Image
+	var err error
+	// Fetch uid, image_paths, and image_metadata needed for cache key calculation
+	if err = db.Select("uid", "image_paths", "image_metadata").Find(&allImages).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch all images: %w", err)
+	}
+
+	var missing []string
+	for _, img := range allImages {
+		// Check thumbnail path
+		err = checkMissingTransforms(img, img.ImagePaths.Thumbnail, &missing, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check preview path (only if not already added by thumbnail check)
+		if !containsUid(missing, img.Uid) { // Only check preview if not already identified as missing
+			err = checkMissingTransforms(img, img.ImagePaths.Preview, &missing, logger)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return missing, nil
 }
 
 // JobsRouter returns a router with admin-only job endpoints.
@@ -503,7 +605,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		switch body.Type {
 		case workers.JobTypeImageProcess:
-			handleThumbnailGeneration(db, logger, body, res, req)
+			handleImageProcessing(db, logger, body, res, req)
 			return
 
 		case workers.JobTypeXMPGeneration:

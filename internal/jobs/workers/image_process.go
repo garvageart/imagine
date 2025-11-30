@@ -98,6 +98,19 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 		return fmt.Errorf("failed to read image: %w", err)
 	}
 
+	if imgEnt.ImageMetadata.Checksum == "" {
+		if onProgress != nil {
+			onProgress("Calculating image checksum", 10)
+		}
+
+		checksum, err := images.CalculateImageChecksum(originalData)
+		if err != nil {
+			return fmt.Errorf("failed to calculate image checksum: %w", err)
+		}
+
+		imgEnt.ImageMetadata.Checksum = checksum
+	}
+
 	if onProgress != nil {
 		onProgress("Creating display thumbnail", 25)
 	}
@@ -229,6 +242,13 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 		}
 	}
 
+	if err := db.Model(&entities.Image{}).
+		Where("uid = ?", imgEnt.Uid).
+		Update("image_metadata", imgEnt.ImageMetadata).
+		Error; err != nil {
+		return fmt.Errorf("failed to update db image thumbhash: %w", err)
+	}
+
 	// just for debugging purposes in case some thumbhashes take too long
 	thumbhashTimeStart := time.Now()
 	smallThumbImg, _, err := imageops.ReadToImage(smallThumbData)
@@ -254,13 +274,6 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 
 	if onProgress != nil {
 		onProgress("Updating database", 90)
-	}
-
-	if err := db.Model(&entities.Image{}).
-		Where("uid = ?", imgEnt.Uid).
-		Update("image_metadata", imgEnt.ImageMetadata).
-		Error; err != nil {
-		return fmt.Errorf("failed to update db image thumbhash: %w", err)
 	}
 
 	return nil
