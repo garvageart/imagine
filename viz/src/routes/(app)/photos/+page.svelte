@@ -11,7 +11,7 @@
 	import { getFullImagePath } from "$lib/api";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { SvelteSet } from "svelte/reactivity";
-	import { listImages, deleteImagesBulk, signDownload, downloadImagesBlob, getImageFile, getImage } from "$lib/api/client";
+	import { listImages, deleteImagesBulk, signDownload, downloadImagesZipBlob, getImageFile, getImage } from "$lib/api/client";
 	import { getTakenAt, compareByTakenAtDesc } from "$lib/utils/images.js";
 	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
 	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
@@ -25,7 +25,7 @@
 	import { goto, invalidateAll } from "$app/navigation";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 	import Button from "$lib/components/Button.svelte";
-	import { debugMode } from "$lib/states/index.svelte.js";
+	import { debugMode } from "$lib/states/index.svelte";
 
 	let { data } = $props();
 
@@ -53,8 +53,44 @@
 		endDate: DateTime; // oldest date in this consolidated block
 	};
 
-	let consolidatedGroups: ConsolidatedGroup[] = $derived.by(() => {
-		const consolidated: ConsolidatedGroup[] = [];
+	let cachedConsolidatedGroups: ConsolidatedGroup[] = $state([]);
+
+	// Helper to determine if two ConsolidatedGroup arrays are functionally identical
+	function areConsolidatedGroupsEqual(a: ConsolidatedGroup[], b: ConsolidatedGroup[]): boolean {
+		if (a.length !== b.length) {
+			return false;
+		}
+		for (let i = 0; i < a.length; i++) {
+			const groupA = a[i];
+			const groupB = b[i];
+
+			// Shallow compare properties
+			if (
+				groupA.label !== groupB.label ||
+				groupA.totalCount !== groupB.totalCount ||
+				groupA.isConsolidated !== groupB.isConsolidated ||
+				!groupA.startDate.equals(groupB.startDate) ||
+				!groupA.endDate.equals(groupB.endDate)
+			) {
+				return false;
+			}
+
+			// Deep compare allImages (by UID and length)
+			if (groupA.allImages.length !== groupB.allImages.length) {
+				return false;
+			}
+			for (let j = 0; j < groupA.allImages.length; j++) {
+				if (groupA.allImages[j].uid !== groupB.allImages[j].uid) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	// This derived property purely computes the consolidated groups without side effects
+	let rawConsolidatedGroups: ConsolidatedGroup[] = $derived.by(() => {
+		const newConsolidated: ConsolidatedGroup[] = [];
 		const SMALL_GROUP_THRESHOLD = 4; // Groups with <= 4 photos are considered "small"
 		let currentConsolidation: ConsolidatedGroup | null = null;
 
@@ -64,9 +100,7 @@
 			const isLastGroup = i === groups.length - 1;
 
 			if (isSmall) {
-				// Start or continue consolidation
 				if (!currentConsolidation) {
-					// Mark first image of this date group
 					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
 						...img,
 						dateLabel: group.label,
@@ -82,7 +116,6 @@
 						endDate: group.date
 					};
 				} else {
-					// Add to existing consolidation
 					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
 						...img,
 						dateLabel: group.label,
@@ -93,13 +126,12 @@
 					currentConsolidation.totalCount += group.items.length;
 					currentConsolidation.isConsolidated = true;
 
-					// Update oldest/newest and label
-					currentConsolidation.endDate = group.date; // groups are sorted newest -> oldest
+					currentConsolidation.endDate = group.date;
 					const start = currentConsolidation.startDate;
 					const end = currentConsolidation.endDate;
 
 					if (start.year === end.year && start.month === end.month) {
-						currentConsolidation.label = `${start.day}\u2013${end.day} ${start.toFormat("LLL yyyy")}`; // e.g., 27–24 Aug 2025
+						currentConsolidation.label = `${start.day}\u2013${end.day} ${start.toFormat("LLL yyyy")}`;
 					} else if (start.year === end.year) {
 						currentConsolidation.label = `${start.toFormat("d LLL")} - ${end.toFormat("d LLL yyyy")}`;
 					} else {
@@ -107,20 +139,18 @@
 					}
 				}
 
-				// If this is the last group, flush the consolidation
 				if (isLastGroup && currentConsolidation) {
-					consolidated.push(currentConsolidation);
+					newConsolidated.push(currentConsolidation);
 					currentConsolidation = null;
 				}
 			} else {
-				// Large group: flush any pending consolidation first, then add this group standalone
 				if (currentConsolidation) {
-					consolidated.push(currentConsolidation);
+					newConsolidated.push(currentConsolidation);
 					currentConsolidation = null;
 				}
 
 				const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img) => ({ ...img }));
-				consolidated.push({
+				newConsolidated.push({
 					label: group.label,
 					totalCount: group.items.length,
 					allImages: imagesWithLabels,
@@ -131,7 +161,17 @@
 			}
 		}
 
-		return consolidated;
+		return newConsolidated;
+	});
+
+	// Use a $state variable to hold the memoized consolidated groups
+	let consolidatedGroups: ConsolidatedGroup[] = $state([]);
+
+	// Use an $effect to update consolidatedGroups only when rawConsolidatedGroups functionally changes
+	$effect(() => {
+		if (!areConsolidatedGroupsEqual(rawConsolidatedGroups, consolidatedGroups)) {
+			consolidatedGroups = rawConsolidatedGroups;
+		}
 	});
 
 	// Display state (local to photos page)
@@ -140,12 +180,7 @@
 
 	// Lightbox
 	let lightboxImage: Image | undefined = $state();
-	let show = $state(false);
-
-	$effect(() => {
-		show = !!lightboxImage;
-	});
-
+	let show = $derived(!!lightboxImage);
 	// Selection (shared across groups)
 	let selectedAssets = $state(new SvelteSet<Image>());
 	let singleSelectedAsset: Image | undefined = $state();
@@ -338,7 +373,7 @@
 			const token = signRes.data.uid; // The token is stored in the uid field
 
 			// Use the custom downloadImagesBlob function that properly handles binary responses
-			const dlRes = await downloadImagesBlob(token, { uids });
+			const dlRes = await downloadImagesZipBlob(token, { uids });
 
 			if (dlRes.status !== 200) {
 				throw new Error(dlRes.data?.error ?? "Failed to download archive");

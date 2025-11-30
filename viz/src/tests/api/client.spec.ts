@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { downloadImagesBlob } from '$lib/api/client';
+import { downloadImagesZipBlob } from '$lib/api/client';
 
 describe('API client integration (downloadImagesBlob)', () => {
     const origFetch = global.fetch;
@@ -13,7 +13,7 @@ describe('API client integration (downloadImagesBlob)', () => {
         const fakeBlob = { ok: true, blob: async () => ({ ok: true, content: 'zip' }) };
         global.fetch = vi.fn().mockResolvedValue(fakeBlob as any) as any;
 
-        const res = await downloadImagesBlob('token123', { images: [] } as any);
+        const res = await downloadImagesZipBlob('token123', { images: [] } as any);
         expect(res.status).toBe(200);
         // data should be the object returned from our fake blob()
         expect((res as any).data).toBeDefined();
@@ -30,7 +30,7 @@ describe('API client integration (downloadImagesBlob)', () => {
 
         global.fetch = vi.fn().mockResolvedValue(response as any) as any;
 
-        const res = await downloadImagesBlob('t', { images: [] } as any);
+        const res = await downloadImagesZipBlob('t', { images: [] } as any);
         expect(res.status).toBe(400);
         expect((res as any).data).toBeDefined();
         expect((res as any).data.error).toBe('bad');
@@ -39,7 +39,7 @@ describe('API client integration (downloadImagesBlob)', () => {
     it('handles network errors', async () => {
         global.fetch = vi.fn().mockRejectedValue(new Error('network fail')) as any;
 
-        const res = await downloadImagesBlob('t', { images: [] } as any);
+        const res = await downloadImagesZipBlob('t', { images: [] } as any);
         expect(res.status).toBe(500);
         expect((res as any).data.error).toMatch(/network/i);
     });

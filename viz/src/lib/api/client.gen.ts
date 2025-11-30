@@ -42,7 +42,7 @@ export type ApiKey = {
     description?: string | null;
     key_hashed: string;
     user?: User;
-    scopes?: string[];
+    scopes: string[];
     last_used_at?: string | null;
     revoked: boolean;
     revoked_at?: string;
@@ -295,6 +295,18 @@ export type DownloadToken = {
     created_at: string;
     /** When this token was last updated */
     updated_at: string;
+};
+export type CacheStatusResponse = {
+    /** Current size of the cache in bytes */
+    size: number;
+    /** Number of items currently in the cache */
+    items: number;
+    /** Number of cache hits */
+    hits: number;
+    /** Number of cache misses */
+    misses: number;
+    /** Cache hit ratio */
+    hit_ratio: number;
 };
 export type WorkerInfo = {
     /** Job topic/worker name (e.g., exif_process, image_process) */
@@ -720,10 +732,10 @@ export function uploadImageByUrl(body: string, opts?: Oazapfts.RequestOpts) {
 /**
  * Get a processed image file
  */
-export function getImageFile(uid: string, { format, w, h, quality, download, token, password }: {
+export function getImageFile(uid: string, { format, width, height, quality, download, token, password }: {
     format?: "webp" | "png" | "jpg" | "jpeg" | "avif" | "heif";
-    w?: number;
-    h?: number;
+    width?: number;
+    height?: number;
     quality?: number;
     download?: "1";
     token?: string;
@@ -745,8 +757,8 @@ export function getImageFile(uid: string, { format, w, h, quality, download, tok
         data: ErrorResponse;
     }>(`/images/${encodeURIComponent(uid)}/file${QS.query(QS.explode({
         format,
-        w,
-        h,
+        width,
+        height,
         quality,
         download,
         token,
@@ -1071,6 +1083,47 @@ export function adminHealthcheck(opts?: Oazapfts.RequestOpts) {
     }>("/admin/healthcheck", {
         ...opts,
         method: "POST"
+    });
+}
+/**
+ * Get cache status
+ */
+export function getCacheStatus(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: CacheStatusResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/admin/cache/status", {
+        ...opts
+    });
+}
+/**
+ * Clear the image cache
+ */
+export function clearImageCache(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/admin/cache", {
+        ...opts,
+        method: "DELETE"
     });
 }
 /**

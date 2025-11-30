@@ -15,9 +15,8 @@
 	import { getTakenAt } from "$lib/utils/images";
 	import { type ImageWithDateLabel } from "../../routes/(app)/photos/+page.svelte";
 	import { page } from "$app/state";
-	import { beforeNavigate } from "$app/navigation";
 	import ImageCard from "./ImageCard.svelte";
-	import tippy, { type Props as TippyProps, followCursor } from "tippy.js";
+	import { type Props as TippyProps, followCursor, delegate, type Instance } from "tippy.js";
 	import PhotoTooltip from "$lib/components/tooltips/PhotoTooltip.svelte";
 	import "tippy.js/dist/tippy.css";
 
@@ -74,61 +73,103 @@
 	let totalHeight: number = $state(0);
 	let scrollTop: number = $state(0);
 	let targetRowHeight: number = $state(240);
-	let bufferPx = 200; // extra pixels above/below viewport for virtualization (reduced)
+	let BUFFER_PX = 750; // extra pixels above/below viewport for virtualization (reduced)
 
 	type JustifiedItem = { asset: Image; width: number; height: number };
 	type JustifiedRow = { items: JustifiedItem[]; height: number; top: number };
 
-	let justifiedRows: JustifiedRow[] = $state([]);
 	let visibleRows: JustifiedRow[] = $state([]);
+	let containerWidth: number = $state(0); // Holds the computed available width for the grid
 
 	let photoGridEl: HTMLDivElement | undefined = $state();
 
-	const tippyAction = (node: HTMLElement, initialParams: { asset: Image } & Partial<TippyProps>) => {
-		let { asset, ...params } = initialParams;
-		const contentNode = document.createElement("div");
-		let tooltipComponent: ReturnType<typeof mount> | undefined;
+	let justifiedRows: JustifiedRow[] = $derived.by(() => {
+		if (containerWidth === 0 || data.length === 0) {
+			return [];
+		}
+		// Recalculate justified rows only when containerWidth or data changes
+		const rows = buildJustifiedRows(containerWidth, data, targetRowHeight, gridGap);
 
-		const instance = tippy(node, {
-			...params,
-			content: contentNode,
+		// Manually calculate 'top' property after initial row build, so Svelte's reactivity doesn't cause issues.
+		let currentTop = 0;
+		for (let i = 0; i < rows.length; i++) {
+			rows[i].top = currentTop;
+			currentTop += rows[i].height + gridGap;
+		}
+
+		return rows;
+	});
+
+	function getAssetFromElement(el: HTMLElement): Image | undefined {
+		const assetId = el.dataset.assetId;
+		if (!assetId) {
+			return undefined;
+		}
+		// Search in current data (visible images) first, then allData (if available)
+		return data.find((a) => a.uid === assetId) || allData?.find((a) => a.uid === assetId);
+	}
+
+	$effect(() => {
+		if (!photoGridEl) {
+			return;
+		}
+
+		// Initialize delegated Tippy instance on the grid container
+		const delegatedTippy = delegate(photoGridEl, {
+			target: ".asset-photo", // Delegate tooltips to elements matching this selector
 			allowHTML: true,
-			onShow() {
-				if (!tooltipComponent) {
-					tooltipComponent = mount(PhotoTooltip, {
-						target: contentNode,
-						props: { asset }
-					});
+			theme: "viz",
+			followCursor: "initial",
+			plugins: [followCursor],
+			arrow: false,
+			delay: [500, 0],
+			moveTransition: "opacity 0.1s ease-out",
+			onShow(instance: Instance<TippyProps>) {
+				const assetEl = instance.reference as HTMLElement;
+				const asset = getAssetFromElement(assetEl);
+				if (!asset) {
+					return false; // Don't show tooltip if asset data isn't found
 				}
+
+				const contentNode = document.createElement("div");
+				// Store the component instance on the Tippy instance for cleanup
+				(instance as any)._svelteTooltipComponent = mount(PhotoTooltip, {
+					target: contentNode,
+					props: { asset }
+				});
+				instance.setContent(contentNode);
 			},
-			onHidden() {
-				if (tooltipComponent) {
-					unmount(tooltipComponent);
-					tooltipComponent = undefined;
+			onHidden(instance: Instance<TippyProps>) {
+				const component = (instance as any)._svelteTooltipComponent;
+				if (component) {
+					unmount(component);
+					(instance as any)._svelteTooltipComponent = undefined;
 				}
-				contentNode.replaceChildren();
+				instance.setContent(""); // Clear content
+			},
+			// Ensure consistent positioning across renders
+			popperOptions: {
+				modifiers: [
+					{
+						name: "flip",
+						options: {
+							fallbackPlacements: ["top", "bottom", "left", "right"]
+						}
+					}
+				]
 			}
 		});
 
-		return {
-			update(newParams: { asset: Image } & Partial<TippyProps>) {
-				const { asset: newAsset, ...newTippyProps } = newParams;
-				asset = newAsset;
-				instance.setProps(newTippyProps);
-			},
-			destroy() {
-				if (tooltipComponent) {
-					unmount(tooltipComponent);
-					tooltipComponent = undefined;
-				}
-				instance.destroy();
-			}
+		return () => {
+			delegatedTippy.destroy();
 		};
-	};
+	});
 
 	// Scrolling / lazy-load helpers
+	// isScrolling is used to defer image loading until scroll events have settled.
+	// pendingLazyNodes stores images that became visible during active scrolling and are loaded once scrolling stops.
 	let isScrolling: boolean = $state(false);
-	let scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
+	let scrollIdleTimer: number | null = null;
 	const pendingLazyNodes = new SvelteSet<HTMLImageElement>();
 
 	function loadImageNode(img: HTMLImageElement) {
@@ -139,7 +180,25 @@
 		if (img.src === data) {
 			return;
 		}
-		img.src = data;
+
+		// Use a temporary image to decode off the main thread if Image.decode is supported
+		if ("decode" in Image.prototype) {
+			const tempImg = new Image();
+			tempImg.src = data;
+			tempImg
+				.decode()
+				.then(() => {
+					img.src = data;
+				})
+				.catch((err) => {
+					console.error("Image decode failed", data, err);
+					// Fallback to direct assignment if decode fails
+					img.src = data;
+				});
+		} else {
+			// Fallback for browsers that don't support Image.decode
+			img.src = data;
+		}
 	}
 
 	function lazyLoad(node: HTMLImageElement, params: { src: string }) {
@@ -159,15 +218,10 @@
 							observer.unobserve(node);
 						}
 					} else {
-						// If scrolled far away, cancel an in-flight fetch by clearing src
-						// (best-effort; some browsers may still fetch)
-						if (!entry.isIntersecting && !pendingLazyNodes.has(node)) {
-							// If currently not intersecting and src came from dataset, clear it
-							const ds = node.dataset.src;
-							if (ds && node.src && node.src === ds) {
-								node.src = "";
-							}
-						}
+						// Image scrolled out of view.
+						// We don't clear src here, let the browser manage resource hints/caching.
+						// Remove from pending list if it was there.
+						pendingLazyNodes.delete(node);
 					}
 				}
 			},
@@ -209,20 +263,19 @@
 		const computedStyle = window.getComputedStyle(photoGridEl);
 		const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
 		const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-		const availableWidth = photoGridEl.clientWidth - paddingLeft - paddingRight;
+		containerWidth = photoGridEl.clientWidth - paddingLeft - paddingRight; // Update containerWidth state
 
 		const viewportH = photoGridEl.clientHeight || window.innerHeight;
 
-		// 1) Build all rows for current data and available width (excluding padding)
-		justifiedRows = buildJustifiedRows(availableWidth, data, targetRowHeight, gridGap);
+		// 1) `justifiedRows` is now a $derived property and will reactively update
 		totalHeight = justifiedRows.length
 			? justifiedRows[justifiedRows.length - 1].top + justifiedRows[justifiedRows.length - 1].height
 			: 0;
 
 		// 2) Compute visible rows window
 		scrollTop = photoGridEl.scrollTop || 0;
-		const minY = Math.max(0, scrollTop - bufferPx);
-		const maxY = scrollTop + viewportH + bufferPx;
+		const minY = Math.max(0, scrollTop - BUFFER_PX);
+		const maxY = scrollTop + viewportH + BUFFER_PX;
 		visibleRows = justifiedRows.filter((row) => row.top + row.height >= minY && row.top <= maxY);
 	}
 
@@ -427,16 +480,56 @@
 			return;
 		}
 
-		// essentially onmount
-		requestAnimationFrame(updateVirtualGrid);
+		// Initial update to set containerWidth and visibleRows
+		requestAnimationFrame(() => {
+			// Get computed padding to calculate available width
+			const computedStyle = window.getComputedStyle(photoGridEl!);
+			const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+			const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+			containerWidth = photoGridEl!.clientWidth - paddingLeft - paddingRight;
+
+			const viewportH = photoGridEl!.clientHeight || window.innerHeight;
+			scrollTop = photoGridEl!.scrollTop || 0;
+			const minY = Math.max(0, scrollTop - BUFFER_PX);
+			const maxY = scrollTop + viewportH + BUFFER_PX;
+			visibleRows = justifiedRows.filter((row) => row.top + row.height >= minY && row.top <= maxY);
+		});
 
 		// Watch for resize changes
-		const resizeObserver = new ResizeObserver(() => requestAnimationFrame(updateVirtualGrid));
+		const resizeObserver = new ResizeObserver(() => {
+			requestAnimationFrame(() => {
+				// Only update containerWidth on resize, justifiedRows will reactively update
+				// and then trigger a visibleRows update via the effect below.
+				const computedStyle = window.getComputedStyle(photoGridEl!);
+				const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+				const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+				containerWidth = photoGridEl!.clientWidth - paddingLeft - paddingRight;
+			});
+		});
 		resizeObserver.observe(photoGridEl);
 
 		return () => {
 			resizeObserver.disconnect();
 		};
+	});
+
+	// Effect to update visible rows when justifiedRows changes (e.g., due to data or containerWidth change)
+	$effect(() => {
+		if (!photoGridEl || justifiedRows.length === 0) {
+			return;
+		}
+		requestAnimationFrame(() => {
+			const viewportH = photoGridEl!.clientHeight || window.innerHeight;
+			scrollTop = photoGridEl!.scrollTop || 0;
+			const minY = Math.max(0, scrollTop - BUFFER_PX);
+			const maxY = scrollTop + viewportH + BUFFER_PX;
+			visibleRows = justifiedRows.filter((row) => row.top + row.height >= minY && row.top <= maxY);
+
+			// Recalculate totalHeight here as justifiedRows is now derived
+			totalHeight = justifiedRows.length
+				? justifiedRows[justifiedRows.length - 1].top + justifiedRows[justifiedRows.length - 1].height
+				: 0;
+		});
 	});
 
 	function handleGridScroll(_e: Event) {
@@ -449,10 +542,24 @@
 		// Update visible rows on next frame to avoid layout thrash
 		requestAnimationFrame(() => {
 			const viewportH = photoGridEl!.clientHeight || window.innerHeight;
-			const minY = Math.max(0, scrollTop - bufferPx);
-			const maxY = scrollTop + viewportH + bufferPx;
+			const minY = Math.max(0, scrollTop - BUFFER_PX);
+			const maxY = scrollTop + viewportH + BUFFER_PX;
 
 			visibleRows = justifiedRows.filter((row) => row.top + row.height >= minY && row.top <= maxY);
+
+			// Handle isScrolling state and lazy load processing
+			isScrolling = true;
+			if (scrollIdleTimer) {
+				clearTimeout(scrollIdleTimer);
+			}
+			scrollIdleTimer = window.setTimeout(() => {
+				isScrolling = false;
+				// Process any images that became visible while scrolling was active
+				for (const node of pendingLazyNodes) {
+					loadImageNode(node);
+				}
+				pendingLazyNodes.clear();
+			}, 50); // Debounce time for loading images after scroll
 		});
 	}
 
@@ -526,7 +633,7 @@
 	}
 </script>
 
-{#snippet defaultPhotoCard(asset: ImageWithDateLabel, dim?: { width: number; height: number })}
+{#snippet defaultPhotoCard(asset: ImageWithDateLabel)}
 	{@const isSelected = selectedAssets.values().some((i) => i.uid === asset.uid) || singleSelectedAsset === asset}
 	<div
 		class="asset-photo"
@@ -545,14 +652,6 @@
 			// no-op for now
 		}}
 		data-asset-id={asset.uid}
-		use:tippyAction={{
-			asset,
-			theme: "viz",
-			followCursor: "initial",
-			plugins: [followCursor],
-			arrow: false,
-			delay: [1000, 0]
-		}}
 		class:selected-photo={isSelected}
 		class:multi-selected-photo={isSelected && isMultiSelecting}
 		role="button"
@@ -652,7 +751,7 @@
 				>
 					{#each row.items as item}
 						<div style={`flex:0 0 ${item.width}px; height:${row.height}px;`} class="justified-item">
-							{@render defaultPhotoCard(item.asset, { width: item.width, height: row.height })}
+							{@render defaultPhotoCard(item.asset)}
 						</div>
 					{/each}
 				</div>

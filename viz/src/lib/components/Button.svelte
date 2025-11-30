@@ -2,7 +2,7 @@
 	import { onMount } from "svelte";
 	import type { HTMLButtonAttributes } from "svelte/elements";
 
-	let { children, hoverColor = "var(--imag-90)", ...props }: { hoverColor?: string } & HTMLButtonAttributes = $props();
+	let { children, hoverColor = "var(--imag-80)", ...props }: { hoverColor?: string } & HTMLButtonAttributes = $props();
 	let el: HTMLButtonElement | undefined = $state();
 	let defaultBackgroundColour: string | undefined = $state();
 

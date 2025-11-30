@@ -4,8 +4,6 @@
  */
 import { defaults, servers as generatedServers } from "./client.gen";
 import { dev } from "$app/environment";
-import type { DownloadRequest, ErrorResponse } from "./client.gen";
-import * as QS from "@oazapfts/runtime/query";
 
 // Compute a static API base URL constant at module load time.
 // This is exported as `API_BASE_URL` and also applied to `defaults.baseUrl`.
@@ -83,66 +81,8 @@ defaults.baseUrl = API_BASE_URL;
 // Include credentials (cookies) with all requests for authentication
 defaults.credentials = "include";
 
-/**
- * Download images as a ZIP blob using a token
- * This is a custom implementation because oazapfts doesn't properly handle binary responses
- */
-export async function downloadImagesBlob(
-    token: string,
-    downloadRequest: DownloadRequest,
-    password?: string
-): Promise<
-    | { status: 200; data: Blob; }
-    | { status: 400; data: ErrorResponse; }
-    | { status: 401; data: ErrorResponse; }
-    | { status: 403; data: ErrorResponse; }
-    | { status: 500; data: ErrorResponse; }
-> {
-    const baseUrl = defaults.baseUrl || "";
-    const queryParams = QS.query(QS.explode({ token, password }));
-    const url = `${baseUrl}/download${queryParams}`;
-
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...defaults.headers
-            },
-            credentials: "include",
-            body: JSON.stringify(downloadRequest)
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            return { status: 200, data: blob };
-        }
-
-        // Try to parse error response as JSON
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-            const errorData = await response.json();
-            return {
-                status: response.status as 400 | 401 | 403 | 500,
-                data: errorData
-            };
-        }
-
-        // Fallback error
-        return {
-            status: response.status as 400 | 401 | 403 | 500,
-            data: { error: `Request failed with status ${response.status}` }
-        };
-    } catch (error) {
-        return {
-            status: 500,
-            data: { error: error instanceof Error ? error.message : "Network error" }
-        };
-    }
-}
-
 // Re-export everything from the generated client
 export * from "./client.gen";
-export { initApi } from "./init";
-export { API_BASE_URL };
-export { warnIfLocalhostFallback };
+export * from "./init";
+export * from "./functions.custom";
+export { API_BASE_URL, warnIfLocalhostFallback };

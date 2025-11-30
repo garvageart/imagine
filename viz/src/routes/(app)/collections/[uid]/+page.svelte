@@ -45,7 +45,7 @@
 	import InputText from "$lib/components/dom/InputText.svelte";
 	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
-	import { signDownload, downloadImagesBlob, defaults, API_BASE_URL } from "$lib/api/client";
+	import { signDownload, downloadImagesZipBlob, defaults, API_BASE_URL } from "$lib/api/client";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 
@@ -391,7 +391,7 @@
 			const filename = `${collectionNameClean}-${DateTime.now().toFormat("ddMMyyyy_HHmmss")}.zip`;
 
 			// Use custom downloadImagesBlob function (properly handles binary responses)
-			const res = await downloadImagesBlob(token, { uids, file_name: filename });
+			const res = await downloadImagesZipBlob(token, { uids, file_name: filename });
 
 			if (res.status !== 200) {
 				const errMsg = res.data?.error ?? "Failed to download images";

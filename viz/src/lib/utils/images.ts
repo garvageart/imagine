@@ -78,7 +78,7 @@ export function getTakenAt(image: Image): Date {
     if (image.taken_at) {
         return new Date(image.taken_at);
     }
-    
+
     // Priority: EXIF Original -> EXIF Modify -> metadata file_created_at -> image.created_at
     const exif = image.exif;
     const dates: (string | undefined)[] = [
@@ -136,4 +136,80 @@ export function formatBytes(bytes?: number) {
     }
 
     return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)} ${units[i]}`;
+}
+
+export interface TransformParams {
+    format?: "webp" | "png" | "jpg" | "jpeg" | "avif" | "heif";
+    flip?: string;
+    kernel?: string;
+    width?: number;
+    height?: number;
+    quality?: number;
+    rotate?: number;
+}
+
+export function parseTransformParams(pathStr: string): TransformParams {
+    const url = new URL(pathStr, window.location.origin); // not really true, just there so the thing doesn't break
+    const q = url.searchParams;
+
+    const params: TransformParams = {};
+
+    const format = q.get("format");
+    if (format) {
+        params.format = format as TransformParams["format"];
+    }
+
+    const flip = q.get("flip");
+    if (flip) {
+        params.flip = flip;
+    }
+
+    const kernel = q.get("kernel");
+    if (kernel) {
+        params.kernel = kernel;
+    }
+
+    // Support both shorthand and longhand as parameter names
+    // Note: just for now
+    let widthParam = q.get("width");
+    if (!widthParam) {
+        widthParam = q.get("w");
+    }
+
+    if (widthParam) {
+        const w = parseInt(widthParam, 10);
+        if (!isNaN(w)) {
+            params.width = w;
+        }
+    }
+
+    let heightParam = q.get("height");
+    if (!heightParam) {
+        heightParam = q.get("h");
+    }
+
+    if (heightParam) {
+        const h = parseInt(heightParam, 10);
+        if (!isNaN(h)) {
+            params.height = h;
+        }
+    }
+
+    const qualityParam = q.get("quality");
+    if (qualityParam) {
+        const qn = parseInt(qualityParam, 10);
+        if (!isNaN(qn)) {
+            params.quality = qn;
+        }
+    }
+
+    const rotateParam = q.get("rotate");
+    if (rotateParam) {
+        const r = parseInt(rotateParam, 10);
+        if (!isNaN(r)) {
+            params.rotate = r;
+        }
+    }
+
+    return params;
 }
