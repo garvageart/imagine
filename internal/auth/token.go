@@ -2,10 +2,10 @@ package auth
 
 import (
 	"encoding/hex"
-	"imagine/internal/utils"
+	"imagine/internal/crypto"
 )
 
 func GenerateAuthToken() string {
-	tokenBytes := utils.GenerateRandomBytes(48)
+	tokenBytes := crypto.MustGenerateRandomBytes(48)
 	return hex.EncodeToString(tokenBytes)
 }

@@ -1,7 +1,5 @@
 package auth
 
-import "crypto/rand"
-
 var (
 	// Choose a random horse name because why not
 	HorseNames = [...]string{
@@ -30,10 +28,3 @@ var (
 var (
 	APIKeyPrefix = "imag"
 )
-
-func GenerateRandomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-
-	return b
-}

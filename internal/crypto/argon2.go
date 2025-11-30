@@ -3,7 +3,6 @@ package crypto
 import (
 	"bytes"
 	"errors"
-	"imagine/internal/auth"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -24,7 +23,7 @@ type Argon2Hash struct {
 }
 
 func (a Argon2Hash) GenerateSalt() []byte {
-	return auth.GenerateRandomBytes(a.saltLen)
+	return MustGenerateRandomBytes(a.saltLen)
 }
 
 func (a Argon2Hash) Hash(password, salt []byte) (hash []byte, err error) {

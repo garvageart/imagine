@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"log"
 	"maps"
@@ -37,11 +36,11 @@ var DefaultDateTimeValues = &DateFormatValues{
 
 const (
 	DefaultDateTimeFormat = "02012006_150405"
+	VersionFileName = "version.txt"
 )
 
 func GetAppVersion() string {
-	data, err := os.ReadFile("version.txt")
-
+	data, err := os.ReadFile(VersionFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +56,6 @@ func FailOnError(err error, msg string) {
 
 func FileExists(path string) bool {
 	info, err := os.Stat(path)
-
 	if os.IsNotExist(err) {
 		return false
 	}
@@ -129,16 +127,6 @@ func StructToMap(item interface{}) map[string]interface{} {
 
 func RandomInt(min, max int) int {
 	return min + mRand.Intn(max-min)
-}
-
-func GenerateRandomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return b
 }
 
 // StringPtr returns a pointer to the provided string.
