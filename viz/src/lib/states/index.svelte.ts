@@ -27,7 +27,7 @@ export let sidebar = $state({
 
 export let showHeader = writable(true);
 
-export let user = $state<{ data: User | null; loading: boolean; fetched: boolean; error?: string | null; isAdmin: boolean; connectionError?: boolean }>({
+export let user = $state<{ data: User | null; loading: boolean; fetched: boolean; error?: string | null; isAdmin: boolean; connectionError?: boolean; }>({
     data: null,
     loading: false,
     fetched: false,
@@ -114,7 +114,6 @@ export type ThemeOption = 'light' | 'dark' | 'system';
 
 class ThemeState {
     ls = new VizLocalStorage<ThemeOption>('theme');
-    cs = new VizCookieStorage<ThemeOption>('theme');
 
     value: ThemeOption = $state(this.getInitialTheme());
     systemPref: 'light' | 'dark' = $state('light');

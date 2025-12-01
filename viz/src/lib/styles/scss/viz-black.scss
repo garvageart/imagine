@@ -1,8 +1,8 @@
 @use "sass:color";
 @use "viz-mixins";
 
-$bg-color: #222222;
-$base-color: #333333;
+$bg-color: #161616;
+$base-color: #1d1d1d;
 $text-color: #f7f9f9;
 $primary-color: #1885df;
 $secondary-color: #06589b;
@@ -18,21 +18,36 @@ $secondary-color: #06589b;
         $text-color: $text-color,
         $base-color: $base-color,
         $is-light-theme: true,
-        $flip-bg-color: rgb(230, 231, 242),
-        $flip-bg-pct: 5%,
+        $flip-bg-color: white,
+        $flip-bg-pct: 0%,
         $flip-text-color: black,
-        $flip-text-pct: 7%
+        $flip-text-pct: 15%,
+        $suffix: "-light"
     );
 
     @include viz-mixins.generate-imag-colors(
         $bg-color: $bg-color,
         $text-color: $text-color,
         $base-color: $base-color,
-        $is-light-theme: false
+        $is-light-theme: false,
+        $suffix: "-dark"
     );
 }
 
-/* Colours */
+@mixin imag-theme($sel, $is-light, $flip-bg: null, $flip-bg-pct: 0%, $flip-text: null, $flip-text-pct: 0%) {
+    #{$sel} {
+        @include viz-mixins.generate-imag-colors(
+            $bg-color: $bg-color,
+            $text-color: $text-color,
+            $base-color: $base-color,
+            $is-light-theme: $is-light,
+            $flip-bg-color: $flip-bg,
+            $flip-bg-pct: $flip-bg-pct,
+            $flip-text-color: $flip-text,
+            $flip-text-pct: $flip-text-pct
+        );
+    }
+}
 
 /* Light theme: use a blue base so --imag-100 is the lightest blue and
    --imag-10 is the darkest (in 10% steps). */

@@ -28,11 +28,11 @@
 	let { children } = $props();
 
 	$effect(() => {
-		const themeScript = document.getElementById("theme-ready-script")
+		const themeScript = document.getElementById("theme-ready-script");
 		if (themeScript) {
-			themeScript.remove()
+			themeScript.remove();
 		}
-	})
+	});
 
 	$effect(() => {
 		debugState.storage.set(debugState.value);
@@ -40,7 +40,6 @@
 
 	$effect(() => {
 		themeState.ls.set(themeState.value);
-		themeState.cs.set(themeState.value);
 		if (typeof document !== "undefined") {
 			document.documentElement.setAttribute("data-theme", themeState.resolved);
 		}

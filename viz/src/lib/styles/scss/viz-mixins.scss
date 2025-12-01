@@ -6,7 +6,8 @@
 /// @param {Color} $text-color - The theme's text color.
 /// @param {Color} $base-color - The color used for the step mixing (e.g., blue for light theme, dark blue for dark theme).
 /// @param {boolean} $is-light-theme [false] - If true, 100% is the lightest mix; if false, 100% is the darkest/base.
-@mixin generate-imag-colors($bg-color,
+@mixin generate-imag-colors(
+    $bg-color,
     $text-color,
     $base-color,
     $is-light-theme: false,
@@ -14,8 +15,8 @@
     $flip-bg-pct: 0%,
     $flip-text-color: null,
     $flip-text-pct: 0%,
-    $suffix: "") {
-    
+    $suffix: ""
+) {
     $bg: $bg-color;
     $base: $base-color;
     $text: $text-color;
@@ -54,5 +55,20 @@
             // be progressively lighter by mixing with white.
             --imag-#{$level}#{$suffix}: #{color.mix(white, $base, $mixPct)};
         }
+    }
+}
+
+@mixin imag-theme($sel, $is-light, $flip-bg: null, $flip-bg-pct: 0%, $flip-text: null, $flip-text-pct: 0%) {
+    #{$sel} {
+        @include generate-imag-colors(
+            $bg-color: $bg-color,
+            $text-color: $text-color,
+            $base-color: $base-color,
+            $is-light-theme: $is-light,
+            $flip-bg-color: $flip-bg,
+            $flip-bg-pct: $flip-bg-pct,
+            $flip-text-color: $flip-text,
+            $flip-text-pct: $flip-text-pct
+        );
     }
 }
