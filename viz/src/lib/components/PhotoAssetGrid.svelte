@@ -2,19 +2,20 @@
 	export type AssetGridView = "grid" | "list" | "cards";
 </script>
 
-<script lang="ts" generics="T extends { uid: string } & Record<string, any>">
+<script lang="ts" generics>
 	import AssetGrid from "./AssetGrid.svelte";
 	import { getFullImagePath, type Image } from "$lib/api";
 	import { DateTime } from "luxon";
-	import type { ComponentProps, Snippet } from "svelte";
+	import { mount, unmount, type ComponentProps, type Snippet } from "svelte";
 	import { SvelteSet } from "svelte/reactivity";
-	import { thumbHashToDataURL } from "thumbhash";
-	import { normalizeBase64 } from "$lib/utils/misc";
 	import { fade } from "svelte/transition";
 	import { getTakenAt, getThumbhashURL } from "$lib/utils/images";
 	import { type ImageWithDateLabel } from "../../routes/(app)/photos/+page.svelte";
 	import { page } from "$app/state";
 	import ImageCard from "./ImageCard.svelte";
+	import { type Props as TippyProps, followCursor, delegate, type Instance } from "tippy.js";
+	import PhotoTooltip from "$lib/components/tooltips/PhotoTooltip.svelte";
+	import "tippy.js/dist/tippy.css";
 
 	interface PhotoSpecificProps {
 		/** Custom photo card snippet - if not provided, uses default photo card */
@@ -44,6 +45,73 @@
 		photoCardSnippet
 	}: Props = $props();
 
+	function getAssetFromElement(el: HTMLElement): Image | undefined {
+		const assetId = el.dataset.assetId;
+		if (!assetId) {
+			return undefined;
+		}
+
+		return data.find((a) => a.uid === assetId) || allData?.find((a) => a.uid === assetId);
+	}
+
+	$effect(() => {
+		if (!photoGridEl) {
+			return;
+		}
+
+		// Initialize delegated Tippy instance on the grid container
+		const delegatedTippy = delegate(photoGridEl, {
+			target: ".asset-photo", // Delegate tooltips to elements matching this selector
+			allowHTML: true,
+			theme: "viz",
+			followCursor: "initial",
+			plugins: [followCursor],
+			arrow: false,
+			delay: [500, 0],
+			moveTransition: "opacity 0.1s ease-out",
+			onShow(instance: Instance<TippyProps>) {
+				const assetEl = instance.reference as HTMLElement;
+				const asset = getAssetFromElement(assetEl);
+				if (!asset) {
+					return false; // Don't show tooltip if asset data isn't found
+				}
+
+				const contentNode = document.createElement("div");
+				// Store the component instance on the Tippy instance for cleanup
+				(instance as any)._svelteTooltipComponent = mount(PhotoTooltip, {
+					target: contentNode,
+					props: { asset }
+				});
+				instance.setContent(contentNode);
+			},
+			onHidden(instance: Instance<TippyProps>) {
+				const component = (instance as any)._svelteTooltipComponent;
+				if (component) {
+					unmount(component);
+					(instance as any)._svelteTooltipComponent = undefined;
+				}
+				instance.setContent(""); // Clear content
+			},
+			// Ensure consistent positioning across renders
+			popperOptions: {
+				modifiers: [
+					{
+						name: "flip",
+						options: {
+							fallbackPlacements: ["top", "bottom", "left", "right"]
+						}
+					}
+				]
+			}
+		});
+
+		return () => {
+			delegatedTippy.destroy();
+		};
+	});
+
+	// ALL GRID IMAGE RENDERING STUFF
+	// ----------------------------
 	const isMultiSelecting = $derived(selectedAssets.size > 1);
 
 	// Count date labels so we can hide the inline badge in the trivial case
@@ -94,63 +162,6 @@
 			return;
 		}
 		img.src = data;
-	}
-
-	function lazyLoad(node: HTMLImageElement, params: { src: string }) {
-		// set dataset for potential later load; placeholder image (thumbhash) remains in DOM
-		if (params?.src) {
-			node.dataset.src = params.src;
-		}
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (entry.isIntersecting) {
-						if (isScrolling) {
-							pendingLazyNodes.add(node);
-						} else {
-							loadImageNode(node);
-							observer.unobserve(node);
-						}
-					} else {
-						// If scrolled far away, cancel an in-flight fetch by clearing src
-						// (best-effort; some browsers may still fetch)
-						if (!entry.isIntersecting && !pendingLazyNodes.has(node)) {
-							// If currently not intersecting and src came from dataset, clear it
-							const ds = node.dataset.src;
-							if (ds && node.src && node.src === ds) {
-								node.src = "";
-							}
-						}
-					}
-				}
-			},
-			{ root: photoGridEl ?? null, rootMargin: "100px", threshold: 0.05 }
-		);
-
-		observer.observe(node);
-
-		return {
-			update(newParams: { src: string }) {
-				if (newParams?.src) {
-					// If the node currently has a different src, clear it so the browser
-					// doesn't continue showing the previous image while dataset updates.
-					if (node.src && node.src !== newParams.src) {
-						node.src = "";
-					}
-					node.dataset.src = newParams.src;
-					// force the observer to re-evaluate this node
-					try {
-						observer.unobserve(node);
-					} catch (e) {}
-					observer.observe(node);
-				}
-			},
-			destroy() {
-				observer.disconnect();
-				pendingLazyNodes.delete(node);
-			}
-		};
 	}
 
 	// Build justified rows layout and compute visible rows based on scroll.
@@ -466,7 +477,7 @@
 	}
 </script>
 
-{#snippet defaultPhotoCard(asset: ImageWithDateLabel, dim?: { width: number; height: number })}
+{#snippet defaultPhotoCard(asset: ImageWithDateLabel)}
 	{@const isSelected = selectedAssets.values().some((i) => i.uid === asset.uid) || singleSelectedAsset === asset}
 	<div
 		class="asset-photo"
@@ -476,7 +487,15 @@
 			const uids = selectedAssets.size > 1 ? Array.from(selectedAssets).map((i) => i.uid) : [asset.uid];
 			try {
 				e.dataTransfer?.setData("application/x-imagine-ids", JSON.stringify(uids));
-				e.dataTransfer!.effectAllowed = "copy";
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = "copy";
+					const target = e.currentTarget as HTMLElement;
+					const img = target.querySelector(".tile-image") as HTMLImageElement;
+					if (img) {
+						// Set the drag image to the visible thumbnail
+						e.dataTransfer.setDragImage(img, 0, 0);
+					}
+				}
 			} catch (err) {
 				// ignore
 			}
@@ -485,7 +504,6 @@
 			// no-op for now
 		}}
 		data-asset-id={asset.uid}
-		title={asset.name ?? asset.image_metadata?.file_name ?? asset.uid}
 		class:selected-photo={isSelected}
 		class:multi-selected-photo={isSelected && isMultiSelecting}
 		role="button"
@@ -582,7 +600,7 @@
 				>
 					{#each row.items as item}
 						<div style={`flex:0 0 ${item.width}px; height:${row.height}px;`} class="justified-item">
-							{@render defaultPhotoCard(item.asset, { width: item.width, height: row.height })}
+							{@render defaultPhotoCard(item.asset)}
 						</div>
 					{/each}
 				</div>

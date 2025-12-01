@@ -504,49 +504,10 @@
 		}
 
 		try {
-			// First, check for internal drag of images (application/x-imagine-ids)
-			const dt = e.dataTransfer;
-			if (dt) {
-				const json = dt.getData("application/x-imagine-ids");
-				if (json) {
-					try {
-						const uids: string[] = JSON.parse(json);
-						if (uids.length === 0) {
-							toastState.addToast({ type: "info", message: "No images to add to collection", timeout: 3000 });
-							return;
-						}
-
-						const createRes = await createCollection({
-							name: `New collection ${new Date().toLocaleString()}`,
-							description: "Created from dropped images",
-							private: false
-						});
-
-						if (createRes.status !== 201) {
-							toastState.addToast({ type: "error", message: `Failed to create collection (${createRes.status})`, timeout: 4000 });
-							return;
-						}
-
-						const collectionUid = createRes.data.uid;
-						const addRes = await addCollectionImages(collectionUid, { uids });
-						if (addRes.status === 200) {
-							toastState.addToast({ type: "success", message: `Collection created with ${uids.length} image(s)`, timeout: 4000 });
-							await invalidateAll();
-							goto(`/collections/${collectionUid}`);
-							return;
-						} else {
-							toastState.addToast({
-								type: "warning",
-								message: `Collection created but failed to add images (${addRes.status})`,
-								timeout: 4000
-							});
-							return;
-						}
-					} catch (err) {
-						console.warn("Failed to parse dragged image UIDs", err);
-						return;
-					}
-				}
+			// Ignore internal image drops on the background - they must be dropped on the specific box
+			// checking types is enough, getData works too but let's just skip if we see the key
+			if (e.dataTransfer.types.includes("application/x-imagine-ids")) {
+				return;
 			}
 
 			const allFiles: File[] = [];
@@ -666,6 +627,49 @@
 		if (!e.dataTransfer) return;
 
 		try {
+			// Check for internal drag of images first
+			const dt = e.dataTransfer;
+			const json = dt.getData("application/x-imagine-ids");
+			if (json) {
+				try {
+					const uids: string[] = JSON.parse(json);
+					if (uids.length === 0) {
+						toastState.addToast({ type: "info", message: "No images to add to collection", timeout: 3000 });
+						return;
+					}
+
+					const createRes = await createCollection({
+						name: `New collection ${new Date().toLocaleString()}`,
+						description: "Created from dropped images",
+						private: false
+					});
+
+					if (createRes.status !== 201) {
+						toastState.addToast({ type: "error", message: `Failed to create collection (${createRes.status})`, timeout: 4000 });
+						return;
+					}
+
+					const collectionUid = createRes.data.uid;
+					const addRes = await addCollectionImages(collectionUid, { uids });
+					if (addRes.status === 200) {
+						toastState.addToast({ type: "success", message: `Collection created with ${uids.length} image(s)`, timeout: 4000 });
+						await invalidateAll();
+						goto(`/collections/${collectionUid}`);
+						return;
+					} else {
+						toastState.addToast({
+							type: "warning",
+							message: `Collection created but failed to add images (${addRes.status})`,
+							timeout: 4000
+						});
+						return;
+					}
+				} catch (err) {
+					console.warn("Failed to parse dragged image UIDs", err);
+					return;
+				}
+			}
+
 			const allFiles: File[] = [];
 
 			if (e.dataTransfer.items) {
