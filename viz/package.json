@@ -7,7 +7,8 @@
 		"generate:icons": "node tools/icon-gen/generate-icons.js",
 		"extract:font-icons": "node tools/font-extract/extract-glyphs.js",
 		"dev": "vite dev --host",
-		"build": "vite build",
+		"build:themes": "node tools/build-themes.js",
+		"build": "npm run build:themes && vite build",
 		"start": "node build",
 		"preview": "vite preview --host",
 		"prepare": "svelte-kit sync || echo ''",
@@ -21,7 +22,7 @@
 	"devDependencies": {
 		"@faker-js/faker": "^9.9.0",
 		"@playwright/test": "^1.56.1",
-		"@sveltejs/adapter-node": "^5.4.0",
+		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.49.0",
 		"@sveltejs/vite-plugin-svelte": "^5.1.1",
 		"@testing-library/jest-dom": "^6.9.1",
