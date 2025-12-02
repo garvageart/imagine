@@ -143,9 +143,21 @@ if (options.installTools || !hasRuntime) {
     console.log('Skipping go mod tidy (use --install-tools to force)');
 }
 
-// Generate GORM entities that embed DTOs
-console.log('Generating GORM entities from DTOs (go run ./tools/genentities)...');
-const genEntitiesSuccess = run('go', ['run', './tools/genentities', '-openapi', specPath]);
+// Generate GORM entities from DTOs
+const genEntitiesBinary = process.platform === 'win32' ? 'genentities.exe' : 'genentities';
+const genEntitiesPath = join(root, 'tools', 'genentities', genEntitiesBinary);
+
+let genEntitiesSuccess = false;
+
+if (existsSync(genEntitiesPath)) {
+    console.log(`Generating GORM entities using binary (${genEntitiesPath})...`);
+    // On Windows/Shell, passing the absolute path usually works fine.
+    genEntitiesSuccess = run(genEntitiesPath, ['-openapi', specPath]);
+} else {
+    console.log('Generating GORM entities from DTOs (go run ./tools/genentities)...');
+    genEntitiesSuccess = run('go', ['run', './tools/genentities', '-openapi', specPath]);
+}
+
 if (!genEntitiesSuccess) {
     console.error('Failed to generate GORM entities');
     process.exit(1);
