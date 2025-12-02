@@ -18,14 +18,16 @@
 	let searchElement = $state<HTMLInputElement | undefined>();
 	let searchInputHasFocus = $derived(searchElement && document.activeElement === searchElement);
 
-	// If URL has search params, perform search automatically (only on client)
-	if (page.url.pathname === "/search") {
-		const urlParams = new URLSearchParams(window.location.search);
-		const q = urlParams.get("q");
-		if (q) {
-			search.value = q;
+	$effect(() => {
+		if (page.url.pathname === "/search") {
+			const q = page.url.searchParams.get("q");
+			// Only update search.value if 'q' is present and different from current search.value
+			// This prevents unnecessary updates and potential infinite loops if search.value also affects the URL
+			if (q && q !== search.value) {
+				search.value = q;
+			}
 		}
-	}
+	});
 
 	// Ctrl/Cmd+I toggles dev mode
 	hotkeys("ctrl+i, command+i", (e) => {

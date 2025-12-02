@@ -1,3 +1,4 @@
+// Lol I gotta get rid of this man
 {
     "editor.formatOnSave": true,
     "[go]": {
@@ -6,19 +7,6 @@
             "source.organizeImports": "never"
         }
     },
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "files.eol": "\n"
 }
-// {
-//     "json.schemas": [
-//         {
-//             "name": "imagine.json",
-//             "description": "Config file for Imagine",
-//             "fileMatch": [
-//                 "imagine.config.json",
-//                 "imagine.json",
-//                 ".imagine.json"
-//             ],
-//             "url": "https://json.schemastore.org/bower.json"
-//         }
-//     ]
-// }
