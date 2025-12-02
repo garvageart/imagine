@@ -1,7 +1,7 @@
 <!-- Modified from here: https://svelte.dev/playground/d65a4e9f0ae74d1eb1b08d13e428af32?version=5.36.8 -->
 <script lang="ts">
 	import { generateRandomString } from "$lib/utils/misc";
-	import type { SvelteHTMLElements } from "svelte/elements";
+	import type { MouseEventHandler, SvelteHTMLElements } from "svelte/elements";
 
 	interface Props {
 		label: string;
@@ -18,14 +18,14 @@
 		checked = value === "on" ? true : false;
 	});
 
-	function handleClick(event: MouseEvent) {
-		event.preventDefault();
-		const target = event.target as HTMLButtonElement;
+	const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
+		e.preventDefault();
+		const target = e.currentTarget;
 		const state = target.getAttribute("aria-checked");
 
 		checked = state === "true" ? false : true;
 		value = checked === true ? "on" : "off";
-	}
+	};
 </script>
 
 <div {...props} class="toggle-slider {labelPos === 'side' ? 'side' : 'top'}">
