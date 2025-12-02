@@ -12,7 +12,7 @@ const criticalCssCache = new Map<string, string>();
 const THEME_STYLE_PLACEHOLDER = '%viz.css.theme_style%';
 const THEME_ATTR_PLACEHOLDER = '%THEME_ATTR%';
 
-const DEFAULT_THEME = 'viz-blue';
+const DEFAULT_THEME = 'viz-black';
 
 /**
  * SvelteKit server hook to dynamically inject theme-specific CSS.
@@ -27,7 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     const themeCookie = themeCookieStore.get() || DEFAULT_THEME;
 
     // TODO: eventually will come from user settings
-    let colorTheme = 'viz-blue';
+    let colorTheme = DEFAULT_THEME;
     let modeTheme = 'light';
 
     if (themeCookie.startsWith('viz-')) {
