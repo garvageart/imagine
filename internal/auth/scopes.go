@@ -75,6 +75,11 @@ const (
 	// UsersDeleteScope grants permission to delete users.
 	UsersDeleteScope Scope = "users:delete"
 
+	// UserSettingsReadScope grants permission to read user settings.
+	UserSettingsReadScope Scope = "user_settings:read"
+	// UserSettingsUpdateScope grants permission to update user settings.
+	UserSettingsUpdateScope Scope = "user_settings:update"
+
 	// DownloadsCreateScope grants permission to create downloads.
 	DownloadsCreateScope Scope = "downloads:create"
 
@@ -120,6 +125,9 @@ var AllScopes = []Scope{
 	UsersReadScope, 
 	UsersUpdateScope, 
 	UsersDeleteScope, 
+
+	UserSettingsReadScope, 
+	UserSettingsUpdateScope, 
 
 	DownloadsCreateScope, 
 

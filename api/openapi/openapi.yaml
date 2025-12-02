@@ -392,6 +392,79 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /accounts/me/settings:
+    get:
+      summary: Get all user settings
+      description: Returns a merged list of settings (system defaults + user overrides).
+      operationId: getUserSettings
+      responses:
+        "200":
+          description: List of user settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSetting"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      summary: Update a user setting (Override)
+      description: Creates or updates an override for a specific setting.
+      operationId: updateUserSetting
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Setting name (e.g. 'theme', 'notifications_email')
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+              required: [value]
+      responses:
+        "200":
+          description: Setting updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSetting"
+        "400":
+          description: Bad request (invalid value or not editable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Setting not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /images:
     get:
       summary: List all images with pagination
@@ -1191,6 +1264,50 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/settings/definitions:
+    get:
+      summary: List all setting definitions
+      operationId: listSettingDefinitions
+      security:
+        - BearerAuth: [admin:read]
+      responses:
+        "200":
+          description: List of setting definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SettingDefault"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/settings/overrides:
+    get:
+      summary: List all overrides (debug/admin)
+      operationId: listSettingOverrides
+      security:
+        - BearerAuth: [admin:read]
+      responses:
+        "200":
+          description: List of all overrides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SettingOverride"
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -1998,10 +2115,80 @@ components:
                 type: boolean
               error:
                 type: string
-            required: [uid, deleted]
-        message:
+
+    SettingDefault:
+      x-entity: true
+      type: object
+      description: Defines a setting available in the system.
+      properties:
+        name:
           type: string
-      required: [results]
+          description: Unique name for the setting (primary key).
+        value:
+          type: string
+          description: The default value everyone gets.
+        value_type:
+          type: string
+          enum: [boolean, string, integer, enum, json]
+          description: Data type of the setting.
+        allowed_values:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: List of valid choices if type is enum.
+        is_user_editable:
+          type: boolean
+          description: Describes whether a user can edit this setting.
+        group:
+          type: string
+          description: Category/group for the setting (e.g., General, Notifications).
+        description:
+          type: string
+          description: Description for UI
+      required: [name, value, value_type, is_user_editable, group, description]
+
+    SettingOverride:
+      x-entity: true
+      type: object
+      description: Stores user-specific changes to settings.
+      properties:
+        user_id:
+          type: string
+          description: Links to the users table.
+        name:
+          type: string
+          description: Links to SettingDefault.name.
+        value:
+          type: string
+          description: The user's chosen value for the setting.
+      required: [user_id, name, value]
+
+    UserSetting:
+      type: object
+      description: The effective setting for a user (merged Default and Override).
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+          description: The effective value (override if exists, else default).
+        default_value:
+          type: string
+        value_type:
+          type: string
+        allowed_values:
+          type: array
+          items:
+            type: string
+          nullable: true
+        is_user_editable:
+          type: boolean
+        group:
+          type: string
+        description:
+          type: string
+      required: [name, value, default_value, value_type, group, description]
 
     SignedExportResponse:
       type: object

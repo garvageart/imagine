@@ -21,6 +21,7 @@ import (
 	"imagine/internal/config"
 	"imagine/internal/db"
 	"imagine/internal/entities"
+	"imagine/internal/settings" // Added missing import
 	libhttp "imagine/internal/http"
 	"imagine/internal/imageops"
 	libvips "imagine/internal/imageops/vips"
@@ -117,7 +118,7 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 	router.Route("/api", func(r chi.Router) {
 		// Public routes (no auth required)
 		r.Mount("/auth", routes.AuthRouter(dbClient, logger))
-		r.Mount("/accounts", routes.AccountsRouter(dbClient, logger))
+		r.Mount("/accounts", routes.AccountsRouter(dbClient, logger)) // auth middleware added internally
 		r.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 			jsonResponse := map[string]any{"message": "pong"}
 			render.JSON(res, req, jsonResponse)
@@ -274,8 +275,12 @@ func main() {
 		entities.DownloadToken{},
 		entities.WorkerJob{},
 		entities.UserWithPassword{},
+		entities.SettingDefault{},
+		entities.SettingOverride{},
 	)
 	apiServer.ImagineServer.Database.Client = client
+
+	settings.SeedDefaultSettings(client, logger)
 
 	// http server stuff
 	if apiPortEnv := os.Getenv("API_PORT"); apiPortEnv != "" {

@@ -13,6 +13,15 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
+// Defines values for SettingDefaultValueType.
+const (
+	Boolean SettingDefaultValueType = "boolean"
+	Enum    SettingDefaultValueType = "enum"
+	Integer SettingDefaultValueType = "integer"
+	Json    SettingDefaultValueType = "json"
+	String  SettingDefaultValueType = "string"
+)
+
 // Defines values for UserRole.
 const (
 	UserRoleAdmin      UserRole = "admin"
@@ -187,12 +196,11 @@ type CollectionUpdate struct {
 
 // DeleteAssetsResponse defines model for DeleteAssetsResponse.
 type DeleteAssetsResponse struct {
-	Message *string `json:"message,omitempty"`
-	Results []struct {
-		Deleted bool    `json:"deleted"`
+	Results *[]struct {
+		Deleted *bool   `json:"deleted,omitempty"`
 		Error   *string `json:"error,omitempty"`
-		Uid     string  `json:"uid"`
-	} `json:"results"`
+		Uid     *string `json:"uid,omitempty"`
+	} `json:"results,omitempty"`
 }
 
 // DeleteImagesResponse defines model for DeleteImagesResponse.
@@ -405,6 +413,45 @@ type Session struct {
 	UserUid    string     `json:"user_uid"`
 }
 
+// SettingDefault Defines a setting available in the system.
+type SettingDefault struct {
+	// AllowedValues List of valid choices if type is enum.
+	AllowedValues *[]string `json:"allowed_values"`
+
+	// Description Description for UI
+	Description string `json:"description"`
+
+	// Group Category/group for the setting (e.g., General, Notifications).
+	Group string `json:"group"`
+
+	// IsUserEditable Describes whether a user can edit this setting.
+	IsUserEditable bool `json:"is_user_editable"`
+
+	// Name Unique name for the setting (primary key).
+	Name string `json:"name"`
+
+	// Value The default value everyone gets.
+	Value string `json:"value"`
+
+	// ValueType Data type of the setting.
+	ValueType SettingDefaultValueType `json:"value_type"`
+}
+
+// SettingDefaultValueType Data type of the setting.
+type SettingDefaultValueType string
+
+// SettingOverride Stores user-specific changes to settings.
+type SettingOverride struct {
+	// Name Links to SettingDefault.name.
+	Name string `json:"name"`
+
+	// UserId Links to the users table.
+	UserId string `json:"user_id"`
+
+	// Value The user's chosen value for the setting.
+	Value string `json:"value"`
+}
+
 // SignDownloadRequest Request to create a download token
 type SignDownloadRequest struct {
 	// AllowDownload Allow downloads using this token (default true)
@@ -449,6 +496,20 @@ type UserCreate struct {
 	Email    openapi_types.Email `json:"email"`
 	Name     string              `json:"name"`
 	Password string              `json:"password"`
+}
+
+// UserSetting The effective setting for a user (merged Default and Override).
+type UserSetting struct {
+	AllowedValues  *[]string `json:"allowed_values"`
+	DefaultValue   string    `json:"default_value"`
+	Description    string    `json:"description"`
+	Group          string    `json:"group"`
+	IsUserEditable *bool     `json:"is_user_editable,omitempty"`
+	Name           string    `json:"name"`
+
+	// Value The effective value (override if exists, else default).
+	Value     string `json:"value"`
+	ValueType string `json:"value_type"`
 }
 
 // WSBroadcastRequest defines model for WSBroadcastRequest.
@@ -556,6 +617,17 @@ type WorkerRegisterRequest struct {
 // WorkersListResponse defines model for WorkersListResponse.
 type WorkersListResponse struct {
 	Items []WorkerInfo `json:"items"`
+}
+
+// UpdateUserSettingJSONBody defines parameters for UpdateUserSetting.
+type UpdateUserSettingJSONBody struct {
+	Value string `json:"value"`
+}
+
+// UpdateUserSettingParams defines parameters for UpdateUserSetting.
+type UpdateUserSettingParams struct {
+	// Name Setting name (e.g. 'theme', 'notifications_email')
+	Name string `form:"name" json:"name"`
 }
 
 // LoginJSONBody defines parameters for Login.
@@ -707,6 +779,9 @@ type ListJobsParamsStatus string
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = UserCreate
+
+// UpdateUserSettingJSONRequestBody defines body for UpdateUserSetting for application/json ContentType.
+type UpdateUserSettingJSONRequestBody UpdateUserSettingJSONBody
 
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody = APIKeyCreate

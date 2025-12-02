@@ -91,6 +91,17 @@ export type Session = {
     created_at: string;
     updated_at: string;
 };
+export type UserSetting = {
+    name: string;
+    /** The effective value (override if exists, else default). */
+    value: string;
+    default_value: string;
+    value_type: string;
+    allowed_values?: string[] | null;
+    is_user_editable?: boolean;
+    group: string;
+    description: string;
+};
 export type ImageExif = {
     exif_version?: string;
     make?: string;
@@ -178,12 +189,11 @@ export type ImageUploadResponse = {
     };
 };
 export type DeleteAssetsResponse = {
-    results: {
-        uid: string;
-        deleted: boolean;
+    results?: {
+        uid?: string;
+        deleted?: boolean;
         error?: string;
     }[];
-    message?: string;
 };
 export type ImageUpdate = {
     name?: string;
@@ -295,6 +305,30 @@ export type DownloadToken = {
     created_at: string;
     /** When this token was last updated */
     updated_at: string;
+};
+export type SettingDefault = {
+    /** Unique name for the setting (primary key). */
+    name: string;
+    /** The default value everyone gets. */
+    value: string;
+    /** Data type of the setting. */
+    value_type: "boolean" | "string" | "integer" | "enum" | "json";
+    /** List of valid choices if type is enum. */
+    allowed_values?: string[] | null;
+    /** Describes whether a user can edit this setting. */
+    is_user_editable: boolean;
+    /** Category/group for the setting (e.g., General, Notifications). */
+    group: string;
+    /** Description for UI */
+    description: string;
+};
+export type SettingOverride = {
+    /** Links to the users table. */
+    user_id: string;
+    /** Links to SettingDefault.name. */
+    name: string;
+    /** The user's chosen value for the setting. */
+    value: string;
 };
 export type CacheStatusResponse = {
     /** Current size of the cache in bytes */
@@ -639,6 +673,49 @@ export function getCurrentUser(opts?: Oazapfts.RequestOpts) {
     }>("/accounts/me", {
         ...opts
     });
+}
+/**
+ * Get all user settings
+ */
+export function getUserSettings(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: UserSetting[];
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/accounts/me/settings", {
+        ...opts
+    });
+}
+/**
+ * Update a user setting (Override)
+ */
+export function updateUserSetting(name: string, body: {
+    value: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: UserSetting;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/accounts/me/settings${QS.query(QS.explode({
+        name
+    }))}`, oazapfts.json({
+        ...opts,
+        method: "PATCH",
+        body
+    }));
 }
 /**
  * List all images with pagination
@@ -1063,6 +1140,34 @@ export function signDownload(signDownloadRequest?: SignDownloadRequest, opts?: O
         method: "POST",
         body: signDownloadRequest
     }));
+}
+/**
+ * List all setting definitions
+ */
+export function listSettingDefinitions(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: SettingDefault[];
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>("/admin/settings/definitions", {
+        ...opts
+    });
+}
+/**
+ * List all overrides (debug/admin)
+ */
+export function listSettingOverrides(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: SettingOverride[];
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    }>("/admin/settings/overrides", {
+        ...opts
+    });
 }
 /**
  * Admin-only healthcheck

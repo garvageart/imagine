@@ -97,6 +97,14 @@ type ClientInterface interface {
 	// GetCurrentUser request
 	GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetUserSettings request
+	GetUserSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateUserSettingWithBody request with any body
+	UpdateUserSettingWithBody(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateUserSetting(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ClearImageCache request
 	ClearImageCache(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -105,6 +113,12 @@ type ClientInterface interface {
 
 	// AdminHealthcheck request
 	AdminHealthcheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSettingDefinitions request
+	ListSettingDefinitions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSettingOverrides request
+	ListSettingOverrides(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListApiKeys request
 	ListApiKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -317,6 +331,42 @@ func (c *Client) GetCurrentUser(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetUserSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSettingWithBody(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSettingRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSetting(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSettingRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ClearImageCache(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClearImageCacheRequest(c.Server)
 	if err != nil {
@@ -343,6 +393,30 @@ func (c *Client) GetCacheStatus(ctx context.Context, reqEditors ...RequestEditor
 
 func (c *Client) AdminHealthcheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminHealthcheckRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSettingDefinitions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSettingDefinitionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSettingOverrides(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSettingOverridesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,6 +1250,91 @@ func NewGetCurrentUserRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetUserSettingsRequest generates requests for GetUserSettings
+func NewGetUserSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/accounts/me/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateUserSettingRequest calls the generic UpdateUserSetting builder with application/json body
+func NewUpdateUserSettingRequest(server string, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateUserSettingRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewUpdateUserSettingRequestWithBody generates requests for UpdateUserSetting with any type of body
+func NewUpdateUserSettingRequestWithBody(server string, params *UpdateUserSettingParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/accounts/me/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "name", runtime.ParamLocationQuery, params.Name); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewClearImageCacheRequest generates requests for ClearImageCache
 func NewClearImageCacheRequest(server string) (*http.Request, error) {
 	var err error
@@ -1250,6 +1409,60 @@ func NewAdminHealthcheckRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSettingDefinitionsRequest generates requests for ListSettingDefinitions
+func NewListSettingDefinitionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/settings/definitions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSettingOverridesRequest generates requests for ListSettingOverrides
+func NewListSettingOverridesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/settings/overrides")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3403,6 +3616,14 @@ type ClientWithResponsesInterface interface {
 	// GetCurrentUserWithResponse request
 	GetCurrentUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error)
 
+	// GetUserSettingsWithResponse request
+	GetUserSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserSettingsResponse, error)
+
+	// UpdateUserSettingWithBodyWithResponse request with any body
+	UpdateUserSettingWithBodyWithResponse(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error)
+
+	UpdateUserSettingWithResponse(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error)
+
 	// ClearImageCacheWithResponse request
 	ClearImageCacheWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearImageCacheResponse, error)
 
@@ -3411,6 +3632,12 @@ type ClientWithResponsesInterface interface {
 
 	// AdminHealthcheckWithResponse request
 	AdminHealthcheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AdminHealthcheckResponse, error)
+
+	// ListSettingDefinitionsWithResponse request
+	ListSettingDefinitionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSettingDefinitionsResponse, error)
+
+	// ListSettingOverridesWithResponse request
+	ListSettingOverridesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSettingOverridesResponse, error)
 
 	// ListApiKeysWithResponse request
 	ListApiKeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
@@ -3633,6 +3860,55 @@ func (r GetCurrentUserResponse) StatusCode() int {
 	return 0
 }
 
+type GetUserSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]UserSetting
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateUserSettingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserSetting
+	JSON400      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateUserSettingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateUserSettingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ClearImageCacheResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3702,6 +3978,52 @@ func (r AdminHealthcheckResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AdminHealthcheckResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListSettingDefinitionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SettingDefault
+	JSON401      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSettingDefinitionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSettingDefinitionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListSettingOverridesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SettingOverride
+	JSON401      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSettingOverridesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSettingOverridesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4877,6 +5199,32 @@ func (c *ClientWithResponses) GetCurrentUserWithResponse(ctx context.Context, re
 	return ParseGetCurrentUserResponse(rsp)
 }
 
+// GetUserSettingsWithResponse request returning *GetUserSettingsResponse
+func (c *ClientWithResponses) GetUserSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserSettingsResponse, error) {
+	rsp, err := c.GetUserSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserSettingsResponse(rsp)
+}
+
+// UpdateUserSettingWithBodyWithResponse request with arbitrary body returning *UpdateUserSettingResponse
+func (c *ClientWithResponses) UpdateUserSettingWithBodyWithResponse(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error) {
+	rsp, err := c.UpdateUserSettingWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSettingResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateUserSettingWithResponse(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error) {
+	rsp, err := c.UpdateUserSetting(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSettingResponse(rsp)
+}
+
 // ClearImageCacheWithResponse request returning *ClearImageCacheResponse
 func (c *ClientWithResponses) ClearImageCacheWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearImageCacheResponse, error) {
 	rsp, err := c.ClearImageCache(ctx, reqEditors...)
@@ -4902,6 +5250,24 @@ func (c *ClientWithResponses) AdminHealthcheckWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseAdminHealthcheckResponse(rsp)
+}
+
+// ListSettingDefinitionsWithResponse request returning *ListSettingDefinitionsResponse
+func (c *ClientWithResponses) ListSettingDefinitionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSettingDefinitionsResponse, error) {
+	rsp, err := c.ListSettingDefinitions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSettingDefinitionsResponse(rsp)
+}
+
+// ListSettingOverridesWithResponse request returning *ListSettingOverridesResponse
+func (c *ClientWithResponses) ListSettingOverridesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSettingOverridesResponse, error) {
+	rsp, err := c.ListSettingOverrides(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSettingOverridesResponse(rsp)
 }
 
 // ListApiKeysWithResponse request returning *ListApiKeysResponse
@@ -5522,6 +5888,93 @@ func ParseGetCurrentUserResponse(rsp *http.Response) (*GetCurrentUserResponse, e
 	return response, nil
 }
 
+// ParseGetUserSettingsResponse parses an HTTP response from a GetUserSettingsWithResponse call
+func ParseGetUserSettingsResponse(rsp *http.Response) (*GetUserSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []UserSetting
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateUserSettingResponse parses an HTTP response from a UpdateUserSettingWithResponse call
+func ParseUpdateUserSettingResponse(rsp *http.Response) (*UpdateUserSettingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateUserSettingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserSetting
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseClearImageCacheResponse parses an HTTP response from a ClearImageCacheWithResponse call
 func ParseClearImageCacheResponse(rsp *http.Response) (*ClearImageCacheResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5657,6 +6110,72 @@ func ParseAdminHealthcheckResponse(rsp *http.Response) (*AdminHealthcheckRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSettingDefinitionsResponse parses an HTTP response from a ListSettingDefinitionsWithResponse call
+func ParseListSettingDefinitionsResponse(rsp *http.Response) (*ListSettingDefinitionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSettingDefinitionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SettingDefault
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSettingOverridesResponse parses an HTTP response from a ListSettingOverridesWithResponse call
+func ParseListSettingOverridesResponse(rsp *http.Response) (*ListSettingOverridesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSettingOverridesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SettingOverride
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 
