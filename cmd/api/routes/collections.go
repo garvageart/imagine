@@ -222,14 +222,26 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		defaultImagePage := 0
 		href := fmt.Sprintf("/collections/%s/images/?page=%d&limit=%d", uid, defaultImagePage, defaultImageLimit)
-		prev := fmt.Sprintf("/collections/%s/images/?page=%d&limit=%d", uid, max(defaultImagePage-1, 0), defaultImageLimit)
-		next := fmt.Sprintf("/collections/%s/images/?page=%d&limit=%d", uid, defaultImagePage+1, defaultImageLimit)
+
+		var next *string
+		var totalImages int
+		if collection.Images != nil {
+			totalImages = len(*collection.Images)
+		}
+
+		if totalImages > defaultImageLimit {
+			nxPtr := fmt.Sprintf("/collections/%s/images/?page=%d&limit=%d", uid, defaultImagePage+1, defaultImageLimit)
+			next = &nxPtr
+		}
+
+		var prev *string
+
 		count := len(imgResponse)
 
 		imagesPage := dto.ImagesPage{
 			Href:  &href,
-			Prev:  &prev,
-			Next:  &next,
+			Prev:  prev,
+			Next:  next,
 			Limit: defaultImageLimit,
 			Page:  defaultImagePage,
 			Count: &count,
@@ -386,14 +398,30 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		href := fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset, limit)
-		prev := fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset-limit, limit)
-		next := fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset+limit, limit)
+
+		var prev *string
+		if offset > 0 {
+			pv := fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, max(offset-limit, 0), limit)
+			prev = &pv
+		}
+
+		var next *string
+		var totalImages int
+		if collection.Images != nil {
+			totalImages = len(*collection.Images)
+		}
+
+		if offset+limit < totalImages {
+			nx := fmt.Sprintf("/collections/%s/images/?offset=%d&limit=%d", uid, offset+limit, limit)
+			next = &nx
+		}
+
 		count := len(imgResponse)
 
 		result := dto.ImagesPage{
 			Href:  &href,
-			Prev:  &prev,
-			Next:  &next,
+			Prev:  prev,
+			Next:  next,
 			Limit: limit,
 			Page:  offset / limit, // derive page index from original row offset
 			Count: &count,
