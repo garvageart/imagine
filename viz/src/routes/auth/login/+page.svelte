@@ -47,6 +47,7 @@
 	}
 </script>
 
+<!-- Random background image thing needs to go at some point, maybe with a server/admin administrated background image -->
 <main style="background-image: url('https://picsum.photos/1920/1080/?random={Math.floor(Math.random() * 300)}');">
 	<span id="viz-title">viz</span>
 	<div id="login-container">

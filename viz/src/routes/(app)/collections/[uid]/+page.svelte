@@ -39,7 +39,6 @@
 		type CollectionUpdate,
 		type Image
 	} from "$lib/api";
-	import { thumbHashToDataURL } from "thumbhash";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte.js";
 	import CollectionModal from "$lib/components/CollectionModal.svelte";
 	import InputText from "$lib/components/dom/InputText.svelte";
@@ -121,7 +120,7 @@
 
 	// Pagination
 	// NOTE: This might be moved to a settings thing and this could just be default
-	const pagination = $derived({
+	let pagination = $derived({
 		limit: loadedData.images?.limit ?? 25,
 		page: loadedData.images?.page ?? 0
 	});
@@ -138,23 +137,6 @@
 
 	// Toolbar stuff
 	let toolbarOpacity = $state(0);
-
-	// Thumbhash placeholder
-	let thumbhashURL = $derived.by(() => {
-		if (lightboxImage?.image_metadata?.thumbhash) {
-			try {
-				const binaryString = atob(lightboxImage.image_metadata.thumbhash);
-				const bytes = new Uint8Array(binaryString.length);
-				for (let i = 0; i < binaryString.length; i++) {
-					bytes[i] = binaryString.charCodeAt(i);
-				}
-				return thumbHashToDataURL(bytes);
-			} catch (error) {
-				console.warn("Failed to decode thumbhash:", error);
-				return null;
-			}
-		}
-	});
 
 	// Display Data
 	let displayData = $derived(
@@ -701,6 +683,7 @@
 		overflow: hidden;
 		color: var(--imag-60);
 		font-family: var(--imag-code-font);
+		gap: 1rem;
 	}
 
 	#coll-tools {

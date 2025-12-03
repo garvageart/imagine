@@ -91,8 +91,7 @@
 		margin-bottom: 0.5em;
 	}
 
-	.cache-status-section,
-	.cache-action-section {
+	.cache-status-section {
 		background-color: var(--imag-100);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		border-radius: 0.5em;
@@ -115,10 +114,10 @@
 		}
 	}
 
-	.error-message {
-		color: #ef4444; /* Red-500 */
-		margin-top: 1em;
-	}
+	// .error-message {
+	// 	color: #ef4444; /* Red-500 */
+	// 	margin-top: 1em;
+	// }
 
 	.success-message {
 		color: #22c55e; /* Green-500 */

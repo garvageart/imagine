@@ -45,6 +45,9 @@
 		photoCardSnippet
 	}: Props = $props();
 
+	// Styling stuff
+	const padding = `0em ${page.url.pathname === "/" ? "1em" : page.url.pathname === "/photos" ? "0em" : "2em"}`;
+
 	function getAssetFromElement(el: HTMLElement): Image | undefined {
 		const assetId = el.dataset.assetId;
 		if (!assetId) {
@@ -588,7 +591,7 @@
 	<div
 		bind:this={photoGridEl}
 		class="viz-photo-grid-container no-select"
-		style={`padding: 0em ${page.url.pathname === "/" ? "1em" : "0em"};`}
+		style="padding: {padding};"
 		onscroll={handleGridScroll}
 		use:unselectImagesOnClickOutsideAssetContainer
 	>
