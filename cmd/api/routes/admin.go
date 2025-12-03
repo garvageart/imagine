@@ -76,7 +76,7 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.MessageResponse{Message: "image cache cleared"})
+		render.JSON(res, req, dto.MessageResponse{Message: "Image cache cleared"})
 	})
 
 	return r

@@ -52,7 +52,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 
 		count := 1
 		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "thumbnail generation job enqueued", Count: &count})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "Thumbnail generation job enqueued", Count: &count})
 		return
 	}
 
@@ -94,7 +94,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 		if count == 0 {
 			zeroCount := 0
 			render.Status(req, http.StatusOK)
-			render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+			render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "No images to process", Count: &zeroCount})
 			return
 		}
 
@@ -218,7 +218,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCre
 	if count == 0 {
 		zeroCount := 0
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "No images to process", Count: &zeroCount})
 		return
 	}
 
@@ -334,7 +334,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 	if count == 0 {
 		zeroCount := 0
 		render.Status(req, http.StatusOK)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "no images to process", Count: &zeroCount})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "No images to process", Count: &zeroCount})
 		return
 	}
 
@@ -663,13 +663,13 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			_ = jobs.UpdateWorkerJobStatus(db, uid, "cancelled", nil, nil, nil, nil)
 
 			render.Status(req, http.StatusOK)
-			render.JSON(res, req, dto.MessageResponse{Message: "cancelled"})
+			render.JSON(res, req, dto.MessageResponse{Message: "Job cancelled"})
 			return
 		}
 
 		if err := jobs.UpdateWorkerJobStatus(db, uid, "cancelled", nil, nil, nil, nil); err == nil {
 			render.Status(req, http.StatusOK)
-			render.JSON(res, req, dto.MessageResponse{Message: "cancelled"})
+			render.JSON(res, req, dto.MessageResponse{Message: "Job cancelled"})
 			return
 		}
 

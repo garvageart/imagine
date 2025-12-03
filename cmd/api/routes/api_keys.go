@@ -171,7 +171,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         }
 
         render.Status(req, http.StatusOK)
-        render.JSON(res, req, dto.MessageResponse{Message: "revoked"})
+        render.JSON(res, req, dto.MessageResponse{Message: "API key revoked"})
     })
 
     // Rotate a key: revoke old, create new and return new consumer key once
@@ -280,7 +280,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         }
 
         render.Status(req, http.StatusOK)
-        render.JSON(res, req, dto.MessageResponse{Message: "deleted"})
+        render.JSON(res, req, dto.MessageResponse{Message: "API Key Deleted"})
     })
 
     return r
