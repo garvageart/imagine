@@ -139,14 +139,14 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
 		// require uids present
 		if body.Uids == nil || len(*body.Uids) == 0 {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "uids is required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image UIDs are required"})
 			return
 		}
 
@@ -176,7 +176,7 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			logger.Error("failed to create download token", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create download token"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create download token"})
 			return
 		}
 
@@ -184,7 +184,7 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err := db.First(&tokenEntity, "uid = ?", token).Error; err != nil {
 			logger.Error("failed to fetch created token", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to retrieve token details"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to retrieve token details"})
 			return
 		}
 
@@ -198,7 +198,7 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if tokenParam == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Missing token query param"})
 			return
 		}
 
@@ -206,17 +206,17 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if !ok {
 			if tokenEntity != nil && tokenEntity.Password != nil {
 				render.Status(req, http.StatusUnauthorized)
-				render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Invalid or missing password"})
 				return
 			}
 			render.Status(req, http.StatusUnauthorized)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid or expired token"})
 			return
 		}
 
 		if !tokenEntity.AllowDownload {
 			render.Status(req, http.StatusForbidden)
-			render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Downloads not permitted for this token"})
 			return
 		}
 
@@ -224,13 +224,13 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
 		if len(body.Uids) == 0 {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "uids is required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image UIDs are required"})
 			return
 		}
 
@@ -242,7 +242,7 @@ func DownloadRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		for _, uid := range body.Uids {
 			if !allowedMap[uid] {
 				render.Status(req, http.StatusUnauthorized)
-				render.JSON(res, req, dto.ErrorResponse{Error: "token does not authorize all requested UIDs"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Token does not authorize all requested UIDs"})
 				return
 			}
 		}

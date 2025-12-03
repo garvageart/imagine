@@ -38,7 +38,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 		var img entities.Image
 		if err = db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 			return
 		}
 
@@ -46,7 +46,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 		_, err := jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue job"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to enqueue job"})
 			return
 		}
 
@@ -62,7 +62,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 		var thumbhashMissing []string
 		if err = db.Model(&entities.Image{}).Where("image_metadata->>'thumbhash' IS NULL").Pluck("uid", &thumbhashMissing).Error; err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to identify images missing thumbhash"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to identify images missing thumbhash"})
 			return
 		}
 
@@ -70,7 +70,7 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 		transformsMissing, err := findMissingTransforms(db, logger)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to identify images with missing permanent transforms"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to identify images with missing permanent transforms"})
 			return
 		}
 
@@ -144,7 +144,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCre
 		var img entities.Image
 		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 			return
 		}
 
@@ -152,7 +152,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCre
 		_, err := jobs.Enqueue(db, workers.TopicXMPGeneration, job, nil, &img.Uid)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue job"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to enqueue job"})
 			return
 		}
 
@@ -169,7 +169,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCre
 		entries, err := os.ReadDir(libraryPath)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read library directory"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to read library directory"})
 			return
 		}
 
@@ -205,7 +205,7 @@ func handleXMPGeneration(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCre
 		err = db.Model(&entities.Image{}).Count(&count).Error
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to count images"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to count images"})
 			return
 		}
 	// 'single' replaced by `uids`: handled above if provided.
@@ -292,7 +292,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 		var img entities.Image
 		if err := db.Where("uid = ?", (*body.Uids)[0]).First(&img).Error; err != nil {
 			render.Status(req, http.StatusNotFound)
-			render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 			return
 		}
 
@@ -300,7 +300,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 		_, err := jobs.Enqueue(db, workers.TopicExifProcess, job, nil, &img.Uid)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to enqueue job"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to enqueue job"})
 			return
 		}
 
@@ -327,7 +327,7 @@ func handleExifProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobCr
 
 	if err != nil {
 		render.Status(req, http.StatusInternalServerError)
-		render.JSON(res, req, dto.ErrorResponse{Error: "failed to count images"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Failed to count images"})
 		return
 	}
 
@@ -525,13 +525,13 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		var total int64
 		if err := query.Model(&entities.WorkerJob{}).Count(&total).Error; err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to list jobs"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to list jobs"})
 			return
 		}
 
 		if err := query.Order("enqueued_at desc").Limit(limit).Offset(page * limit).Find(&ents).Error; err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to list jobs"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to list jobs"})
 			return
 		}
 
@@ -567,13 +567,13 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		var body dto.WorkerRegisterRequest
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid body"})
 			return
 		}
 
 		if body.Name == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "name required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Name required"})
 			return
 		}
 
@@ -599,7 +599,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		var body dto.WorkerJobCreateRequest
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid body"})
 			return
 		}
 
@@ -651,7 +651,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		render.Status(req, http.StatusNotFound)
-		render.JSON(res, req, dto.ErrorResponse{Error: "job not found"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Job not found"})
 	})
 
 	r.Delete("/{uid}", func(res http.ResponseWriter, req *http.Request) {
@@ -674,19 +674,19 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		render.Status(req, http.StatusNotFound)
-		render.JSON(res, req, dto.ErrorResponse{Error: "job not found"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Job not found"})
 	})
 
 	r.Post("/{uid}", func(res http.ResponseWriter, req *http.Request) {
 		render.Status(req, http.StatusNotImplemented)
-		render.JSON(res, req, dto.ErrorResponse{Error: "retry not implemented"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Retry not implemented"})
 	})
 
 	r.Post("/types/{type}/stop", func(res http.ResponseWriter, req *http.Request) {
 		jobType := chi.URLParam(req, "type")
 		if jobType == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "job type required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Job type required"})
 			return
 		}
 
@@ -710,7 +710,7 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		jobType := chi.URLParam(req, "type")
 		if jobType == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "job type required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Job type required"})
 			return
 		}
 
@@ -719,13 +719,13 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid body"})
 			return
 		}
 
 		if body.Concurrency < 1 || body.Concurrency > 100 {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "concurrency must be between 1 and 100"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Concurrency must be between 1 and 100"})
 			return
 		}
 

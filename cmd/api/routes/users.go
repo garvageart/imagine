@@ -30,13 +30,13 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err := render.DecodeJSON(req.Body, &create)
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
 		if create.Name == "" || create.Password == "" || string(create.Email) == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "required fields are missing"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Required fields are missing"})
 			return
 		}
 
@@ -45,7 +45,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		switch tx.Error {
 		case nil:
 			render.Status(req, http.StatusConflict)
-			render.JSON(res, req, dto.ErrorResponse{Error: "user already exists"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "User already exists"})
 			return
 		case gorm.ErrRecordNotFound:
 			logger.Info("accounts.create: no existing user", slog.String("email", string(create.Email)))
@@ -112,7 +112,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "user not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "User not found"})
 				return
 			}
 
@@ -135,7 +135,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				user, ok := libhttp.UserFromContext(req)
 				if !ok || user == nil {
 					render.Status(req, http.StatusUnauthorized)
-					render.JSON(res, req, dto.ErrorResponse{Error: "not authenticated"})
+					render.JSON(res, req, dto.ErrorResponse{Error: "Not authenticated"})
 					return
 				}
 
@@ -160,7 +160,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						user, ok := libhttp.UserFromContext(req)
 						if !ok || user == nil {
 							render.Status(req, http.StatusUnauthorized)
-							render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
 							return
 						}
 
@@ -168,7 +168,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						if err := db.Find(&defaults).Error; err != nil {
 							logger.Error("failed to fetch setting defaults", slog.Any("error", err))
 							render.Status(req, http.StatusInternalServerError)
-							render.JSON(res, req, dto.ErrorResponse{Error: "internal server error"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch defaults"})
 							return
 						}
 
@@ -176,7 +176,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						if err := db.Where("user_id = ?", user.Uid).Find(&overrides).Error; err != nil {
 							logger.Error("failed to fetch user setting overrides", slog.Any("error", err))
 							render.Status(req, http.StatusInternalServerError)
-							render.JSON(res, req, dto.ErrorResponse{Error: "internal server error"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch overrides"})
 							return
 						}
 
@@ -216,24 +216,24 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						user, ok := libhttp.UserFromContext(req)
 						if !ok || user == nil {
 							render.Status(req, http.StatusUnauthorized)
-							render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
 							return
 						}
 
 						settingName := req.URL.Query().Get("name")
 						if settingName == "" {
 							render.Status(req, http.StatusBadRequest)
-							render.JSON(res, req, dto.ErrorResponse{Error: "setting name is required"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Setting name is required"})
 							return
 						}
 
 						var reqBody struct {
 							Value string `json:"value"`
 						}
-						
+
 						if err := json.NewDecoder(req.Body).Decode(&reqBody); err != nil {
 							render.Status(req, http.StatusBadRequest)
-							render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 							return
 						}
 
@@ -241,18 +241,18 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						if err := db.Where("name = ?", settingName).First(&userSettingDefaults).Error; err != nil {
 							if err == gorm.ErrRecordNotFound {
 								render.Status(req, http.StatusNotFound)
-								render.JSON(res, req, dto.ErrorResponse{Error: "setting not found"})
+								render.JSON(res, req, dto.ErrorResponse{Error: "Setting not found"})
 								return
 							}
 							logger.Error("failed to fetch setting definition", slog.Any("error", err))
 							render.Status(req, http.StatusInternalServerError)
-							render.JSON(res, req, dto.ErrorResponse{Error: "internal server error"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch settings"})
 							return
 						}
 
 						if !userSettingDefaults.IsUserEditable {
 							render.Status(req, http.StatusForbidden)
-							render.JSON(res, req, dto.ErrorResponse{Error: "this setting is not user editable"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Setting is not user editable"})
 							return
 						}
 
@@ -276,7 +276,7 @@ func AccountsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 						}).Create(&override).Error; err != nil {
 							logger.Error("failed to save setting override", slog.Any("error", err))
 							render.Status(req, http.StatusInternalServerError)
-							render.JSON(res, req, dto.ErrorResponse{Error: "internal server error"})
+							render.JSON(res, req, dto.ErrorResponse{Error: "Failed to save settings"})
 							return
 						}
 

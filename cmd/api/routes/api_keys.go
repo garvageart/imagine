@@ -25,7 +25,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 
@@ -33,7 +33,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
         if err := render.DecodeJSON(req.Body, &body); err != nil {
             render.Status(req, http.StatusBadRequest)
-            render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
             return
         }
 
@@ -41,7 +41,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         if err := db.Model(&entities.APIKey{}).Where("user_uid = ?", authUser.Uid).Count(&existingCount).Error; err == nil {
             if existingCount >= 50 {
                 render.Status(req, http.StatusTooManyRequests)
-                render.JSON(res, req, dto.ErrorResponse{Error: "api key limit reached"})
+                render.JSON(res, req, dto.ErrorResponse{Error: "API key limit reached"})
                 return
             }
         }
@@ -90,7 +90,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 
@@ -118,7 +118,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 
@@ -132,7 +132,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         if err := q.First(&ent).Error; err != nil {
             if err == gorm.ErrRecordNotFound {
                 render.Status(req, http.StatusNotFound)
-                render.JSON(res, req, dto.ErrorResponse{Error: "api key not found"})
+                render.JSON(res, req, dto.ErrorResponse{Error: "API key not found"})
                 return
             }
             libhttp.ServerError(res, req, err, logger, nil, "failed to fetch api key", "Something went wrong")
@@ -147,7 +147,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 
@@ -179,7 +179,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 
@@ -194,7 +194,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         if err := q.First(&existing).Error; err != nil {
             if err == gorm.ErrRecordNotFound {
                 render.Status(req, http.StatusNotFound)
-                render.JSON(res, req, dto.ErrorResponse{Error: "api key not found"})
+                render.JSON(res, req, dto.ErrorResponse{Error: "API key not found"})
                 return
             }
             libhttp.ServerError(res, req, err, logger, nil, "failed to fetch api key", "Something went wrong")
@@ -243,7 +243,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
             // If record not found we want to surface a 404-like response
             if err == gorm.ErrRecordNotFound {
                 render.Status(req, http.StatusNotFound)
-                render.JSON(res, req, dto.ErrorResponse{Error: "api key not found"})
+                render.JSON(res, req, dto.ErrorResponse{Error: "API key not found"})
                 return
             }
             libhttp.ServerError(res, req, err, logger, nil, "failed to rotate api key", "Something went wrong")
@@ -259,7 +259,7 @@ func APIKeysRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
         authUser, ok := libhttp.UserFromContext(req)
         if !ok || authUser == nil {
             render.Status(req, http.StatusUnauthorized)
-            render.JSON(res, req, dto.ErrorResponse{Error: "unauthenticated"})
+            render.JSON(res, req, dto.ErrorResponse{Error: "Unauthenticated"})
             return
         }
 

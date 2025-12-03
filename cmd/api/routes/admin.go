@@ -29,7 +29,7 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		result := db.Exec("SELECT 1")
 		if result.Error != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "healthcheck failed"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Healthcheck failed"})
 			return
 		}
 
@@ -52,7 +52,7 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			logger.Error("failed to get cache status", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to get cache status"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to get cache status"})
 			return
 		}
 
@@ -72,7 +72,7 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			logger.Error("failed to clear image cache", slog.Any("error", err))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to clear image cache"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to clear image cache"})
 			return
 		}
 		render.Status(req, http.StatusOK)

@@ -192,7 +192,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return nil
 		}); err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to fetch images"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch images"})
 			return
 		}
 
@@ -248,13 +248,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		params, err := imageops.ParseTransformParams(req.URL.String())
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid transform parameters"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid transform parameters"})
 			return
 		}
 
 		if params.Height <= 0 || params.Width <= 0 {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid width/height parameters"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid width/height parameters"})
 			return
 		}
 
@@ -262,13 +262,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if result := db.Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt); result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 				return
 			}
 
 			logger.Error("failed to fetch image from database", slog.Any("error", result.Error))
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to fetch image from database"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch image from database"})
 			return
 		}
 
@@ -298,19 +298,19 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 				return
 			}
 
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to retrieve image"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to retrieve image"})
 			return
 		}
 
 		if simple {
 			if imgEnt.Exif == nil {
-				render.Status(req, http.StatusOK)
-				render.JSON(res, req, dto.ErrorResponse{Error: "no exif data"})
+				render.Status(req, http.StatusNotFound)
+				render.JSON(res, req, dto.ErrorResponse{Error: "No exif data"})
 				return
 			}
 
@@ -322,7 +322,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		imageFile, err := images.ReadImage(imgEnt.Uid, imgEnt.ImageMetadata.FileName)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read image"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to read image"})
 			return
 		}
 
@@ -330,7 +330,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to process image"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to process image"})
 			return
 		}
 		defer libvipsImg.Close()
@@ -350,12 +350,12 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 				return
 			}
 
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to retrieve image"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to retrieve image"})
 			return
 		}
 
@@ -369,7 +369,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if err := render.DecodeJSON(req.Body, &update); err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
@@ -391,7 +391,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "image not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Image not found"})
 				return
 			}
 
@@ -415,7 +415,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		token, err := downloads.CreateToken(db, []string{uid}, 5*time.Minute)
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create download token"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create download token"})
 			return
 		}
 
@@ -430,7 +430,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err := req.ParseMultipartForm(10 << 20) // limit your max input length!
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
@@ -441,7 +441,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		file, header, err := req.FormFile("data")
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "missing file data"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Missing file data"})
 			return
 		}
 		defer file.Close()
@@ -452,19 +452,19 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		imageFileData, err := fileImageUpload.Data.Bytes()
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to read file data"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to read file data"})
 			return
 		}
 
 		if fileImageUpload.FileName == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "missing filename"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Missing filename"})
 			return
 		}
 
 		if len(imageFileData) == 0 {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "empty file data"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Empty file data"})
 			return
 		}
 
@@ -472,13 +472,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			calculatedChecksum, err := images.CalculateImageChecksum(imageFileData)
 			if err != nil {
 				render.Status(req, http.StatusInternalServerError)
-				render.JSON(res, req, dto.ErrorResponse{Error: "failed to calculate checksum"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Failed to calculate checksum"})
 				return
 			}
 
 			if *fileImageUpload.Checksum != calculatedChecksum {
 				res.WriteHeader(http.StatusBadRequest)
-				render.JSON(res, req, dto.ErrorResponse{Error: "checksum mismatch"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Checksum mismatch"})
 				return
 			}
 		}
@@ -486,7 +486,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		libvipsImg, err := libvips.NewImageFromBuffer(imageFileData, libvips.DefaultLoadOptions())
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid image data"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid image data"})
 			return
 		}
 		defer libvipsImg.Close()
@@ -581,7 +581,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router.Post("/url", func(res http.ResponseWriter, req *http.Request) {
 		if os.Getenv("ENABLE_URL_UPLOAD") == "false" {
 			render.Status(req, http.StatusForbidden)
-			render.JSON(res, req, dto.ErrorResponse{Error: "url uploads are disabled"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "URL uploads are disabled"})
 			return
 		}
 
@@ -589,7 +589,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
@@ -621,7 +621,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		libvipsImg, err := libvips.NewImageFromBuffer(fileBytes, libvips.DefaultLoadOptions())
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 		defer libvipsImg.Close()
@@ -839,7 +839,7 @@ func serveOriginalImage(res http.ResponseWriter, req *http.Request, logger *slog
 	if err != nil {
 		logger.Error("failed to read original image", slog.Any("error", err))
 		render.Status(req, http.StatusInternalServerError)
-		render.JSON(res, req, dto.ErrorResponse{Error: "failed to read original image"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Failed to read original image"})
 		return
 	}
 
@@ -936,7 +936,7 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 	if err != nil {
 		logger.Error("failed to read original for transform", slog.Any("error", err))
 		render.Status(req, http.StatusInternalServerError)
-		render.JSON(res, req, dto.ErrorResponse{Error: "failed to read original for transform"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Failed to read original for transform"})
 		return
 	}
 
@@ -944,7 +944,7 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 	if err != nil {
 		logger.Error("failed to generate transform", slog.Any("error", err))
 		render.Status(req, http.StatusInternalServerError)
-		render.JSON(res, req, dto.ErrorResponse{Error: "failed to generate transform"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Failed to generate transform"})
 		return
 	}
 
@@ -978,7 +978,7 @@ func validateDownloadRequest(res http.ResponseWriter, req *http.Request, db *gor
 
 	if token == "" {
 		render.Status(req, http.StatusBadRequest)
-		render.JSON(res, req, dto.ErrorResponse{Error: "missing token query param"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Missing token query param"})
 		return false
 	}
 
@@ -986,29 +986,29 @@ func validateDownloadRequest(res http.ResponseWriter, req *http.Request, db *gor
 	if !ok {
 		if tokenEntity != nil && tokenEntity.Password != nil {
 			render.Status(req, http.StatusUnauthorized)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid or missing password"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid or missing password"})
 			return false
 		}
 		render.Status(req, http.StatusUnauthorized)
-		render.JSON(res, req, dto.ErrorResponse{Error: "invalid or expired token"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Invalid or expired token"})
 		return false
 	}
 
 	if !tokenEntity.AllowDownload {
 		render.Status(req, http.StatusForbidden)
-		render.JSON(res, req, dto.ErrorResponse{Error: "downloads not permitted for this token"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Downloads not permitted for this token"})
 		return false
 	}
 
 	if !downloads.ValidateEmbedAccess(tokenEntity, req) {
 		render.Status(req, http.StatusForbidden)
-		render.JSON(res, req, dto.ErrorResponse{Error: "embedding not allowed for this token"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Embedding not allowed for this token"})
 		return false
 	}
 
 	if !slices.Contains(uids, uid) {
 		render.Status(req, http.StatusUnauthorized)
-		render.JSON(res, req, dto.ErrorResponse{Error: "token not valid for this resource"})
+		render.JSON(res, req, dto.ErrorResponse{Error: "Token not valid for this resource"})
 		return false
 	}
 

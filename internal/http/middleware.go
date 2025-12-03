@@ -124,18 +124,18 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 				if query.Error != nil {
 					if query.Error == gorm.ErrRecordNotFound {
 						render.Status(r, http.StatusUnauthorized)
-						render.JSON(w, r, dto.ErrorResponse{Error: "invalid api key"})
+						render.JSON(w, r, dto.ErrorResponse{Error: "Invalid api key"})
 						return
 					}
 
 					render.Status(r, http.StatusUnauthorized)
-					render.JSON(w, r, dto.ErrorResponse{Error: "invalid api key"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "Invalid api key"})
 					return
 				}
 
 				if key.Revoked {
 					render.Status(r, http.StatusUnauthorized)
-					render.JSON(w, r, dto.ErrorResponse{Error: "api key has been revoked"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "API key has been revoked"})
 					return
 				}
 
@@ -150,7 +150,7 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 			if err != nil || cookie == nil || cookie.Value == "" {
 				logger.Debug("cookie auth failed: token missing")
 				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "token missing"})
+				render.JSON(w, r, dto.ErrorResponse{Error: "Token missing"})
 				return
 			}
 
@@ -168,33 +168,33 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 						ClearCookie(AuthTokenCookie, w)
 						ClearCookie(StateCookie, w)
 						render.Status(r, http.StatusUnauthorized)
-						render.JSON(w, r, dto.ErrorResponse{Error: "invalid session"})
+						render.JSON(w, r, dto.ErrorResponse{Error: "Invalid session"})
 						return
 					}
 					
 					// For other errors (e.g. DB connection, locks), return 500 to allow retry
 					logger.Error("failed to query session", slog.Any("error", err))
 					render.Status(r, http.StatusInternalServerError)
-					render.JSON(w, r, dto.ErrorResponse{Error: "internal server error"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "Failed to authenticate user"})
 					return
 				}
 
 				if sess.ExpiresAt != nil && !sess.ExpiresAt.IsZero() && time.Now().After(*sess.ExpiresAt) {
 					render.Status(r, http.StatusUnauthorized)
-					render.JSON(w, r, dto.ErrorResponse{Error: "session expired"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "Session expired"})
 					return
 				}
 
 				if sess.UserUid == "" {
 					render.Status(r, http.StatusUnauthorized)
-					render.JSON(w, r, dto.ErrorResponse{Error: "user missing"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "User missing"})
 					return
 				}
 
 				var user entities.User
 				if err := db.Where("uid = ?", sess.UserUid).First(&user).Error; err != nil {
 					render.Status(r, http.StatusUnauthorized)
-					render.JSON(w, r, dto.ErrorResponse{Error: "user not found"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "User not found"})
 					return
 				}
 
@@ -207,7 +207,7 @@ func AuthMiddleware(db *gorm.DB, logger *slog.Logger) func(next http.Handler) ht
 			if userPtr == nil {
 				// Defensive: if for some reason we don't have a user, treat as unauthenticated.
 				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "not authenticated"})
+				render.JSON(w, r, dto.ErrorResponse{Error: "Not authenticated"})
 				return
 			}
 
@@ -248,7 +248,7 @@ func ScopeMiddleware(requiredScopes []imaAuth.Scope) func(next http.Handler) htt
 			apiKey, ok := APIKeyFromContext(r)
 			if !ok || apiKey == nil {
 				render.Status(r, http.StatusUnauthorized)
-				render.JSON(w, r, dto.ErrorResponse{Error: "unauthenticated"})
+				render.JSON(w, r, dto.ErrorResponse{Error: "Unauthenticated"})
 				return
 			}
 
@@ -260,7 +260,7 @@ func ScopeMiddleware(requiredScopes []imaAuth.Scope) func(next http.Handler) htt
 
 			if len(apiKey.Scopes) == 0 {
 				render.Status(r, http.StatusForbidden)
-				render.JSON(w, r, dto.ErrorResponse{Error: "forbidden: insufficient scopes"})
+				render.JSON(w, r, dto.ErrorResponse{Error: "Insufficient scopes"})
 				return
 			}
 
@@ -272,7 +272,7 @@ func ScopeMiddleware(requiredScopes []imaAuth.Scope) func(next http.Handler) htt
 			for _, requiredScope := range requiredScopes {
 				if !userScopes[requiredScope] {
 					render.Status(r, http.StatusForbidden)
-					render.JSON(w, r, dto.ErrorResponse{Error: "forbidden: insufficient scopes"})
+					render.JSON(w, r, dto.ErrorResponse{Error: "Insufficient scopes"})
 					return
 				}
 			}
@@ -290,13 +290,13 @@ func AdminMiddleware(next http.Handler) http.Handler {
 		user, ok := UserFromContext(r)
 		if !ok || user == nil {
 			render.Status(r, http.StatusUnauthorized)
-			render.JSON(w, r, dto.ErrorResponse{Error: "unauthenticated"})
+			render.JSON(w, r, dto.ErrorResponse{Error: "Unauthenticated"})
 			return
 		}
 
 		if user.Role != "admin" && user.Role != "superadmin" {
 			render.Status(r, http.StatusForbidden)
-			render.JSON(w, r, dto.ErrorResponse{Error: "forbidden"})
+			render.JSON(w, r, dto.ErrorResponse{Error: "Not authorized"})
 			return
 		}
 

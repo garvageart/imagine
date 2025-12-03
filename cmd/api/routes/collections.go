@@ -64,13 +64,13 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err := render.DecodeJSON(req.Body, &create)
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
 		if create.Name == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "name is required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Name is required"})
 			return
 		}
 
@@ -95,7 +95,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		err = db.Create(&collection).Error
 		if err != nil {
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create collection"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create collection"})
 			return
 		}
 
@@ -209,7 +209,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Collection not found"})
 				return
 			}
 
@@ -275,7 +275,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err := render.DecodeJSON(req.Body, &update)
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
@@ -297,7 +297,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Collection not found"})
 				return
 			}
 
@@ -331,7 +331,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Collection not found"})
 				return
 			}
 
@@ -386,7 +386,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				render.Status(req, http.StatusNotFound)
-				render.JSON(res, req, dto.ErrorResponse{Error: "collection not found"})
+				render.JSON(res, req, dto.ErrorResponse{Error: "Collection not found"})
 				return
 			}
 

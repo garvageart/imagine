@@ -28,13 +28,13 @@ func SessionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err := render.DecodeJSON(req.Body, &session)
 		if err != nil {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "invalid request body"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
 			return
 		}
 
 		if session.Token == "" {
 			render.Status(req, http.StatusBadRequest)
-			render.JSON(res, req, dto.ErrorResponse{Error: "token is required"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Token is required"})
 			return
 		}
 
@@ -53,7 +53,7 @@ func SessionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		err = db.Create(&session).Error
 		if err != nil {
 			render.Status(req, http.StatusInternalServerError)
-			render.JSON(res, req, dto.ErrorResponse{Error: "failed to create session"})
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to create session"})
 			return
 		}
 
