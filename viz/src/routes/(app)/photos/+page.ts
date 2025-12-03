@@ -1,5 +1,6 @@
 import type { PageLoad } from './$types';
 import { listImages, type ImagesPage } from '$lib/api/client.gen';
+import { error } from "@sveltejs/kit";
 
 export const load: PageLoad = async ({ url }) => {
     const limit = parseInt(url.searchParams.get('limit') || '100', 10);
@@ -19,12 +20,7 @@ export const load: PageLoad = async ({ url }) => {
         };
     }
 
-    return {
-        images: [],
-        count: 0,
-        limit,
-        page,
-        next: null,
-        prev: null
-    };
+    error(response.status, {
+        message: response.data.error || "Failed to load images"
+    });
 };

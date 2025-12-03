@@ -4,10 +4,10 @@ import { error } from "@sveltejs/kit";
 export async function load() {
     const res = await getCacheStatus();
     if (res.status !== 200) {
-        throw error(res.status, res.data.error || 'Failed to fetch cache status');
+        throw error(res.status, {
+            message: res.data.error || "Failed to load cache status"
+        });
     }
-
-    console.log(res.data);
 
     return {
         cacheStatus: res.data
