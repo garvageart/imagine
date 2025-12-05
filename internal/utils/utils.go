@@ -7,6 +7,7 @@ import (
 	mRand "math/rand"
 	"os"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -36,7 +37,7 @@ var DefaultDateTimeValues = &DateFormatValues{
 
 const (
 	DefaultDateTimeFormat = "02012006_150405"
-	VersionFileName = "version.txt"
+	VersionFileName       = "version.txt"
 )
 
 func GetAppVersion() string {
@@ -131,3 +132,35 @@ func RandomInt(min, max int) int {
 
 // StringPtr returns a pointer to the provided string.
 func StringPtr(s string) *string { return &s }
+
+// IsValidEmail performs a basic validation of an email address.
+// It prioritizes a quick check for the "@" symbol and then uses a more robust regex.
+func IsValidEmail(email string) bool {
+	if !strings.Contains(email, "@") {
+		return false
+	}
+
+	// More robust regex validation
+	// This regex is from https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
+	emailRegex := regexp.MustCompile(`^[a-z0-9!#$%&'*+/=?^_` + "`" + `{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_` + "`" + `{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+	return emailRegex.MatchString(email)
+}
+
+// EqualStringSlices compares two *[]string slices.
+func EqualStringSlices(a, b *[]string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	if len(*a) != len(*b) {
+		return false
+	}
+	for i, v := range *a {
+		if v != (*b)[i] {
+			return false
+		}
+	}
+	return true
+}
