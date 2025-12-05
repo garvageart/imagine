@@ -1,6 +1,13 @@
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: number;
   message: string;
+  title?: string;
+  actions?: ToastAction[];
   dismissible?: boolean;
   timeout?: number;
   type?: "success" | "info" | "warning" | "error";

@@ -1,4 +1,5 @@
 @use "sass:color";
+@use "variables" as v;
 
 @use "./sassflexboxgrid/main.scss";
 @import "material-symbols/sharp.css";
@@ -11,9 +12,9 @@
 
 /* Colours */
 :root {
-    --imag-error-color: #ef4444;
-    --imag-success-color: #22c55e;
-    --imag-warning-color: #facc15;
+    --imag-error-color: #{v.$imag-error-color};
+    --imag-success-color: #{v.$imag-success-color};
+    --imag-warning-color: #{v.$imag-warning-color};
 }
 
 html {
