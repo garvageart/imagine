@@ -73,7 +73,7 @@ RUN mkdir -p /app/build/api
 RUN --mount=type=cache,id=go-mods,target=/go/pkg/mod \
     --mount=type=cache,id=go-build,target=/root/.cache/go-build \
     if [ -f Makefile ]; then \
-    echo "Building via Makefile (build-api)\"; \
+    echo "Building via Makefile (build-api)..."; \
     # Ensure the Makefile uses the same cache locations as BuildKit mounts so
     # Go module downloads are stored in /go/pkg/mod and the Go build cache
     # is stored in /root/.cache/go-build (these are mounted as BuildKit caches
