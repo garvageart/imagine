@@ -46,6 +46,74 @@
 	let layoutContextMenuItems = $state<MenuItem[]>([]);
 	let layoutContextMenuAnchor = $state<{ x: number; y: number } | null>(null);
 
+	// Custom Scrollbar State
+	let scrollLeft = $state(0);
+	let clientWidth = $state(0);
+	let scrollWidth = $state(0);
+	let isHoveringHeader = $state(false);
+	let isDraggingScrollbar = $state(false);
+
+	$effect(() => {
+		if (!headerElement) return;
+
+		const updateMetrics = () => {
+			if (headerElement) {
+				scrollLeft = headerElement.scrollLeft;
+				clientWidth = headerElement.clientWidth;
+				scrollWidth = headerElement.scrollWidth;
+			}
+		};
+
+		// Initial update
+		updateMetrics();
+
+		// Observer for resize
+		const resizeObserver = new ResizeObserver(updateMetrics);
+		resizeObserver.observe(headerElement);
+
+		// Listen for scroll events to update state
+		headerElement.addEventListener("scroll", updateMetrics);
+
+		return () => {
+			resizeObserver.disconnect();
+			headerElement?.removeEventListener("scroll", updateMetrics);
+		};
+	});
+
+	function handleScrollbarDragStart(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		isDraggingScrollbar = true;
+
+		const startX = event.clientX;
+		const startScrollLeft = scrollLeft;
+
+		// Calculate ratio: how much scrollable content moves per pixel of scrollbar movement
+		// thumb travel space = clientWidth - thumbWidth
+		// content travel space = scrollWidth - clientWidth
+		const thumbWidthRatio = clientWidth / scrollWidth;
+		const thumbWidth = Math.max(20, clientWidth * thumbWidthRatio);
+		const trackScrollableWidth = clientWidth - thumbWidth;
+		const contentScrollableWidth = scrollWidth - clientWidth;
+
+		const pxRatio = contentScrollableWidth / (trackScrollableWidth || 1);
+
+		function onMouseMove(e: MouseEvent) {
+			if (!headerElement) return;
+			const deltaX = e.clientX - startX;
+			headerElement.scrollLeft = startScrollLeft + deltaX * pxRatio;
+		}
+
+		function onMouseUp() {
+			isDraggingScrollbar = false;
+			window.removeEventListener("mousemove", onMouseMove);
+			window.removeEventListener("mouseup", onMouseUp);
+		}
+
+		window.addEventListener("mousemove", onMouseMove);
+		window.addEventListener("mouseup", onMouseUp);
+	}
+
 	// Action wrappers to handle undefined tabDropper safely
 	function safeTabDrop(node: HTMLElement) {
 		if (tabDropper) {
@@ -66,8 +134,12 @@
 
 	function handleWheelScroll(event: WheelEvent) {
 		if (headerElement) {
-			event.preventDefault();
-			headerElement.scrollLeft += event.deltaY;
+			// Map vertical scroll (mouse wheel) to horizontal scroll
+			// But allow native horizontal scroll (trackpad) to pass through
+			if (event.deltaY !== 0 && Math.abs(event.deltaX) === 0) {
+				event.preventDefault();
+				headerElement.scrollLeft += event.deltaY;
+			}
 		}
 	}
 
@@ -119,6 +191,44 @@
 		stopDragScroll();
 	}
 
+	function handleKeyDown(event: KeyboardEvent) {
+		const tabs = Array.from(
+			headerElement?.querySelectorAll('[role="tab"]') || []
+		) as HTMLElement[];
+		const activeTabIndex = panelViews.findIndex(
+			(view) => view.id === activeView?.id
+		);
+		let nextTabIndex = -1;
+
+		switch (event.key) {
+			case "ArrowRight":
+				event.preventDefault();
+				nextTabIndex = (activeTabIndex + 1) % panelViews.length;
+				break;
+			case "ArrowLeft":
+				event.preventDefault();
+				nextTabIndex =
+					(activeTabIndex - 1 + panelViews.length) % panelViews.length;
+				break;
+			case "Home":
+				event.preventDefault();
+				nextTabIndex = 0;
+				break;
+			case "End":
+				event.preventDefault();
+				nextTabIndex = panelViews.length - 1;
+				break;
+		}
+
+		if (nextTabIndex !== -1 && panelViews[nextTabIndex]) {
+			onViewActive(panelViews[nextTabIndex]);
+			// Use a timeout to ensure the tab is rendered and focusable after reactivity updates
+			setTimeout(() => {
+				tabs[nextTabIndex]?.focus();
+			}, 0);
+		}
+	}
+
 	function triggerTabContextMenu(event: MouseEvent, view: VizView) {
 		contextMenuAnchor = { x: event.clientX, y: event.clientY };
 		contextMenuItems = buildTabContextMenu(
@@ -153,44 +263,82 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
 <div
-	bind:this={headerElement}
 	class="viz-sub_panel-header {isPanelLocked ? 'locked' : ''}"
-	role="tablist"
-	tabindex="0"
-	use:safeTabDrop
-	onwheel={handleWheelScroll}
 	oncontextmenu={(e) => triggerHeaderContextMenu(e)}
-	ondragover={handleDragOver}
-	ondragleave={handleDragLeave}
-	ondrop={handleDrop}
+	role="toolbar"
+	aria-label="Panel Header"
+	tabindex="-1"
+	onmouseenter={() => (isHoveringHeader = true)}
+	onmouseleave={() => (isHoveringHeader = false)}
 >
-	{#each panelViews as view, i}
-		{#if view.name && view.name.trim() !== ""}
-			{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
-			{@const data = { index: i, view: view }}
-			<button
-				id={tabNameId + "-tab"}
-				class="viz-tab-button {activeView?.id === view.id ? 'active-tab' : ''}"
-				data-tab-id={view.id}
-				role="tab"
-				title={view.name}
-				aria-label={view.name}
-				onclick={() => onViewActive(view)}
-				oncontextmenu={(e) => triggerTabContextMenu(e, view)}
-				use:safeTabDraggable={data}
-			>
-				<MaterialIcon
-					style={`transform: translateY(${view.opticalCenterFix}px);`}
-					weight={200}
-					iconName="menu"
-				/>
-				<span class="viz-sub_panel-name">{view.name}</span>
-				{#if view.locked}
-					<MaterialIcon class="viz-tab-lock" iconName="lock" />
-				{/if}
-			</button>
-		{/if}
-	{/each}
+	<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+	<div
+		bind:this={headerElement}
+		class="viz-sub_panel-tabs"
+		role="tablist"
+		tabindex="0"
+		use:safeTabDrop
+		onwheel={handleWheelScroll}
+		onkeydown={handleKeyDown}
+		ondragover={handleDragOver}
+		ondragleave={handleDragLeave}
+		ondrop={handleDrop}
+	>
+		{#each panelViews as view, i}
+			{#if view.name && view.name.trim() !== ""}
+				{@const tabNameId = view.name.toLowerCase().replaceAll(" ", "-")}
+				{@const data = { index: i, view: view }}
+				<button
+					id={tabNameId + "-tab"}
+					class="viz-tab-button {activeView?.id === view.id
+						? 'active-tab'
+						: ''}"
+					data-tab-id={view.id}
+					role="tab"
+					title={view.name}
+					aria-label={view.name}
+					onclick={() => onViewActive(view)}
+					oncontextmenu={(e) => triggerTabContextMenu(e, view)}
+					use:safeTabDraggable={data}
+					aria-selected={activeView?.id === view.id ? "true" : "false"}
+					tabindex={activeView?.id === view.id ? 0 : -1}
+				>
+					<MaterialIcon
+						style={`transform: translateY(${view.opticalCenterFix}px);`}
+						weight={200}
+						iconName="menu"
+					/>
+					<span class="viz-sub_panel-name">{view.name}</span>
+					{#if view.locked}
+						<MaterialIcon class="viz-tab-lock" iconName="lock" />
+					{/if}
+				</button>
+			{/if}
+		{/each}
+	</div>
+
+	<!-- Custom Overlay Scrollbar -->
+	{#if scrollWidth > clientWidth}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="viz-custom-scrollbar {isHoveringHeader || isDraggingScrollbar
+				? 'visible'
+				: ''}"
+			onmousedown={handleScrollbarDragStart}
+		>
+			<div
+				class="viz-custom-scrollbar-thumb"
+				style:width="{Math.max(
+					20,
+					(clientWidth / scrollWidth) * clientWidth
+				)}px"
+				style:transform="translateX({(scrollLeft /
+					(scrollWidth - clientWidth)) *
+					(clientWidth -
+						Math.max(20, (clientWidth / scrollWidth) * clientWidth))}px)"
+			></div>
+		</div>
+	{/if}
 
 	<div class="header-actions">
 		{#if isDevMode}
@@ -224,25 +372,64 @@
 		display: flex;
 		align-items: center;
 		position: relative;
-		overflow-x: auto;
-		overflow-y: hidden;
-		flex-wrap: nowrap;
+		overflow: hidden; /* Ensure no scrollbars on the main header */
+		width: 100%; /* Take full width of its parent */
+		min-width: 0; /* Critical: allows header to shrink inside flex parent instead of forcing overflow */
+	}
+
+	.viz-sub_panel-tabs {
+		display: flex;
+		align-items: center;
+		flex: 1; /* Allow tabs to take up available space */
+		min-width: 0; /* Critical for flex item scrolling: allows shrinking below content size */
+		overflow-x: auto; /* Enable horizontal scrolling */
+		overflow-y: hidden; /* Hide vertical overflow */
+		height: 100%; /* Take full height of the header */
+		white-space: nowrap; /* Prevent tabs from wrapping */
+
+		/* hide native scrollbars */
+		scrollbar-width: none;
+		-ms-overflow-style: none;
 
 		&::-webkit-scrollbar {
 			display: none;
 		}
+	}
 
-		-ms-overflow-style: none;
-		scrollbar-width: none;
+	/* Custom Scrollbar Styles */
+	.viz-custom-scrollbar {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		height: 3px;
+		width: 100%;
+		z-index: 10;
+		opacity: 0;
+		pointer-events: none; /* Let clicks pass through when hidden */
+		transition: opacity 0.2s;
+	}
+
+	.viz-custom-scrollbar.visible {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.viz-custom-scrollbar-thumb {
+		background-color: color-mix(in srgb, var(--imag-40) 50%, transparent);
+		height: 100%;
+		cursor: pointer;
+		position: absolute;
+		top: 0;
+		left: 0;
 	}
 
 	.viz-sub_panel-header.locked {
 		opacity: 0.7;
-		pointer-events: auto;
+		pointer-events: auto; /* Re-enable pointer events for locked state if needed */
 	}
 
 	.viz-tab-button {
-		flex-shrink: 0;
+		flex-shrink: 0; /* Prevent tabs from shrinking */
 		display: flex;
 		align-items: center;
 		position: relative;
@@ -273,15 +460,13 @@
 	}
 
 	.header-actions {
-		position: sticky;
-		right: 0;
-		background-color: var(--imag-100);
 		display: flex;
 		align-items: center;
 		height: 100%;
-		margin-left: auto; /* Push to right if tabs don't fill width */
-		box-shadow: -5px 0 5px -5px rgba(0, 0, 0, 0.2); /* Shadow to indicate overlap */
-		z-index: 5;
+		flex-shrink: 0; /* Prevent actions from shrinking */
+		background-color: var(--imag-100);
+		box-shadow: -5px 0 5px -5px rgba(0, 0, 0, 0.2); /* Shadow to indicate separation */
+		z-index: 5; /* Ensure actions are above tabs if there's overlap */
 	}
 
 	.viz-lock-indicator,
