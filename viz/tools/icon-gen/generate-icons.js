@@ -267,6 +267,41 @@ async function main () {
     // fetch SVGs for the detected weights and embed them in a `variants` map used
     // at runtime via a `weight` prop.
     for (const [name, weightSet] of names.entries()) {
+        const compName = 'Icon' + pascalCase(name);
+        const outFile = join(OUT_DIR, `${compName}.svelte`);
+
+        let skip = false;
+        if (existsSync(outFile)) {
+            try {
+                const content = readFileSync(outFile, 'utf8');
+                // Regex to find keys in the variants object, e.g. "400":
+                // We look for quoted digits followed by a colon.
+                const existingWeights = new Set();
+                const reKeys = /"([0-9]{3})"\s*:/g;
+                let m;
+                while ((m = reKeys.exec(content)) !== null) {
+                    existingWeights.add(m[1]);
+                }
+
+                // Check if we have all required weights
+                const required = Array.from(weightSet);
+                const missing = required.filter(w => !existingWeights.has(w));
+
+                if (missing.length === 0) {
+                    // We still need to add to 'generated' so index.ts includes it.
+                    console.log(`Skipping ${name} (up to date)`);
+                    generated.push({ name, compName });
+                    skip = true;
+                }
+            } catch (e) {
+                // If read fails maybe just regenerate???
+            }
+        }
+
+        if (skip) {
+            continue;
+        }
+
         console.log('Processing', name, 'weights', Array.from(weightSet).join(','));
         /** @type {Record<string,string>} */
         const variants = {};
@@ -305,9 +340,6 @@ async function main () {
             console.warn('No variants available for', name, '; skipping component generation.');
             continue;
         }
-
-        const compName = 'Icon' + pascalCase(name);
-        const outFile = join(OUT_DIR, `${compName}.svelte`);
 
         // Prepare the variants object as JSON so it becomes a JS object literal in the output file.
         const variantsJson = JSON.stringify(variants, null, 4);

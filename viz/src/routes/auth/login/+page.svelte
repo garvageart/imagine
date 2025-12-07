@@ -3,6 +3,7 @@
 	import { login } from "$lib/api";
 	import Button from "$lib/components/Button.svelte";
 	import InputText from "$lib/components/dom/InputText.svelte";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 
 	let loginData = $state({
 		email: "",
@@ -11,16 +12,22 @@
 
 	let notifMessage = $state("");
 
-	function showLoginNotif(message: string) {
+	function showLoginNotif(
+		message: string,
+		level: "success" | "info" | "warning" | "error"
+	) {
 		notifMessage = message;
-		setTimeout(() => (notifMessage = ""), 3000);
+		toastState.addToast({
+			message,
+			type: level
+		});
 	}
 
 	async function handleLogin(event: Event) {
 		event.preventDefault();
 
 		if (!loginData.email || !loginData.password) {
-			showLoginNotif("Please fill in all fields");
+			showLoginNotif("Please fill in all fields", "error");
 			return;
 		}
 
@@ -31,16 +38,16 @@
 			});
 
 			if (response.status === 200) {
-				showLoginNotif("Login successful!");
+				showLoginNotif("Login successful!", "success");
 				goto("/");
 			}
 		} catch (error: any) {
 			if (error.status === 401) {
-				showLoginNotif("Invalid email or password");
+				showLoginNotif("Invalid email or password", "error");
 			} else if (error.status === 404) {
-				showLoginNotif("User not found");
+				showLoginNotif("User not found", "error");
 			} else {
-				showLoginNotif("Login failed. Please try again.");
+				showLoginNotif("Login failed. Please try again.", "error");
 			}
 			console.error("Login error:", error);
 		}
@@ -48,7 +55,11 @@
 </script>
 
 <!-- Random background image thing needs to go at some point, maybe with a server/admin administrated background image -->
-<main style="background-image: url('https://picsum.photos/1920/1080/?random={Math.floor(Math.random() * 300)}');">
+<main
+	style="background-image: url('https://picsum.photos/1920/1080/?random={Math.floor(
+		Math.random() * 300
+	)}');"
+>
 	<span id="viz-title">viz</span>
 	<div id="login-container">
 		<h1 id="login-heading">Login</h1>
@@ -77,10 +88,16 @@
 				<input id="login-submit" type="submit" value="Login" />
 			</Button>
 		</form>
-		<p style="margin-top: 1em;">Don't have an account? <a style="font-weight: bold;" href="/auth/register">Register</a></p>
-		{#if notifMessage}
-			<p style="font-size: 1.2em; font-weight: bold; margin-top: 1em;">{notifMessage}</p>
-		{/if}
+		<p style="margin-top: 1em;">
+			Don't have an account? <a style="font-weight: bold;" href="/auth/register"
+				>Register</a
+			>
+		</p>
+		<!-- {#if notifMessage}
+			<p style="font-size: 1.2em; font-weight: bold; margin-top: 1em;">
+				{notifMessage}
+			</p>
+		{/if} -->
 	</div>
 	<div id="login-overlay" style="height: 100%; width: 100%;"></div>
 </main>
