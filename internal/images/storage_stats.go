@@ -33,10 +33,10 @@ func (s *StorageStatsHolder) GetPath() string {
 }
 
 // StartStorageStatsWorker starts a background goroutine to calculate storage size.
-func (holder *StorageStatsHolder) StartStorageStatsWorker(ctx context.Context, logger *slog.Logger, interval time.Duration) {
-	logger.Info("starting storage stats worker", slog.String("path", holder.path), slog.Duration("interval", interval))
+func (s *StorageStatsHolder) StartStorageStatsWorker(ctx context.Context, logger *slog.Logger, interval time.Duration) {
+	logger.Info("starting storage stats worker", slog.String("path", s.path), slog.Duration("interval", interval))
 
-	calculate(logger, holder)
+	s.calculate(logger)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -47,22 +47,23 @@ func (holder *StorageStatsHolder) StartStorageStatsWorker(ctx context.Context, l
 			logger.Info("stopping storage stats worker")
 			return
 		case <-ticker.C:
-			calculate(logger, holder)
+			s.calculate(logger)
 		}
 	}
 }
 
-func calculate(logger *slog.Logger, holder *StorageStatsHolder) {
+func (s *StorageStatsHolder) calculate(logger *slog.Logger) {
 	start := time.Now()
 	var size int64
 
-	err := filepath.WalkDir(holder.path, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(s.path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsPermission(err) {
 				return nil
 			}
 			return err
 		}
+
 		if !d.IsDir() {
 			info, err := d.Info()
 			if err == nil {
@@ -77,10 +78,10 @@ func calculate(logger *slog.Logger, holder *StorageStatsHolder) {
 		return
 	}
 
-	atomic.StoreInt64(&holder.totalSizeBytes, size)
+	atomic.StoreInt64(&s.totalSizeBytes, size)
 	logger.Debug("storage stats updated",
-	 slog.Int64("size_bytes", size),
-	 slog.Duration("time_taken", time.Since(start)),
-	 slog.String("time_taken_seconds", fmt.Sprintf("%.2fs", time.Since(start).Seconds())),
+		slog.Int64("size_bytes", size),
+		slog.Duration("time_taken", time.Since(start)),
+		slog.String("time_taken_seconds", fmt.Sprintf("%.2fs", time.Since(start).Seconds())),
 	)
 }
