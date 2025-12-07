@@ -67,7 +67,7 @@
 		GeneratedComponent = null;
 
 		const base = normalizeName(String(iconName));
-		
+
 		// Prefer base component first to avoid many failed imports when only
 		// multi-weight/base components exist. From there try weight-specific,
 		// then style-specific, then style+weight as a last resort.
@@ -196,9 +196,9 @@
 {:else}
 	<span
 		{...props}
-		class={"material-symbols-" + iconStyle.toLowerCase() + " " + (props.class || "")}
+		class={(props.class ? props.class + " " : "") + "material-symbols-" + iconStyle.toLowerCase()}
 		style={props.style +
-			`; font-variation-settings: ${`'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' ${grade}, 'opsz' ${opticalSize}`}`}
+			`; font-variation-settings: ${`'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' ${grade}, 'opsz' ${opticalSize}`};`}
 		>{iconName}
 	</span>
 {/if}

@@ -1,4 +1,5 @@
 import { thumbHashToDataURL } from "thumbhash";
+import { Duration } from "luxon";
 import type { Image } from "../api";
 
 /**
@@ -136,6 +137,17 @@ export function formatBytes(bytes?: number) {
     }
 
     return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)} ${units[i]}`;
+}
+
+export function formatSeconds(totalSeconds?: number): string | null {
+    if (totalSeconds === undefined || totalSeconds === null) {
+        return null;
+    }
+    if (totalSeconds === 0) return "0s";
+
+    return Duration.fromObject({ seconds: totalSeconds })
+        .shiftTo("days", "hours", "minutes", "seconds")
+        .toHuman({ unitDisplay: "narrow", listStyle: "narrow" });
 }
 
 export interface TransformParams {

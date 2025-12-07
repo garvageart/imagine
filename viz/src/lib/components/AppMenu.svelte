@@ -7,14 +7,15 @@
 		isOpen?: boolean;
 		anchor?: HTMLElement | null;
 	}>();
-	
+
 	const adminSettings: MenuItem = {
 		id: "admin",
 		label: "Admin",
 		children: [
+			{ id: "admin-system", label: "Dashboard", action: () => goto("/admin") },
+			{ id: "admin-users", label: "Users", action: () => goto("/admin/users") },
 			{ id: "admin-jobs", label: "Jobs", action: () => goto("/admin/jobs") },
-			{ id: "admin-events", label: "Events", action: () => goto("/admin/events") },
-			{ id: "admin-system", label: "System Info", action: () => goto("/admin") }
+			{ id: "admin-events", label: "Events", action: () => goto("/admin/events") }
 		]
 	};
 

@@ -73,8 +73,11 @@
 			() => {
 				connected = true;
 			},
-			() => {
-				connected = false;
+			(code: number, reason: string) => {
+				// Only set connected to false if the disconnection was not a normal closure (1000) or going away (1001)
+				if (code !== 1000 && code !== 1001 && code !== 1005) {
+					connected = false;
+				}
 			}
 		);
 	}
