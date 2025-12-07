@@ -23,8 +23,6 @@ import (
 	"imagine/internal/utils"
 )
 
-var StartTime = time.Now()
-
 type AdminUserUpdate struct {
 	dto.UserUpdate
 	Role *dto.UserRole `json:"role,omitempty"`

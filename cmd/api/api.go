@@ -37,6 +37,8 @@ var (
 	StorageStatsHolder *images.StorageStatsHolder
 )
 
+var StartTime time.Time
+
 type APIServer struct {
 	*config.ImagineServer
 }
@@ -179,6 +181,11 @@ func main() {
 		errorMsg := fmt.Sprintf("failed to unmarshal config: %v", err)
 		panic(errorMsg)
 	}
+
+	// For me, start time is described once the config has been read in safely without fail
+	// From there on, the server will launch and the database will connect which is when things
+	// really start
+	StartTime = time.Now()
 
 	// setup logging stuff
 	logLevel := imalog.GetLevelFromString(appConfig.Logging.Level)
