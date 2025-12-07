@@ -109,4 +109,4 @@ ENV ENV=production
 ENV IMAGINE_FRONTEND_BUILD_PATH=/app/frontend
 
 EXPOSE 7770
-CMD ["/app/build/api/imagine"]
+CMD ["/app/imagine"]
