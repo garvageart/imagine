@@ -2,6 +2,7 @@ package images
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -77,5 +78,9 @@ func calculate(logger *slog.Logger, holder *StorageStatsHolder) {
 	}
 
 	atomic.StoreInt64(&holder.totalSizeBytes, size)
-	logger.Debug("storage stats updated", slog.Int64("size_bytes", size), slog.Duration("time_taken", time.Since(start)))
+	logger.Debug("storage stats updated",
+	 slog.Int64("size_bytes", size),
+	 slog.Duration("time_taken", time.Since(start)),
+	 slog.Duration("time_taken_seconds", fmt.Sprintf("%.2fs", time.Since(start).Seconds)),
+	)
 }
