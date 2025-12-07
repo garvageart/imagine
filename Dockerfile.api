@@ -27,7 +27,31 @@ RUN set -eux; \
     ldconfig || true
 
 
-FROM golang:1.25-bookworm AS builder
+# --- Frontend Builder ---
+FROM node:22-bookworm-slim AS frontend-builder
+WORKDIR /app/viz
+ENV NODE_ENV=production
+
+# Install pnpm
+RUN npm install -g pnpm@latest
+
+# Copy frontend dependency definitions
+COPY viz/package.json viz/pnpm-lock.yaml viz/.npmrc ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy frontend source
+COPY viz/ ./
+
+# Build frontend
+# Note: svelte.config.js is configured to output to ../build/viz
+# So we expect the output at /app/build/viz
+RUN pnpm run generate:icons && pnpm run build
+
+
+# --- Backend Builder ---
+FROM golang:1.25-bookworm AS backend-builder
 WORKDIR /src
 
 # reuses apt installed packages from earlier
@@ -49,7 +73,7 @@ RUN mkdir -p /app/build/api
 RUN --mount=type=cache,id=go-mods,target=/go/pkg/mod \
     --mount=type=cache,id=go-build,target=/root/.cache/go-build \
     if [ -f Makefile ]; then \
-    echo "Building via Makefile (build-api)..."; \
+    echo "Building via Makefile (build-api)\"; \
     # Ensure the Makefile uses the same cache locations as BuildKit mounts so
     # Go module downloads are stored in /go/pkg/mod and the Go build cache
     # is stored in /root/.cache/go-build (these are mounted as BuildKit caches
@@ -61,6 +85,8 @@ RUN --mount=type=cache,id=go-mods,target=/go/pkg/mod \
     go build -o /app/build/api/imagine ./cmd/api; \
     fi
 
+
+# --- Final Runtime ---
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
@@ -68,12 +94,19 @@ WORKDIR /app
 COPY --from=packages /usr /usr
 COPY --from=packages /etc/ssl/certs /etc/ssl/certs
 
-# Copy only the build directory produced by the builder stage
-COPY --from=builder /app/build/api /app/build/api
+# Copy backend binary
+COPY --from=backend-builder /app/build/api/imagine /app/imagine
+
+# Copy frontend assets
+# frontend-builder built to /app/build/viz (relative to /app/viz via ../build/viz)
+COPY --from=frontend-builder /app/build/viz /app/frontend
 
 COPY imagine.json /app/imagine.json
 COPY version.txt /app/version.txt
 
-EXPOSE 7770
+# Configure to serve frontend
 ENV ENV=production
+ENV IMAGINE_FRONTEND_BUILD_PATH=/app/frontend
+
+EXPOSE 7770
 CMD ["/app/build/api/imagine"]
