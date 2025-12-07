@@ -102,6 +102,8 @@
 		const size = lightboxImage?.image_metadata?.file_size;
 		return formatBytes(size) ?? "—";
 	}
+
+	const lightboxMaterialIconColour = "color: var(--imag-10-dark);";
 </script>
 
 {#snippet metadataEditor()}
@@ -250,7 +252,7 @@
 				title="Close"
 				onclick={() => (lightboxImage = undefined)}
 			>
-				<MaterialIcon iconName="close" />
+				<MaterialIcon iconName="close" style={lightboxMaterialIconColour} />
 			</button>
 			<div class="image-icon-buttons">
 				<button
@@ -261,7 +263,7 @@
 						showMetadata = !showMetadata;
 					}}
 				>
-					<MaterialIcon iconName="info" />
+					<MaterialIcon iconName="info" style={lightboxMaterialIconColour} />
 				</button>
 			</div>
 			{#key lightboxImage?.uid}
@@ -310,7 +312,7 @@
 							goToPrev();
 						}}
 					>
-						<MaterialIcon iconName="arrow_back" />
+						<MaterialIcon iconName="arrow_back" style={lightboxMaterialIconColour} />
 					</button>
 					<button
 						class="lightbox-nav-btn next image-icon-buttons-shadow"
@@ -320,7 +322,7 @@
 							goToNext();
 						}}
 					>
-						<MaterialIcon iconName="arrow_forward" />
+						<MaterialIcon iconName="arrow_forward" style={lightboxMaterialIconColour} />
 					</button>
 				</div>
 			{/if}

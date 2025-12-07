@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { generateKeyId } from "$lib/utils/layout";
 	import type { SvelteHTMLElements } from "svelte/elements";
 	interface Props {
 		label?: string;
@@ -7,33 +8,34 @@
 	}
 
 	let { value = $bindable(), label, description, disabled = false, ...props }: Props & SvelteHTMLElements["input"] = $props();
+	const inputId = props.id ?? generateKeyId();
 </script>
 
 <div class="input-container" class:disabled>
-	<div class="input-wrapper">
-		<input
-			{...props}
-			type={props.type ?? "text"}
-			placeholder={label ?? props.placeholder}
-			bind:value
-			{disabled}
-			oninput={(e) => {
-				props.oninput?.(e);
-			}}
-			onchange={(e) => {
-				props.onchange?.(e);
-			}}
-			onfocus={(e) => {
-				props.onfocus?.(e);
-			}}
-			onblur={(e) => {
-				props.onblur?.(e);
-			}}
-		/>
-		{#if label}
-			<span class="input-label">{label}</span>
-		{/if}
-	</div>
+	{#if label}
+		<label for={inputId} class="input-label">{label}</label>
+	{/if}
+	<input
+		{...props}
+		id={inputId}
+		name={props.name}
+		type={props.type ?? "text"}
+		placeholder={props.placeholder}
+		bind:value
+		{disabled}
+		oninput={(e) => {
+			props.oninput?.(e);
+		}}
+		onchange={(e) => {
+			props.onchange?.(e);
+		}}
+		onfocus={(e) => {
+			props.onfocus?.(e);
+		}}
+		onblur={(e) => {
+			props.onblur?.(e);
+		}}
+	/>
 	{#if description}
 		<div class="input-description">{description}</div>
 	{/if}
@@ -46,34 +48,23 @@
 		min-width: 0%;
 		position: relative;
 		width: 100%;
-		gap: 0.25rem;
+		gap: 0.5rem;
 
 		&.disabled {
 			opacity: 0.5;
-			
+
 			input {
 				cursor: not-allowed;
 			}
 		}
 	}
-	
-	.input-wrapper {
-		position: relative;
-		width: 100%;
-	}
 
 	.input-label {
-		font-size: 0.8em;
-		position: absolute;
-		left: 0.5em;
-		bottom: 0.75em;
-		background: var(--imag-bg-color);
-		padding: 0.1em 0.5em;
-		border-radius: 0.1em;
-		font-weight: 600;
-		pointer-events: none;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--imag-40);
 	}
-	
+
 	.input-description {
 		font-size: 0.85rem;
 		color: var(--imag-text-secondary, #888);
@@ -81,7 +72,6 @@
 	}
 
 	input:not([type="submit"]) {
-		width: 100%;
 		max-width: 100%;
 		min-height: 2.5rem;
 		color: var(--imag-text-color);
@@ -97,12 +87,6 @@
 		&::placeholder {
 			color: var(--imag-40);
 			font-family: var(--imag-font-family);
-			opacity: 0; /* Hide placeholder when label is used overlay style */
-		}
-		
-		/* Show placeholder if no label is present */
-		&:placeholder-shown:not(:focus) + .input-label {
-			/* This selector logic depends on structure, usually floating labels use :placeholder-shown */
 		}
 
 		&:focus::placeholder {

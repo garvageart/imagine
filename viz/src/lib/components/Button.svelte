@@ -1,10 +1,20 @@
 <script lang="ts">
 	import type { HTMLButtonAttributes } from "svelte/elements";
 
-	let { children, hoverColor = "var(--imag-80)", ...props }: { hoverColor?: string } & HTMLButtonAttributes = $props();
+	interface Props extends HTMLButtonAttributes {
+		hoverColor?: string;
+		variant?: "primary" | "small" | "mini";
+	}
+
+	let { children, hoverColor = "var(--imag-80)", variant = "primary", ...props }: Props = $props();
 </script>
 
-<button {...props} aria-label={props["aria-label"] ?? props.title} style:--button-hover-bg={hoverColor}>
+<button
+	{...props}
+	class="{variant} {props.class || ''}"
+	aria-label={props["aria-label"] ?? props.title}
+	style:--button-hover-bg={hoverColor}
+>
 	{@render children?.()}
 </button>
 
@@ -13,7 +23,7 @@
 		cursor: pointer;
 		color: var(--imag-text-colour);
 		font-weight: 400;
-		font-size: 1em;
+		font-size: 1em; /* default */
 		letter-spacing: 0.02em;
 		height: max-content;
 		background-color: var(--imag-90);
@@ -29,6 +39,14 @@
 
 		&:hover {
 			background-color: var(--button-hover-bg);
+		}
+
+		&.small {
+			font-size: 0.85em;
+		}
+
+		&.mini {
+			font-size: 0.75em;
 		}
 	}
 </style>

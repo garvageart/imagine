@@ -1,126 +1,168 @@
 <script lang="ts">
 	import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
-	import { clearImageCache, type CacheStatusResponse } from "$lib/api";
+	import { clearImageCache } from "$lib/api";
 	import Button from "$lib/components/Button.svelte";
+	import ConfirmationModal from "$lib/components/modals/ConfirmationModal.svelte";
+	import { modal } from "$lib/states/index.svelte";
 	import { formatBytes } from "$lib/utils/images";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import AdminRouteShell from "$lib/components/admin/AdminRouteShell.svelte";
+	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 
 	let { data } = $props();
 
 	let cacheStatus = $derived(data.cacheStatus);
 	let loading = $state(false);
-	let error: string | null = $state(null);
-	let message: string | null = $state(null);
+	let showClearConfirm = $state(false);
 
-	async function clearCache() {
-		if (!confirm("Are you sure you want to clear the image cache? This action cannot be undone.")) {
-			return;
-		}
+	function openClearConfirm() {
+		showClearConfirm = true;
+		modal.show = true;
+	}
 
+	function closeClearConfirm() {
+		showClearConfirm = false;
+		modal.show = false;
+	}
+
+	async function handleClearCache() {
 		loading = true;
+		closeClearConfirm();
 
-		const response = await clearImageCache();
-		if (response.status !== 200) {
-			error = response.data.error || "Failed to clear image cache.";
-			return;
+		try {
+			const response = await clearImageCache();
+			if (response.status !== 200) {
+				toastState.addToast({
+					type: "error",
+					message: response.data.error || "Failed to clear image cache."
+				});
+				return;
+			}
+			toastState.addToast({
+				type: "success",
+				message: "Image cache cleared successfully."
+			});
+			await invalidate(page.url.pathname);
+		} catch (e) {
+			toastState.addToast({
+				type: "error",
+				message: "Error clearing cache."
+			});
+		} finally {
+			loading = false;
 		}
-		message = "Image cache cleared successfully.";
-		loading = false;
-
-		await invalidate(page.url.pathname);
 	}
 </script>
 
-<div class="admin-cache-container">
-	<h1>Admin Cache Management</h1>
-	<div class="cache-status-section">
-		<h2>Cache Status</h2>
-		<div class="cache-grid">
-			<div>
-				<p>Total Size:</p>
-				<p>{formatBytes(cacheStatus.size)}</p>
-			</div>
-			<div>
-				<p>Total Items:</p>
-				<p>{cacheStatus.items}</p>
-			</div>
-			<div>
-				<p>Cache Hits:</p>
-				<p>{cacheStatus.hits}</p>
-			</div>
-			<div>
-				<p>Cache Misses:</p>
-				<p>{cacheStatus.misses}</p>
-			</div>
-			<div>
-				<p>Hit Ratio:</p>
-				<p>{(cacheStatus.hit_ratio * 100).toFixed(2)}%</p>
-			</div>
-		</div>
+<svelte:head>
+	<title>Cache - Admin</title>
+</svelte:head>
 
-		<Button class="clear-cache-button" onclick={clearCache} disabled={loading}>
+<AdminRouteShell heading="Cache Management" description="Monitor and manage the image processing cache">
+	{#snippet actions()}
+		<Button variant="small" onclick={openClearConfirm} disabled={loading} hoverColor="var(--imag-alert-color)">
+			<MaterialIcon iconName="delete_sweep" />
 			{#if loading}
-				Clearing Cache...
+				Clearing...
 			{:else}
-				Clear Image Cache
+				Clear Cache
 			{/if}
 		</Button>
-	</div>
+	{/snippet}
 
-	{#if message}
-		<p class="success-message">{message}</p>
-	{/if}
-</div>
+	<div class="cache-grid-layout">
+		<div class="cache-status-section">
+			<div class="section-header">
+				<MaterialIcon iconName="memory" />
+				<h2>Cache Statistics</h2>
+			</div>
+			<div class="cache-stats">
+				<div class="stat-item">
+					<span class="label">Total Size</span>
+					<span class="value">{formatBytes(cacheStatus.size)}</span>
+				</div>
+				<div class="stat-item">
+					<span class="label">Total Items</span>
+					<span class="value">{cacheStatus.items}</span>
+				</div>
+				<div class="stat-item">
+					<span class="label">Cache Hits</span>
+					<span class="value">{cacheStatus.hits}</span>
+				</div>
+				<div class="stat-item">
+					<span class="label">Cache Misses</span>
+					<span class="value">{cacheStatus.misses}</span>
+				</div>
+				<div class="stat-item">
+					<span class="label">Hit Ratio</span>
+					<span class="value">{(cacheStatus.hit_ratio * 100).toFixed(2)}%</span>
+				</div>
+			</div>
+		</div>
+	</div>
+</AdminRouteShell>
+
+{#if showClearConfirm && modal.show}
+	<ConfirmationModal
+		title="Clear Image Cache"
+		confirmText="Clear Cache"
+		onConfirm={handleClearCache}
+		onCancel={closeClearConfirm}
+	>
+		<p>
+			Are you sure you want to clear the entire image cache?
+			<br />
+			This will remove all generated thumbnails and previews. They will be regenerated on demand, which may increase server load temporarily.
+		</p>
+	</ConfirmationModal>
+{/if}
 
 <style lang="scss">
-	.admin-cache-container {
-		padding: 1rem;
-		width: 40%;
-		margin: 0 auto;
-	}
-
-	h1 {
-		font-size: 2em;
-		font-weight: bold;
-		margin-bottom: 1em;
-	}
-
-	h2 {
-		font-size: 1.5em;
-		font-weight: bold;
-		margin-bottom: 0.5em;
-	}
-
 	.cache-status-section {
 		background-color: var(--imag-100);
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-		border-radius: 0.5em;
-		padding: 1.5em;
-		margin-bottom: 1.5em;
+		border-radius: 12px;
+		padding: 1.5rem;
+		border: 1px solid var(--imag-90);
+		max-width: 600px;
 	}
 
-	.cache-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 1em;
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
 
-		div p:first-child {
-			color: var(--imag-text-color);
+		h2 {
+			font-size: 1.25rem;
+			font-weight: 600;
+			margin: 0;
 		}
+	}
 
-		div p:last-child {
-			font-size: 1.1em;
+	.cache-stats {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.stat-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		background: var(--imag-90);
+		border-radius: 0.5rem;
+
+		.label {
+			color: var(--imag-40);
 			font-weight: 500;
 		}
-	}
 
-	// .error-message {
-	// 	color: #ef4444; /* Red-500 */
-	// 	margin-top: 1em;
-	// }
-
-	.success-message {
-		color: #22c55e; /* Green-500 */
-		margin-top: 1em;
+		.value {
+			font-weight: 600;
+			font-family: var(--imag-code-font);
+			font-size: 1.1em;
+		}
 	}
 </style>

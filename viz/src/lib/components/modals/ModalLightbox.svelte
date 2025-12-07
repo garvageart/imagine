@@ -2,6 +2,7 @@
 	import { modal } from "$lib/states/index.svelte";
 	import type { Snippet } from "svelte";
 	import type { SvelteHTMLElements } from "svelte/elements";
+	import MaterialIcon from "../MaterialIcon.svelte";
 
 	let { children, ...props }: { children: Snippet } & SvelteHTMLElements["div"] = $props();
 	let modalEl: HTMLElement | undefined = $state();
@@ -43,6 +44,9 @@
 </script>
 
 <div {...props} id="viz-modal" bind:this={modalEl}>
+	<button class="modal-close-btn" onclick={() => (modal.show = false)} title="Close Modal">
+		<MaterialIcon iconName="close" />
+	</button>
 	{@render children()}
 </div>
 
@@ -56,5 +60,32 @@
 		justify-content: center;
 		align-items: center;
 		padding: 1em;
+		position: relative;
+		border-radius: 0.5em;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+	}
+
+	.modal-close-btn {
+		position: absolute;
+		top: 0.75em;
+		right: 0.75em;
+		background: transparent;
+		border: none;
+		color: var(--imag-text-color);
+		cursor: pointer;
+		padding: 0.25em;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0.6;
+		transition:
+			opacity 0.2s,
+			background-color 0.2s;
+
+		&:hover {
+			opacity: 1;
+			background-color: var(--imag-80);
+		}
 	}
 </style>

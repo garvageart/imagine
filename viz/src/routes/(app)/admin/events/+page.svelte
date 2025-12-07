@@ -5,7 +5,10 @@
 	import { getWsStats, getWsMetrics, getEventsSince } from "$lib/api";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import type { PageData } from "./$types";
-	import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api/client.gen";
+	import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api";
+	import { modal } from "$lib/states/index.svelte";
+	import ConfirmationModal from "$lib/components/modals/ConfirmationModal.svelte";
+	import AdminRouteShell from "$lib/components/admin/AdminRouteShell.svelte";
 
 	type EventHistoryItem = EventRecord;
 
@@ -13,10 +16,10 @@
 
 	let refreshing = $state(false);
 
-	// SSE Stats - initialize from load data
+	// WS Stats - initialize from load data
 	let stats = $state<WsStatsResponse>(data.stats);
 
-	// SSE Metrics - initialize from load data
+	// WS Metrics - initialize from load data
 	let metrics = $state<WsMetricsResponse>(data.metrics);
 
 	// Event History - initialize from load data
@@ -27,6 +30,9 @@
 	// Auto-refresh
 	let autoRefresh = $state(true);
 	let refreshInterval: number | null = null;
+
+	// Confirmation state
+	let showClearConfirm = $state(false);
 
 	function showMessage(message: string, type: "success" | "error" | "info" = "info"): void {
 		toastState.addToast({ message, type });
@@ -76,10 +82,21 @@
 		}
 	}
 
-	async function clearHistory(): Promise<void> {
-		if (!confirm("Clear all event history?")) return;
+	function requestClearHistory() {
+		showClearConfirm = true;
+		modal.show = true;
+	}
+
+	async function handleClearConfirm(): Promise<void> {
+		showClearConfirm = false;
+		modal.show = false;
 		showMessage("Clear event history endpoint not yet implemented for WebSocket", "info");
 		// TODO: Implement clearWsEventHistory endpoint if needed
+	}
+
+	function handleClearCancel() {
+		showClearConfirm = false;
+		modal.show = false;
 	}
 
 	function toggleAutoRefresh(): void {
@@ -166,254 +183,215 @@
 	<title>Events - Admin</title>
 </svelte:head>
 
-<div class="admin-page">
-	<header class="page-header">
-		<div class="header-left">
-			<a href="/admin" class="back-link">
-				<MaterialIcon iconName="arrow_back" />
-			</a>
-			<div>
-				<h1>Event Monitor</h1>
-				<p class="subtitle">SSE metrics and event history</p>
-			</div>
-		</div>
+<AdminRouteShell heading="Event Monitor" description="WebSocket metrics and event history">
+	{#snippet actions()}
 		<div class="header-actions">
-			<Button onclick={toggleAutoRefresh} class="control-button">
+			<Button variant="small" onclick={toggleAutoRefresh} class="control-button">
 				<MaterialIcon iconName={autoRefresh ? "pause" : "play_arrow"} />
 				{autoRefresh ? "Auto-refresh: ON" : "Auto-refresh: OFF"}
 			</Button>
-			<Button onclick={refreshAll} disabled={refreshing} class="control-button">
+			<Button variant="small" onclick={refreshAll} disabled={refreshing} class="control-button">
 				<MaterialIcon iconName="refresh" />
 				Refresh
 			</Button>
 		</div>
-	</header>
+	{/snippet}
 
-	<!-- Connection Stats -->
-	<section class="content-section">
-		<div class="section-header">
-			<MaterialIcon iconName="link" />
-			<h2>Connection Statistics</h2>
-		</div>
-		<div class="stats-grid">
-			<div class="stat-card">
-				<MaterialIcon iconName="sensors" />
-				<div class="stat-content">
-					<span class="stat-value">{stats.connectedClients}</span>
-					<span class="stat-label">Connected Clients</span>
-				</div>
-			</div>
-			<div class="stat-card">
-				<MaterialIcon iconName="timeline" />
-				<div class="stat-content">
-					<span class="stat-value">{metrics.totalEvents}</span>
-					<span class="stat-label">Total Events</span>
-				</div>
-			</div>
-			<div class="stat-card">
-				<MaterialIcon iconName="schedule" />
-				<div class="stat-content">
-					<span class="stat-value">{new Date(stats.timestamp).toLocaleTimeString()}</span>
-					<span class="stat-label">Last Updated</span>
-				</div>
-			</div>
-			<div class="stat-card">
-				<MaterialIcon iconName="groups" />
-				<div class="stat-content">
-					<span class="stat-value">{stats.clientIds.length}</span>
-					<span class="stat-label">Active Clients</span>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<!-- Performance Metrics -->
-	<section class="content-section">
-		<div class="section-header">
-			<MaterialIcon iconName="analytics" />
-			<h2>Performance Metrics</h2>
-		</div>
-		<div class="metrics-grid">
-			<div class="metric-card">
-				<div class="metric-icon">
-					<MaterialIcon iconName="speed" />
-				</div>
-				<div class="metric-content">
-					<span class="metric-value">{metrics.totalEvents}</span>
-					<span class="metric-label">Total Events</span>
-				</div>
-			</div>
-			<div class="metric-card">
-				<div class="metric-icon">
-					<MaterialIcon iconName="trending_up" />
-				</div>
-				<div class="metric-content">
-					<span class="metric-value">{metrics.connectedClients}</span>
-					<span class="metric-label">Active Connections</span>
-				</div>
-			</div>
-			<div class="metric-card">
-				<div class="metric-icon">
-					<MaterialIcon iconName="lightbulb" />
-				</div>
-				<div class="metric-content">
-					<span class="metric-value">{Object.keys(metrics.eventsByType).length}</span>
-					<span class="metric-label">Event Types</span>
-				</div>
-			</div>
-			<div class="metric-card">
-				<div class="metric-icon">
-					<MaterialIcon iconName="update" />
-				</div>
-				<div class="metric-content">
-					<span class="metric-value">{new Date(metrics.timestamp).toLocaleTimeString()}</span>
-					<span class="metric-label">Last Update</span>
-				</div>
-			</div>
-		</div>
-	</section>
-	{#if Object.keys(metrics.eventsByType || {}).length > 0}
-		<!-- Event Types Distribution -->
+	<div class="admin-page-content">
+		<!-- Connection Stats -->
 		<section class="content-section">
 			<div class="section-header">
-				<MaterialIcon iconName="bar_chart" />
-				<h2>Event Types Distribution</h2>
+				<MaterialIcon iconName="link" />
+				<h2>Connection Statistics</h2>
 			</div>
-			<div class="event-types">
-				{#each Object.entries(metrics.eventsByType || {}) as [type, count]}
-					<div class="event-type-card">
-						<div class="event-type-info">
-							<span class="event-type-name">{type}</span>
-							<span class="event-type-count">{count} events</span>
-						</div>
-						<div class="event-type-bar">
-							<div class="event-type-fill" style="width: {getEventFillWidth(count)}%"></div>
-						</div>
+			<div class="stats-grid">
+				<div class="stat-card">
+					<MaterialIcon iconName="sensors" />
+					<div class="stat-content">
+						<span class="stat-value">{stats.connectedClients}</span>
+						<span class="stat-label">Connected Clients</span>
 					</div>
-				{/each}
+				</div>
+				<div class="stat-card">
+					<MaterialIcon iconName="timeline" />
+					<div class="stat-content">
+						<span class="stat-value">{metrics.totalEvents}</span>
+						<span class="stat-label">Total Events</span>
+					</div>
+				</div>
+				<div class="stat-card">
+					<MaterialIcon iconName="schedule" />
+					<div class="stat-content">
+						<span class="stat-value">{new Date(stats.timestamp).toLocaleTimeString()}</span>
+						<span class="stat-label">Last Updated</span>
+					</div>
+				</div>
+				<div class="stat-card">
+					<MaterialIcon iconName="groups" />
+					<div class="stat-content">
+						<span class="stat-value">{stats.clientIds.length}</span>
+						<span class="stat-label">Active Clients</span>
+					</div>
+				</div>
 			</div>
 		</section>
-	{/if}
 
-	<!-- Event History -->
-	<section class="content-section">
-		<div class="section-header">
-			<MaterialIcon iconName="history" />
-			<h2>Event History</h2>
-			<span class="badge">{history.length}</span>
-		</div>
-
-		<div class="history-controls">
-			<div class="filter-group">
-				<select bind:value={historyFilter} aria-label="Filter by event type">
-					<option value="all">All Events</option>
-					{#each eventTypes() as type}
-						<option value={type}>{type}</option>
-					{/each}
-				</select>
+		<!-- Performance Metrics -->
+		<section class="content-section">
+			<div class="section-header">
+				<MaterialIcon iconName="analytics" />
+				<h2>Performance Metrics</h2>
 			</div>
-			<div class="search-group">
-				<MaterialIcon iconName="search" />
-				<input type="text" bind:value={historySearch} placeholder="Search events..." />
+			<div class="metrics-grid">
+				<div class="metric-card">
+					<div class="metric-icon">
+						<MaterialIcon iconName="speed" />
+					</div>
+					<div class="metric-content">
+						<span class="metric-value">{metrics.totalEvents}</span>
+						<span class="metric-label">Total Events</span>
+					</div>
+				</div>
+				<div class="metric-card">
+					<div class="metric-icon">
+						<MaterialIcon iconName="trending_up" />
+					</div>
+					<div class="metric-content">
+						<span class="metric-value">{metrics.connectedClients}</span>
+						<span class="metric-label">Active Connections</span>
+					</div>
+				</div>
+				<div class="metric-card">
+					<div class="metric-icon">
+						<MaterialIcon iconName="lightbulb" />
+					</div>
+					<div class="metric-content">
+						<span class="metric-value">{Object.keys(metrics.eventsByType).length}</span>
+						<span class="metric-label">Event Types</span>
+					</div>
+				</div>
+				<div class="metric-card">
+					<div class="metric-icon">
+						<MaterialIcon iconName="update" />
+					</div>
+					<div class="metric-content">
+						<span class="metric-value">{new Date(metrics.timestamp).toLocaleTimeString()}</span>
+						<span class="metric-label">Last Update</span>
+					</div>
+				</div>
 			</div>
-			<Button onclick={clearHistory} class="control-button">
-				<MaterialIcon iconName="delete_sweep" />
-				Clear History
-			</Button>
-		</div>
-
-		{#if filteredHistory().length === 0}
-			<div class="empty-state">
-				<MaterialIcon iconName="inbox" />
-				<p>No events found</p>
-			</div>
-		{:else}
-			<div class="history-list">
-				{#each filteredHistory() as event}
-					<details class="event-item">
-						<summary class="event-summary">
-							<div class="event-header">
-								<span class="event-type">{event.event}</span>
-								<span class="event-time">{formatTimestamp(event.timestamp)}</span>
+		</section>
+		{#if Object.keys(metrics.eventsByType || {}).length > 0}
+			<!-- Event Types Distribution -->
+			<section class="content-section">
+				<div class="section-header">
+					<MaterialIcon iconName="bar_chart" />
+					<h2>Event Types Distribution</h2>
+				</div>
+				<div class="event-types">
+					{#each Object.entries(metrics.eventsByType || {}) as [type, count]}
+						<div class="event-type-card">
+							<div class="event-type-info">
+								<span class="event-type-name">{type}</span>
+								<span class="event-type-count">{count} events</span>
 							</div>
-							<MaterialIcon iconName="arrow_drop_down" />
-						</summary>
-						<div class="event-details">
-							<div class="event-field">
-								<strong>Client ID:</strong>
-								<code>{event?.data?.clientId ?? "—"}</code>
-							</div>
-							<div class="event-field">
-								<strong>Data:</strong>
-								<pre>{formatJSON(event.data)}</pre>
+							<div class="event-type-bar">
+								<div class="event-type-fill" style="width: {getEventFillWidth(count)}%"></div>
 							</div>
 						</div>
-					</details>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			</section>
 		{/if}
-	</section>
-</div>
+
+		<!-- Event History -->
+		<section class="content-section">
+			<div class="section-header">
+				<MaterialIcon iconName="history" />
+				<h2>Event History</h2>
+				<span class="badge">{history.length}</span>
+			</div>
+
+			<div class="history-controls">
+				<div class="filter-group">
+					<select bind:value={historyFilter} aria-label="Filter by event type">
+						<option value="all">All Events</option>
+						{#each eventTypes() as type}
+							<option value={type}>{type}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="search-group">
+					<MaterialIcon iconName="search" />
+					<input type="text" bind:value={historySearch} placeholder="Search events..." />
+				</div>
+				<Button variant="mini" onclick={requestClearHistory} class="control-button">
+					<MaterialIcon iconName="delete_sweep" />
+					Clear History
+				</Button>
+			</div>
+
+			{#if filteredHistory().length === 0}
+				<div class="empty-state">
+					<MaterialIcon iconName="inbox" />
+					<p>No events found</p>
+				</div>
+			{:else}
+				<div class="history-list">
+					{#each filteredHistory() as event}
+						<details class="event-item">
+							<summary class="event-summary">
+								<div class="event-header">
+									<span class="event-type">{event.event}</span>
+									<span class="event-time">{formatTimestamp(event.timestamp)}</span>
+								</div>
+								<MaterialIcon iconName="arrow_drop_down" />
+							</summary>
+							<div class="event-details">
+								<div class="event-field">
+									<strong>Client ID:</strong>
+									<code>{event?.data?.clientId ?? "—"}</code>
+								</div>
+								<div class="event-field">
+									<strong>Data:</strong>
+									<pre>{formatJSON(event.data)}</pre>
+								</div>
+							</div>
+						</details>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
+</AdminRouteShell>
+
+{#if showClearConfirm && modal.show}
+	<ConfirmationModal
+		title="Clear Event History"
+		confirmText="Clear History"
+		onConfirm={handleClearConfirm}
+		onCancel={handleClearCancel}
+	>
+		<p>Are you sure you want to clear all event history? This action cannot be undone.</p>
+	</ConfirmationModal>
+{/if}
 
 <style lang="scss">
-	:global(.admin-page) {
-		padding: 2rem;
-		overflow-y: auto;
+	.admin-page-content {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
 	}
 
-	.page-header {
+	.header-actions {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 2rem;
-		gap: 1rem;
-		flex-wrap: wrap;
-
-		.header-left {
-			display: flex;
-			align-items: center;
-			gap: 1rem;
-		}
-
-		.back-link {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 40px;
-			height: 40px;
-			border-radius: 50%;
-			background: var(--imag-90);
-			color: var(--imag-text-color);
-			transition: all 0.2s;
-
-			&:hover {
-				background: var(--imag-80);
-			}
-		}
-
-		h1 {
-			margin: 0;
-			font-size: 1.75rem;
-			font-weight: 600;
-		}
-
-		.subtitle {
-			margin: 0.25rem 0 0 0;
-			color: var(--imag-40);
-			font-size: 0.95rem;
-		}
-
-		.header-actions {
-			display: flex;
-			gap: 0.75rem;
-		}
+		gap: 0.75rem;
 	}
 
 	.content-section {
 		background: var(--imag-100);
 		border-radius: 12px;
 		padding: 1.5rem;
-		margin-bottom: 1.5rem;
 		border: 1px solid var(--imag-90);
 	}
 

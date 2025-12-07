@@ -73,8 +73,8 @@
 						class="viz-toast-close"
 						title="Dismiss"
 						aria-label="Dismiss notification"
-						style="background-color: transparent; padding: 4px;"
-						hoverColor="var(--toast-border)"
+						style="padding: 0.1em;"
+						hoverColor="var(--imag-40-light)"
 						onclick={() => toastState.dismissToast(toast.id)}
 					>
 						<MaterialIcon iconName="close" style="font-size: 1.2em;" />
@@ -94,18 +94,19 @@
 	$warning: v.$imag-warning-color;
 
 	@mixin toast-btn-variant($color) {
-		background: color.mix($color, #fff, 30%);
+		background: color.mix($color, #fff, 50%);
 		border-color: color.mix($color, #fff, 40%);
+		
 		&:hover {
-			background: color.mix($color, #fff, 20%);
+			background: color.mix($color, #fff, 60%);
 		}
 	}
 
 	@mixin toast-variant($color) {
-		background-color: color.mix($color, #fff, 15%);
-		border-color: $color;
+		background-color: color.mix($color, #fff, 30%);
+		border-color: color.mix($color, #fff, 90%);
 		color: var(--imag-10-light);
-		--toast-border: #{$color};
+		--toast-border: color.mix($color, #fff, 90%);
 	}
 
 	#viz-toast-section {
@@ -129,8 +130,9 @@
 		padding: 0.75em 1em;
 		margin-top: 0.5em;
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		justify-content: space-between;
+		gap: 1rem;
 		box-shadow:
 			0 4px 6px rgba(0, 0, 0, 0.1),
 			0 2px 4px rgba(0, 0, 0, 0.06);
@@ -208,8 +210,8 @@
 		border: 1px solid rgba(255, 255, 255, 0.3);
 		color: inherit;
 		padding: 0.25em 0.6em;
-		border-radius: 4px;
-		font-size: 0.85em;
+		border-radius: 0.25rem;
+		font-size: 0.85rem;
 		cursor: pointer;
 		font-weight: 500;
 		transition: background-color 0.2s;
@@ -229,6 +231,11 @@
 
 	.viz-toast-action-btn:hover {
 		background: rgba(255, 255, 255, 0.3);
+	}
+
+	:global(.viz-toast-close) {
+		background-color: var(--imag-30-light);
+		outline: var(--imag-50-light) solid 1px;
 	}
 
 	.viz-toast-close-wrapper {
