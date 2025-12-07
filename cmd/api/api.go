@@ -209,7 +209,12 @@ func main() {
 			}
 			return appConfig.Database.Port
 		}(),
-		User:     appConfig.Database.User,
+		User: func() string {
+			if user := os.Getenv("DB_USER"); user != "" {
+				return user
+			}
+			return appConfig.Database.User
+		}(),
 		Password: appConfig.Database.Password,
 		AppName:  utils.AppName,
 		DatabaseName: func() string {
