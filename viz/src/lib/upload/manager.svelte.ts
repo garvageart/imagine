@@ -3,7 +3,7 @@ import type { SupportedImageTypes, SupportedRAWFiles } from "$lib/types/images";
 import { UploadImage, UploadState } from "./asset.svelte";
 
 export interface ImageUploadFileData {
-    filename: string;
+    file_name: string;
     data: File;
     checksum?: string;
 }
@@ -42,7 +42,7 @@ export default class UploadManager {
 
             // Create upload task
             const task = new UploadImage({
-                filename: file.name,
+                file_name: file.name,
                 data: file
             });
 
@@ -129,7 +129,7 @@ export default class UploadManager {
                             results[index] = result;
                         })
                         .catch((err) => {
-                            console.error(`Upload failed for ${task.data.filename}:`, err);
+                            console.error(`Upload failed for ${task.data.file_name}:`, err);
                             results[index] = undefined;
                         })
                         .finally(() => {

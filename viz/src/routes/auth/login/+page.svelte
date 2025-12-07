@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import { login } from "$lib/api/client";
+	import { login } from "$lib/api";
 	import Button from "$lib/components/Button.svelte";
 	import InputText from "$lib/components/dom/InputText.svelte";
 

@@ -2,7 +2,7 @@ import type { ImageObjectData } from "$lib/entities/image";
 import type CollectionData from "$lib/entities/collection";
 import type { AssetSort } from "$lib/types/asset";
 import type { UploadImage } from "$lib/upload/asset.svelte";
-import { type User } from "$lib/api/client";
+import { type User } from "$lib/api";
 import { VizLocalStorage, VizCookieStorage } from "$lib/utils/misc";
 
 // Types
@@ -84,20 +84,19 @@ export let debugMode = debugState.value;
 
 class SortState {
     private storage = new VizLocalStorage<AssetSort>("sort");
+    private defaults: AssetSort = {
+        display: "cover",
+        group: {
+            by: "year",
+            order: "asc",
+        },
+        by: "name",
+        order: "asc",
+    } as const;
 
     value: AssetSort = $state(
-        this.storage.get() ?? {
-            display: "cover",
-            group: {
-                by: "year",
-                order: "asc",
-            },
-            by: "name",
-            order: "asc",
-        }
+        this.storage.get() ?? this.defaults
     );
-
-    constructor() { }
 
     save() {
         this.storage.set(this.value);

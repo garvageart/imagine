@@ -1,4 +1,4 @@
-import type { Image, ImagesResponse, ImageMetadata, ImagePaths } from "$lib/api/client.gen";
+import type { Image, ImagesResponse, ImageMetadata, ImagePaths } from "$lib/api";
 
 export class ImageObjectData {
     uid: string;

@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import { listImages, type ImagesPage } from '$lib/api/client.gen';
+import { listImages, type ImagesPage } from '$lib/api';
 import { error } from "@sveltejs/kit";
 
 export const load: PageLoad = async ({ url }) => {

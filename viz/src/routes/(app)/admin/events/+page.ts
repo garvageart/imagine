@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 import { getWsStats, getWsMetrics, getEventsSince } from "$lib/api";
 import type { PageLoad } from "./$types";
-import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api/client.gen";
+import type { WsStatsResponse, WsMetricsResponse, EventRecord } from "$lib/api";
 
 interface PageLoadData {
     stats: WsStatsResponse;

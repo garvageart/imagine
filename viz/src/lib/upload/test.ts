@@ -6,22 +6,22 @@ export function setupDummyData() {
     onMount(() => {
         upload.files = [
             new UploadImage({
-                filename: "mountain_sunset_4k.jpg",
+                file_name: "mountain_sunset_4k.jpg",
                 checksum: "abc123def456",
                 data: new File([], "mountain_sunset_4k.jpg")
             }),
             new UploadImage({
-                filename: "beach_vacation_2024.png",
+                file_name: "beach_vacation_2024.png",
                 checksum: "ghi789jkl012",
                 data: new File([], "beach_vacation_2024.png")
             }),
             new UploadImage({
-                filename: "family_portrait_hires.jpg",
+                file_name: "family_portrait_hires.jpg",
                 checksum: "mno345pqr678",
                 data: new File([], "family_portrait_hires.jpg")
             }),
             new UploadImage({
-                filename: "city_lights_night_photography.jpg",
+                file_name: "city_lights_night_photography.jpg",
                 checksum: "stu901vwx234",
                 data: new File([], "city_lights_night_photography.jpg")
             })

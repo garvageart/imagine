@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { downloadImagesZipBlob } from '$lib/api/client';
+import { downloadImagesZipBlob } from '$lib/api';
 
 describe('API client integration (downloadImagesBlob)', () => {
     const origFetch = global.fetch;

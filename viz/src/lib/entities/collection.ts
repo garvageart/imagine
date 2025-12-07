@@ -1,4 +1,4 @@
-import type { Collection } from "$lib/api/client.gen";
+import type { Collection } from "$lib/api";
 import type { ImageObjectData } from "./image";
 
 class CollectionData {

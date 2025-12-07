@@ -1,5 +1,5 @@
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
-import { API_BASE_URL } from "$lib/api/client";
+import { API_BASE_URL } from "$lib/api";
 
 type RequestInitOptions = { fetch?: typeof fetch; } & RequestInit;
 

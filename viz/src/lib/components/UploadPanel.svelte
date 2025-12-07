@@ -117,7 +117,7 @@
 					<div class="panel-file-info-data_container">
 						<div class="panel-file-info-metadata">
 							<div style="display:flex; flex-direction:column; gap:4px;">
-								<span class="viz-upload-file-name">{file.data.filename}</span>
+								<span class="viz-upload-file-name">{file.data.file_name}</span>
 								{#if file.imageData}
 									<span style="font-size:0.7rem; color:var(--imag-warning);">Duplicate of {file.imageData.uid}</span>
 								{/if}

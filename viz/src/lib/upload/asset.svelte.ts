@@ -80,7 +80,7 @@ export class UploadImage implements UploadImageStats {
         } catch (error) {
             this.state = UploadState.ERROR;
             toastState.addToast({
-                message: `Error uploading ${this.data.filename}.`,
+                message: `Error uploading ${this.data.file_name}.`,
                 type: 'error',
                 dismissible: true,
                 timeout: 2000

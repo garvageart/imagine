@@ -21,7 +21,7 @@
 			registerReady(p);
 			p.finally(() => {
 				// warn if still using localhost fallback (client exports this helper)
-				import("$lib/api/client")
+				import("$lib/api")
 					.then((m) => {
 						try {
 							m.warnIfLocalhostFallback();

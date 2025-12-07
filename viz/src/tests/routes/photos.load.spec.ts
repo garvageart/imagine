@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 // mock listImages from generated client
 const mockImagesPage = { items: [{ image: { uid: 'i1', name: 'Img1' } }], count: 1, next: null, prev: null };
-vi.mock('$lib/api/client.gen', () => ({
+vi.mock('$lib/api', () => ({
     listImages: async ({ limit, page }: any) => ({ status: 200, data: mockImagesPage })
 }));
 

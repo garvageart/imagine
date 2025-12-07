@@ -1,4 +1,4 @@
-import { getUserSettings } from "$lib/api/client.gen";
+import { getUserSettings } from "$lib/api";
 import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 

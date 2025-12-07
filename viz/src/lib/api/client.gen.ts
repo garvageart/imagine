@@ -344,6 +344,28 @@ export type SettingOverride = {
     /** The user's chosen value for the setting. */
     value: string;
 };
+export type SystemStatsResponse = {
+    uptime_seconds: number;
+    num_goroutine: number;
+    /** Bytes of allocated heap objects */
+    alloc_memory: number;
+    /** Total bytes of memory obtained from the OS */
+    sys_memory: number;
+    /** Total size of files in the base directory */
+    storage_used_bytes: number;
+    storage_path: string;
+    /** Path to the base directory being measured */
+    total_system_space_bytes?: number;
+};
+export type DatabaseStatsResponse = {
+    user_count: number;
+    image_count: number;
+    collection_count: number;
+    /** Size of the database in bytes (Postgres only) */
+    db_size_bytes?: number;
+    /** Number of active connections (Postgres only) */
+    active_connections?: number;
+};
 export type CacheStatusResponse = {
     /** Current size of the cache in bytes */
     size: number;
@@ -355,6 +377,19 @@ export type CacheStatusResponse = {
     misses: number;
     /** Cache hit ratio */
     hit_ratio: number;
+};
+export type AdminUserCreate = {
+    name: string;
+    email: string;
+    password: string;
+    role?: "user" | "admin" | "superadmin" | "guest";
+};
+export type AdminUserUpdate = {
+    first_name?: string | null;
+    last_name?: string | null;
+    username?: string | null;
+    email?: string | null;
+    role?: ("user" | "admin" | "superadmin" | "guest") | null;
 };
 export type WorkerInfo = {
     /** Job topic/worker name (e.g., exif_process, image_process) */
@@ -1335,6 +1370,40 @@ export function adminHealthcheck(opts?: Oazapfts.RequestOpts) {
     });
 }
 /**
+ * Get system statistics (uptime, memory)
+ */
+export function getSystemStats(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: SystemStatsResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    }>("/admin/system/stats", {
+        ...opts
+    });
+}
+/**
+ * Get database statistics (counts)
+ */
+export function getDatabaseStats(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: DatabaseStatsResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    }>("/admin/db/stats", {
+        ...opts
+    });
+}
+/**
  * Get cache status
  */
 export function getCacheStatus(opts?: Oazapfts.RequestOpts) {
@@ -1371,6 +1440,106 @@ export function clearImageCache(opts?: Oazapfts.RequestOpts) {
         status: 500;
         data: ErrorResponse;
     }>("/admin/cache", {
+        ...opts,
+        method: "DELETE"
+    });
+}
+/**
+ * List all users
+ */
+export function listUsers(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: User[];
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/admin/users", {
+        ...opts
+    });
+}
+/**
+ * Create a new user (admin)
+ */
+export function adminCreateUser(adminUserCreate: AdminUserCreate, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 201;
+        data: User;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 409;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/admin/users", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: adminUserCreate
+    }));
+}
+/**
+ * Update user details (admin)
+ */
+export function adminUpdateUser(uid: string, adminUserUpdate: AdminUserUpdate, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: User;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/admin/users/${encodeURIComponent(uid)}`, oazapfts.json({
+        ...opts,
+        method: "PATCH",
+        body: adminUserUpdate
+    }));
+}
+/**
+ * Delete user (admin)
+ */
+export function adminDeleteUser(uid: string, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: MessageResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/admin/users/${encodeURIComponent(uid)}`, {
         ...opts,
         method: "DELETE"
     });

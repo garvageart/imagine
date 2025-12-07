@@ -1,6 +1,5 @@
 // WebSocket Events API helpers
-import { API_BASE_URL, defaults } from "./client";
-import { getWsStats as genGetWsStats, getEventHistory as genGetEventHistory, getEventsSince as genGetEventsSince } from "$lib/api/client.gen";
+import { getWsStats as genGetWsStats, getEventHistory as genGetEventHistory, getEventsSince as genGetEventsSince, API_BASE_URL } from ".";
 
 /**
  * WebSocket message structure from server
@@ -23,7 +22,7 @@ export interface WSConnectionOptions {
     /** Callback when connection opens */
     onOpen?: () => void;
     /** Callback when connection closes */
-    onClose?: () => void;
+    onClose?: (code: number, reason: string) => void;
     /** Auto-reconnect on close (default: true) */
     autoReconnect?: boolean;
     /** Reconnect delay in ms (default: 1000) */
@@ -129,9 +128,9 @@ export class WSClient {
                 this.options.onError(error);
             };
 
-            this.ws.onclose = () => {
-                console.debug('[WebSocket] Closed');
-                this.options.onClose();
+            this.ws.onclose = (event: CloseEvent) => {
+                console.debug('[WebSocket] Closed', event.code, event.reason);
+                this.options.onClose(event.code, event.reason);
 
                 if (this.options.autoReconnect && !this.isClosed) {
                     this.scheduleReconnect();
@@ -224,7 +223,7 @@ export function createWSConnection(
         onEvent,
         onError,
         onOpen,
-        onClose: onClose ? () => onClose(1000, 'Connection closed') : undefined
+        onClose: onClose ? (code, reason) => onClose(code, reason) : undefined
     });
 }
 
