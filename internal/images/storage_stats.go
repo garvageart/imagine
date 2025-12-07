@@ -81,6 +81,6 @@ func calculate(logger *slog.Logger, holder *StorageStatsHolder) {
 	logger.Debug("storage stats updated",
 	 slog.Int64("size_bytes", size),
 	 slog.Duration("time_taken", time.Since(start)),
-	 slog.String("time_taken_seconds", fmt.Sprintf("%.2fs", time.Since(start).Seconds)),
+	 slog.String("time_taken_seconds", fmt.Sprintf("%.2fs", time.Since(start).Seconds())),
 	)
 }
