@@ -11,7 +11,7 @@
 		panelViews: VizView[];
 		activeView: VizView;
 		subPanelContentFocused: boolean;
-		tabDropper: TabOps | undefined;
+		tabDropper: TabOps;
 		onFocus: () => void;
 		componentToRender?: Component<any>;
 	}
@@ -67,10 +67,7 @@
 	});
 
 	function subPanelDrop(node: HTMLElement, data: any) {
-		if (tabDropper) {
-			return tabDropper.subPanelDropInside(node, data);
-		}
-		return { destroy: () => {} };
+		return tabDropper.subPanelDropInside(node, data);
 	}
 </script>
 
