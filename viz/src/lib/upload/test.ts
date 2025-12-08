@@ -2,7 +2,7 @@ import { upload } from "$lib/states/index.svelte";
 import { onMount } from "svelte";
 import { UploadImage, UploadState } from "./asset.svelte";
 
-export function setupDummyData() {
+export function setupDummyUploads() {
     onMount(() => {
         upload.files = [
             new UploadImage({
@@ -21,7 +21,7 @@ export function setupDummyData() {
                 data: new File([], "family_portrait_hires.jpg")
             }),
             new UploadImage({
-                file_name: "city_lights_night_photography.jpg",
+                file_name: "city_lights_night_photography_extremely_long_name_ohmg.jpg",
                 checksum: "stu901vwx234",
                 data: new File([], "city_lights_night_photography.jpg")
             })
