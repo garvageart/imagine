@@ -2,6 +2,7 @@
 	import { upload } from "$lib/states/index.svelte";
 	import { fade, scale } from "svelte/transition";
 	import { UploadState } from "$lib/upload/asset.svelte";
+	import { processGlobalQueue } from "$lib/upload/manager.svelte";
 	import Button from "./Button.svelte";
 	import MaterialIcon from "./MaterialIcon.svelte";
 
@@ -17,10 +18,13 @@
 	};
 
 	const prefersReducedMotion = () =>
-		typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		typeof window !== "undefined" &&
+		window.matchMedia &&
+		window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 	$effect(() => {
 		upload.concurrency = Math.min(Math.max(upload.concurrency || 1, 1), 10);
+		processGlobalQueue();
 	});
 
 	$effect(() => {
@@ -39,11 +43,16 @@
 
 		if (completed > prevCompletedCount && isUserNearBottom(listEl)) {
 			try {
-				const rows = Array.from(listEl.querySelectorAll(".panel-file-info")) as HTMLElement[];
+				const rows = Array.from(
+					listEl.querySelectorAll(".panel-file-info")
+				) as HTMLElement[];
 				if (rows.length) {
 					const lastRow = rows[rows.length - 1];
 					const behavior = prefersReducedMotion() ? "auto" : "smooth";
-					lastRow.scrollIntoView({ behavior: behavior as ScrollBehavior, block: "nearest" });
+					lastRow.scrollIntoView({
+						behavior: behavior as ScrollBehavior,
+						block: "nearest"
+					});
 				}
 			} catch (e) {
 				// silently ignore DOM issues
@@ -55,7 +64,11 @@
 </script>
 
 {#if minimized}
-	<div id="viz-upload-panel-minimized" in:scale={{ duration: 250 }} out:fade={{ duration: 250 }}>
+	<div
+		id="viz-upload-panel-minimized"
+		in:scale={{ duration: 250 }}
+		out:scale={{ duration: 250 }}
+	>
 		<Button
 			id="viz-upload-panel-minimized-button"
 			onclick={() => {
@@ -66,11 +79,15 @@
 			hoverColor="var(--imag-primary)"
 		>
 			<MaterialIcon iconName="upload" style="font-size: 1.5rem;" />
-			<span>{upload.files.length} uploading file{upload.files.length === 1 ? "" : "s"}</span>
+			<span
+				>{upload.files.length} uploading file{upload.files.length === 1
+					? ""
+					: "s"}</span
+			>
 		</Button>
 	</div>
 {:else}
-	<div transition:scale={{ delay: minimized ? 0 : 3000, duration: 250 }} id="viz-upload-panel">
+	<div transition:scale={{ duration: 250 }} id="viz-upload-panel">
 		<div id="viz-upload-panel-header">
 			<div id="upload-panel-header-info">
 				<Button
@@ -83,7 +100,11 @@
 				>
 					<MaterialIcon iconName="arrow_downward_alt" />
 				</Button>
-				<p>Uploading {upload.files.length} file{upload.files.length === 1 ? "" : "s"}</p>
+				<p>
+					Uploading {upload.files.length} file{upload.files.length === 1
+						? ""
+						: "s"}
+				</p>
 			</div>
 			<div class="concurrency-control">
 				<label for="concurrency-input" title="Maximum simultaneous uploads">
@@ -116,19 +137,19 @@
 					{/if}
 					<div class="panel-file-info-data_container">
 						<div class="panel-file-info-metadata">
-							<div style="display:flex; flex-direction:column; gap:4px;">
+							<div class="panel-file">
 								<span class="viz-upload-file-name">{file.data.file_name}</span>
-								{#if file.imageData}
-									<span style="font-size:0.7rem; color:var(--imag-warning);">Duplicate of {file.imageData.uid}</span>
-								{/if}
 							</div>
-							<span class="viz-upload-progress-text">{Math.round(file.progress)}%</span>
+							<span class="viz-upload-progress-text"
+								>{Math.round(file.progress)}%</span
+							>
 						</div>
 						<div class="panel-file-info-progress-container">
 							<span
 								class="panel-file-info-progress"
 								class:complete={file.state === UploadState.DONE}
-								class:error={file.state === UploadState.ERROR || file.state === UploadState.CANCELED}
+								class:error={file.state === UploadState.ERROR ||
+									file.state === UploadState.CANCELED}
 								class:duplicate={file.state === UploadState.DUPLICATE}
 								style="width: {file.progress}%;"
 							>
@@ -143,7 +164,7 @@
 
 <style lang="scss">
 	#viz-upload-panel {
-		min-width: 25%;
+		width: 30%;
 		max-width: 30%;
 		display: flex;
 		flex-direction: column;
@@ -221,7 +242,6 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
-		overflow-y: auto;
 		font-family: var(--imag-code-font);
 	}
 
@@ -240,11 +260,21 @@
 		}
 	}
 
+	.panel-file {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0; /* Allow shrinking for text truncation */
+		overflow: hidden;
+		flex: 1;
+	}
+
 	.panel-file-info-data_container {
 		display: flex;
 		flex-direction: column;
 		margin-left: 0.5rem;
 		width: 100%;
+		min-width: 0; /* Critical for nested flex text truncation */
 	}
 
 	.panel-file-info:last-child {
@@ -259,15 +289,15 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: 0.5rem; /* Add gap between file name and progress */
 	}
 
 	.viz-upload-file-name {
-		flex: 1;
-		width: 95%;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-weight: 500;
+		display: block; /* Changed from inline-block */
 	}
 
 	.viz-upload-progress-text {
