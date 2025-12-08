@@ -175,7 +175,7 @@ class TabOps {
         }
 
         const tabKeyId = node.getAttribute("data-tab-id")!;
-        const nodeParentId = node.parentElement?.getAttribute("data-viz-sp-id");
+        const nodeParentId = node.closest("[data-viz-sp-id]")?.getAttribute("data-viz-sp-id");
         const nodeIsPanelHeader = node.classList.contains("viz-sub_panel-header");
         const nodeIsTab = node.classList.contains("viz-tab-button") && node.hasAttribute("data-tab-id");
         const panelContainsTab = this.panelViews.some((view) => view.id === state.view.id);
@@ -363,7 +363,7 @@ class TabOps {
                     0,
                     newSubPanel
                 );
-
+                normalizePanelSizes(layoutState.tree);
                 break;
             case "right":
                 const newSubPanelRight = new VizSubPanelData({
@@ -385,9 +385,11 @@ class TabOps {
                 break;
             case "top":
                 layoutState.tree.find((panel) => panel.paneKeyId === dstParentKeyId)?.childs.content.splice(0, 0, new Content({ views: [state.view] }));
+                normalizeContentSizes(layoutState.tree);
                 break;
             case "bottom":
                 layoutState.tree.find((panel) => panel.paneKeyId === dstParentKeyId)?.childs.content.push(new Content({ views: [state.view] }));
+                normalizeContentSizes(layoutState.tree);
                 break;
             default:
                 console.error("Viz: Invalid drop position", dropZone.dropPosition);

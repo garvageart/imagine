@@ -11,6 +11,7 @@
 	let listEl: HTMLDivElement | null = $state(null);
 
 	let prevCompletedCount = $state(0);
+	let initialUploadArray = upload.files;
 
 	const isUserNearBottom = (el: HTMLDivElement) => {
 		const threshold = 150; // px

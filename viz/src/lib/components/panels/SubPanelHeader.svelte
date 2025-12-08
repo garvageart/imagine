@@ -13,13 +13,14 @@
 		buildTabContextMenu
 	} from "./subpanel-context";
 	import type { TabHandlers } from "./subpanel-context";
+	import { layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
 
 	interface Props {
 		keyId: string;
 		panelViews: VizView[];
 		activeView: VizView;
 		isPanelLocked: boolean;
-		tabDropper: TabOps | undefined;
+		tabDropper: TabOps;
 		dev: boolean;
 		onViewActive: (view: VizView) => void;
 		onTogglePanelLock: () => void;
@@ -28,9 +29,9 @@
 
 	let {
 		keyId,
-		panelViews,
-		activeView,
-		isPanelLocked,
+		panelViews = $bindable(),
+		activeView = $bindable(),
+		isPanelLocked = $bindable(false),
 		tabDropper,
 		dev: isDevMode,
 		onViewActive,
@@ -114,22 +115,17 @@
 		window.addEventListener("mouseup", onMouseUp);
 	}
 
-	// Action wrappers to handle undefined tabDropper safely
-	function safeTabDrop(node: HTMLElement) {
-		if (tabDropper) {
-			return tabDropper.tabDrop(node);
-		}
-		return { destroy: () => {} };
-	}
-
-	function safeTabDraggable(node: HTMLElement, data: TabData) {
-		if (isPanelLocked || (data && data.view && data.view.locked)) {
+	function tabDragable(node: HTMLElement, data: TabData) {
+		// Prevent tab dragging when panel is locked, layout is globally locked, or when the specific tab is locked
+		if (isPanelLocked || layoutTree.locked || data.view.locked) {
 			return { destroy: () => {} };
 		}
-		if (tabDropper) {
-			return tabDropper.draggable(node, data);
-		}
-		return { destroy: () => {} };
+
+		return tabDropper.draggable(node, data);
+	}
+
+	function tabDrop(node: HTMLElement) {
+		return tabDropper.tabDrop(node);
 	}
 
 	function handleWheelScroll(event: WheelEvent) {
@@ -165,11 +161,11 @@
 	}
 
 	function handleDragOver(event: DragEvent) {
-		if (tabDropper) {
-			tabDropper.onDropOver(event);
-		}
+		tabDropper.onDropOver(event);
 
-		if (!headerElement) return;
+		if (!headerElement) {
+			return;
+		}
 
 		const rect = headerElement.getBoundingClientRect();
 		const clientX = event.clientX;
@@ -188,6 +184,7 @@
 	}
 
 	function handleDrop(event: DragEvent) {
+		tabDropper.onDropOver(event);
 		stopDragScroll();
 	}
 
@@ -277,7 +274,7 @@
 		class="viz-sub_panel-tabs"
 		role="tablist"
 		tabindex="0"
-		use:safeTabDrop
+		use:tabDrop
 		onwheel={handleWheelScroll}
 		onkeydown={handleKeyDown}
 		ondragover={handleDragOver}
@@ -299,7 +296,10 @@
 					aria-label={view.name}
 					onclick={() => onViewActive(view)}
 					oncontextmenu={(e) => triggerTabContextMenu(e, view)}
-					use:safeTabDraggable={data}
+					use:tabDragable={data}
+					use:tabDrop
+					ondragover={(e) => handleDragOver(e)}
+					ondrop={(e) => handleDrop(e)}
 					aria-selected={activeView?.id === view.id ? "true" : "false"}
 					tabindex={activeView?.id === view.id ? 0 : -1}
 				>
