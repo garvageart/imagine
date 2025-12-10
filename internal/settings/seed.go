@@ -3,6 +3,7 @@ package settings
 // This whole thing is a little bit fragile and might change a bit more.
 // I don't like how everything is a string that has to be inferred lmao
 // Surely there's a better way to do this?
+// UPDATE lol: Functions that do generations but now we must create tests for this stuff
 
 // I guess this is just the first pass of implementing the default/overide pattern
 // https://web.archive.org/web/20250706041703/https://double.finance/blog/default_override
@@ -21,6 +22,7 @@ import (
 var defaultSettings = []entities.SettingDefault{
 	EnumSetting(
 		"theme",
+		nil,
 		"System",
 		[]string{"Light", "Dark", "System"},
 		true,
@@ -29,6 +31,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	StringSetting(
 		"language",
+		nil,
 		"en-GB",
 		true,
 		"General",
@@ -36,6 +39,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"timezone",
+		nil,
 		"Africa/Johannesburg",
 		imaTime.Timezones,
 		true,
@@ -44,6 +48,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	BoolSetting(
 		"notifications_email",
+		nil,
 		true,
 		true,
 		"Notifications",
@@ -51,6 +56,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	BoolSetting(
 		"notifications_push",
+		nil,
 		false,
 		true,
 		"Notifications",
@@ -58,6 +64,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"privacy_profile_visibility",
+		nil,
 		"Private",
 		[]string{"Public", "Private"},
 		true,
@@ -66,6 +73,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	IntSetting(
 		"ui_page_size_images",
+		nil,
 		100,
 		[]int{50, 100, 250, 500},
 		true,
@@ -74,6 +82,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	IntSetting(
 		"ui_page_size_collections",
+		nil,
 		20,
 		[]int{20, 50, 100},
 		true,
@@ -82,6 +91,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"ui_default_view_mode",
+		nil,
 		"Grid",
 		[]string{"Grid", "List", "Cards"},
 		true,
@@ -90,6 +100,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	IntSetting(
 		"image_download_quality",
+		nil,
 		90,
 		nil,
 		true,
@@ -98,6 +109,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"image_download_format",
+		nil,
 		"original",
 		[]string{"original", "jpg", "png", "webp", "avif"},
 		true,
@@ -106,6 +118,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"image_preview_format",
+		nil,
 		"webp",
 		[]string{"webp", "avif", "jpg", "png"},
 		true,
@@ -114,6 +127,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	EnumSetting(
 		"image_resize_kernel",
+		nil,
 		"lanczos3",
 		[]string{"nearest", "linear", "cubic", "mitchell", "lanczos2", "lanczos3", "mks2013", "mks2021"},
 		true,
@@ -122,6 +136,7 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	BoolSetting(
 		"privacy_download_strip_metadata",
+		nil,
 		false,
 		true,
 		"Privacy",
@@ -129,10 +144,27 @@ var defaultSettings = []entities.SettingDefault{
 	),
 	JsonSetting(
 		"image_visible_metadata",
+		nil,
 		[]string{"date", "camera", "iso", "aperture"},
 		true,
 		"Images",
 		"A JSON array of EXIF/image metadata fields to display in image detail views.",
+	),
+	BoolSetting(
+		"first_run_complete",
+		nil,
+		false,
+		false,
+		"System",
+		"Internal flag indicating if the initial superadmin setup has been completed.",
+	),
+	BoolSetting(
+		"onboarding_complete",
+		nil,
+		false,
+		false,
+		"User",
+		"Internal flag indicating if a user has completed their personal onboarding flow.",
 	),
 }
 

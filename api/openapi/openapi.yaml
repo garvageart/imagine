@@ -63,6 +63,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (User Registration disabled, only admin's may register users)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /auth/apikey:
     get:
@@ -447,6 +453,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /accounts/me/onboard:
+    put:
+      summary: Onboard current authenticated user
+      operationId: doUserOnboarding
+      security:
+        - BearerAuth: [user-onboard:update]
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserOnboardingBody"
+      responses:
+        "200":
+          description: User onboarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad request (e.g., validation error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found (implies authentication issue)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /accounts/me/password:
     put:
       summary: Update user password
@@ -698,6 +743,46 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Setting not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      summary: Update multiple user settings (batch override)
+      description: Creates or updates overrides for multiple user-specific settings.
+      operationId: updateUserSettingsBatch
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserSettingUpdateRequest"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSetting"
+        "400":
+          description: Bad request (invalid value or not editable for any setting)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -1621,6 +1706,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /system/config:
+    get:
+      summary: Get system configuration
+      operationId: getSystemConfig
+      security:
+        - BearerAuth: [admin:read]
+        - CookieAuth: []
+      responses:
+        "200":
+          description: System configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImagineConfig"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/system/stats:
     get:
       summary: Get system statistics (uptime, memory)
@@ -1893,6 +2005,17 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+                  description: If true, permanently deletes the user and all associated data (sessions, settings).
       responses:
         "200":
           description: User deleted
@@ -2373,22 +2496,58 @@ paths:
             schema:
               $ref: "#/components/schemas/WSBroadcastRequest"
       responses:
-        "200":
-          description: Event sent
+        "500":
+          description: Server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                  clientId:
-                    type: string
-                required: [success, message, clientId]
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /system/status: # <-- NEW PATH
+    get:
+      summary: Get system and user onboarding status
+      operationId: getSystemStatus
+      security: [] # Public endpoint, no auth required to check initial status
+      responses:
+        "200":
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatusResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /setup/superadmin: # <-- NEW PATH
+    post:
+      summary: Initialize application with first superadmin user
+      operationId: setupSuperadmin
+      security: [] # Public endpoint, no auth required for initial setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuperadminSetupRequest"
+      responses:
+        "201":
+          description: Superadmin user created and setup complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperadminSetupResponse"
         "400":
-          description: Bad request
+          description: Bad request (e.g., validation error, already initialized)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (system already initialized)
           content:
             application/json:
               schema:
@@ -2808,6 +2967,9 @@ components:
         name:
           type: string
           description: Unique name for the setting (primary key).
+        display_name:
+          type: string
+          description: A readable and UI-friendly name for the setting (not required but highly recommended).
         value:
           type: string
           description: The default value everyone gets.
@@ -3095,6 +3257,7 @@ components:
           type: array
           items: { type: string }
         color_space: { type: string }
+        has_icc_profile: { type: boolean }
         file_modified_at: { type: string, format: date-time }
         file_created_at: { type: string, format: date-time }
         thumbhash: { type: string }
@@ -3117,6 +3280,8 @@ components:
         uid: { type: string }
         name: { type: string }
         uploaded_by:
+          $ref: "#/components/schemas/User"
+        owner:
           $ref: "#/components/schemas/User"
         description: { type: string }
         exif:
@@ -3168,6 +3333,8 @@ components:
           items:
             $ref: "#/components/schemas/CollectionImage"
         created_by:
+          $ref: "#/components/schemas/User"
+        owner:
           $ref: "#/components/schemas/User"
         description: { type: string }
         thumbnail:
@@ -3244,6 +3411,8 @@ components:
         images:
           $ref: "#/components/schemas/ImagesPage"
         created_by:
+          $ref: "#/components/schemas/User"
+        owner:
           $ref: "#/components/schemas/User"
         description: { type: string }
         thumbnail:
@@ -3426,11 +3595,102 @@ components:
           type: integer
       required: [items, count]
 
+    SystemStatusResponse:
+      type: object
+      properties:
+        initialized:
+          type: boolean
+          description: True if the system has been initialized (at least one user exists or first_run_complete is true).
+        user_onboarding_required:
+          type: boolean
+          description: True if the authenticated user needs to complete onboarding.
+        needs_superadmin:
+          type: boolean
+          description: True if the system requires initial superadmin setup.
+        allow_manual_registration:
+          type: boolean
+          description: True if user registration is enabled, let's users register accounts themselves
+      required:
+        - initialized
+        - user_onboarding_required
+        - needs_superadmin
+        - allow_manual_registration
+
+    SuperadminSetupRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+      required:
+        - username
+        - email
+        - password
+    SuperadminSetupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+        sessionToken:
+          type: string
+          description: Session token for the newly created superadmin
+      required:
+        - message
+        - user
+        - sessionToken
+
+    UserSettingUpdateRequest:
+      type: object
+      properties:
+        settings:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+            required:
+              - name
+              - value
+      required:
+        - settings
+
+    UserOnboardingBody:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        settings:
+          type: object
+          description: User-specific setting overrides.
+          additionalProperties:
+            type: string
+      required: [first_name, last_name, settings]
+
     ImageUpdate:
       type: object
       properties:
         name:
           type: string
+        owner_uid:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -3453,3 +3713,117 @@ components:
               type: array
               items:
                 type: string
+
+    ImagineConfig:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+        logging:
+          $ref: "#/components/schemas/LoggingConfig"
+        base_directory:
+          type: string
+        upload:
+          $ref: "#/components/schemas/UploadConfig"
+        database:
+          $ref: "#/components/schemas/DatabaseConfig"
+        redis:
+          $ref: "#/components/schemas/QueueConfig"
+        libvips:
+          $ref: "#/components/schemas/LibvipsConfig"
+        cache:
+          $ref: "#/components/schemas/CacheConfig"
+        user_management:
+          $ref: "#/components/schemas/UserManagementConfig"
+        storage_metrics:
+          $ref: "#/components/schemas/StorageMetricsConfig"
+
+    LoggingConfig:
+      type: object
+      properties:
+        level:
+          type: string
+
+    UploadConfig:
+      type: object
+      properties:
+        location:
+          type: string
+
+    DatabaseConfig:
+      type: object
+      properties:
+        location:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+          description: "Masked password"
+        name:
+          type: string
+        port:
+          type: integer
+
+    QueueConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+          description: "Masked password"
+        db:
+          type: integer
+        use_tls:
+          type: boolean
+        pool_size:
+          type: integer
+        dial_timeout_seconds:
+          type: integer
+        read_timeout_seconds:
+          type: integer
+        write_timeout_seconds:
+          type: integer
+
+    LibvipsConfig:
+      type: object
+      properties:
+        match_system_logging:
+          type: boolean
+        cache_max_memory_mb:
+          type: integer
+        cache_max_files:
+          type: integer
+        cache_max_operations:
+          type: integer
+        concurrency:
+          type: integer
+        vector_enabled:
+          type: boolean
+
+    CacheConfig:
+      type: object
+      properties:
+        gc_enabled:
+          type: boolean
+
+    UserManagementConfig:
+      type: object
+      properties:
+        allow_manual_registration:
+          type: boolean
+
+    StorageMetricsConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        interval_seconds:
+          type: integer

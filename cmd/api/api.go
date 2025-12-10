@@ -80,6 +80,8 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 		// Public routes (no auth required)
 		r.Mount("/auth", routes.AuthRouter(dbClient, logger))
 		r.Mount("/accounts", routes.AccountsRouter(dbClient, logger)) // auth middleware added internally
+		r.Mount("/system", routes.SystemRouter(dbClient, logger))
+		r.Mount("/setup", routes.SetupRouter(dbClient, logger))   // superadmin setup
 		r.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 			jsonResponse := map[string]any{"message": "pong"}
 			render.JSON(res, req, jsonResponse)
@@ -87,7 +89,7 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 
 		// Protected routes (auth required)
 		r.Group(func(r chi.Router) {
-			r.Use(libhttp.AuthMiddleware(server.Database.Client, logger))
+			r.Use(libhttp.AuthMiddleware(dbClient, logger))
 			r.Group(func(r chi.Router) {
 				r.Use(libhttp.ScopeMiddleware([]auth.Scope{auth.EventsReadScope}))
 				r.Mount("/events", routes.EventsRouter(dbClient, logger, server.WSBroker))
@@ -144,7 +146,7 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 		frontendPath = "../../build/viz" // Default for dev/local
 	}
 
-	frontendHandler := routes.NewFrontendHandler(frontendPath, logger)
+	frontendHandler := routes.NewFrontendHandler(frontendPath, logger, dbClient)
 	router.NotFound(frontendHandler.ServeHTTP)
 
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
@@ -175,10 +177,12 @@ func main() {
 	}
 
 	var appConfig config.ImagineConfig
-	if err := v.Unmarshal(&appConfig); err != nil {
+	if err := v.Unmarshal(&config.AppConfig); err != nil {
 		errorMsg := fmt.Sprintf("failed to unmarshal config: %v", err)
 		panic(errorMsg)
 	}
+
+	appConfig = config.AppConfig
 
 	// setup logging stuff
 	logLevel := imalog.GetLevelFromString(appConfig.Logging.Level)

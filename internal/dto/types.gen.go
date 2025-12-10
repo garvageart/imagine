@@ -154,6 +154,11 @@ type AdminUserUpdate struct {
 // AdminUserUpdateRole defines model for AdminUserUpdate.Role.
 type AdminUserUpdateRole string
 
+// CacheConfig defines model for CacheConfig.
+type CacheConfig struct {
+	GcEnabled *bool `json:"gc_enabled,omitempty"`
+}
+
 // CacheStatusResponse defines model for CacheStatusResponse.
 type CacheStatusResponse struct {
 	// HitRatio Cache hit ratio
@@ -180,6 +185,7 @@ type Collection struct {
 	ImageCount  int                `json:"image_count"`
 	Images      *[]CollectionImage `json:"images,omitempty"`
 	Name        string             `json:"name"`
+	Owner       *User              `json:"owner,omitempty"`
 	Private     *bool              `json:"private"`
 	Thumbnail   *Image             `json:"thumbnail,omitempty"`
 	Uid         string             `json:"uid"`
@@ -201,6 +207,7 @@ type CollectionDetailResponse struct {
 	ImageCount  *int       `json:"image_count,omitempty"`
 	Images      ImagesPage `json:"images"`
 	Name        string     `json:"name"`
+	Owner       *User      `json:"owner,omitempty"`
 	Private     *bool      `json:"private"`
 	Thumbnail   *Image     `json:"thumbnail,omitempty"`
 	Uid         string     `json:"uid"`
@@ -232,6 +239,17 @@ type CollectionUpdate struct {
 	OwnerUID     *string `json:"ownerUID,omitempty"`
 	Private      *bool   `json:"private,omitempty"`
 	ThumbnailUID *string `json:"thumbnailUID,omitempty"`
+}
+
+// DatabaseConfig defines model for DatabaseConfig.
+type DatabaseConfig struct {
+	Location *string `json:"location,omitempty"`
+	Name     *string `json:"name,omitempty"`
+
+	// Password Masked password
+	Password *string `json:"password,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	User     *string `json:"user,omitempty"`
 }
 
 // DatabaseStatsResponse defines model for DatabaseStatsResponse.
@@ -327,6 +345,7 @@ type Image struct {
 	ImageMetadata *ImageMetadata `json:"image_metadata,omitempty"`
 	ImagePaths    ImagePaths     `json:"image_paths"`
 	Name          string         `json:"name"`
+	Owner         *User          `json:"owner,omitempty"`
 	Private       bool           `json:"private"`
 	Processed     bool           `json:"processed"`
 	TakenAt       *time.Time     `json:"taken_at"`
@@ -370,6 +389,7 @@ type ImageMetadata struct {
 	FileName         string    `json:"file_name"`
 	FileSize         *int64    `json:"file_size,omitempty"`
 	FileType         string    `json:"file_type"`
+	HasIccProfile    *bool     `json:"has_icc_profile,omitempty"`
 	Keywords         *[]string `json:"keywords,omitempty"`
 	Label            *string   `json:"label,omitempty"`
 	Metadata         *string   `json:"metadata,omitempty"`
@@ -397,8 +417,9 @@ type ImageUpdate struct {
 		Label    *string   `json:"label"`
 		Rating   *int      `json:"rating"`
 	} `json:"image_metadata,omitempty"`
-	Name    *string `json:"name,omitempty"`
-	Private *bool   `json:"private,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	OwnerUid *string `json:"owner_uid"`
+	Private  *bool   `json:"private,omitempty"`
 }
 
 // ImageUploadRequest defines model for ImageUploadRequest.
@@ -432,6 +453,35 @@ type ImagesResponse struct {
 	Image   Image     `json:"image"`
 }
 
+// ImagineConfig defines model for ImagineConfig.
+type ImagineConfig struct {
+	BaseUrl        *string               `json:"baseUrl,omitempty"`
+	BaseDirectory  *string               `json:"base_directory,omitempty"`
+	Cache          *CacheConfig          `json:"cache,omitempty"`
+	Database       *DatabaseConfig       `json:"database,omitempty"`
+	Libvips        *LibvipsConfig        `json:"libvips,omitempty"`
+	Logging        *LoggingConfig        `json:"logging,omitempty"`
+	Redis          *QueueConfig          `json:"redis,omitempty"`
+	StorageMetrics *StorageMetricsConfig `json:"storage_metrics,omitempty"`
+	Upload         *UploadConfig         `json:"upload,omitempty"`
+	UserManagement *UserManagementConfig `json:"user_management,omitempty"`
+}
+
+// LibvipsConfig defines model for LibvipsConfig.
+type LibvipsConfig struct {
+	CacheMaxFiles      *int  `json:"cache_max_files,omitempty"`
+	CacheMaxMemoryMb   *int  `json:"cache_max_memory_mb,omitempty"`
+	CacheMaxOperations *int  `json:"cache_max_operations,omitempty"`
+	Concurrency        *int  `json:"concurrency,omitempty"`
+	MatchSystemLogging *bool `json:"match_system_logging,omitempty"`
+	VectorEnabled      *bool `json:"vector_enabled,omitempty"`
+}
+
+// LoggingConfig defines model for LoggingConfig.
+type LoggingConfig struct {
+	Level *string `json:"level,omitempty"`
+}
+
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
 	Message string `json:"message"`
@@ -442,6 +492,23 @@ type OAuthUserData struct {
 	Email   openapi_types.Email `json:"email"`
 	Name    string              `json:"name"`
 	Picture string              `json:"picture"`
+}
+
+// QueueConfig defines model for QueueConfig.
+type QueueConfig struct {
+	Db                 *int    `json:"db,omitempty"`
+	DialTimeoutSeconds *int    `json:"dial_timeout_seconds,omitempty"`
+	Enabled            *bool   `json:"enabled,omitempty"`
+	Host               *string `json:"host,omitempty"`
+
+	// Password Masked password
+	Password            *string `json:"password,omitempty"`
+	PoolSize            *int    `json:"pool_size,omitempty"`
+	Port                *int    `json:"port,omitempty"`
+	ReadTimeoutSeconds  *int    `json:"read_timeout_seconds,omitempty"`
+	UseTls              *bool   `json:"use_tls,omitempty"`
+	Username            *string `json:"username,omitempty"`
+	WriteTimeoutSeconds *int    `json:"write_timeout_seconds,omitempty"`
 }
 
 // Session defines model for Session.
@@ -478,6 +545,9 @@ type SettingDefault struct {
 
 	// Description Description for UI
 	Description string `json:"description"`
+
+	// DisplayName A readable and UI-friendly name for the setting (not required but highly recommended).
+	DisplayName *string `json:"display_name,omitempty"`
 
 	// Group Category/group for the setting (e.g., General, Notifications).
 	Group string `json:"group"`
@@ -534,6 +604,30 @@ type SignDownloadRequest struct {
 	Uids *[]string `json:"uids,omitempty"`
 }
 
+// StorageMetricsConfig defines model for StorageMetricsConfig.
+type StorageMetricsConfig struct {
+	Enabled         *bool `json:"enabled,omitempty"`
+	IntervalSeconds *int  `json:"interval_seconds,omitempty"`
+}
+
+// SuperadminSetupRequest defines model for SuperadminSetupRequest.
+type SuperadminSetupRequest struct {
+	Email     openapi_types.Email `json:"email"`
+	FirstName *string             `json:"firstName"`
+	LastName  *string             `json:"lastName"`
+	Password  string              `json:"password"`
+	Username  string              `json:"username"`
+}
+
+// SuperadminSetupResponse defines model for SuperadminSetupResponse.
+type SuperadminSetupResponse struct {
+	Message string `json:"message"`
+
+	// SessionToken Session token for the newly created superadmin
+	SessionToken string `json:"sessionToken"`
+	User         User   `json:"user"`
+}
+
 // SystemStatsResponse defines model for SystemStatsResponse.
 type SystemStatsResponse struct {
 	// AllocMemory Bytes of allocated heap objects
@@ -550,6 +644,26 @@ type SystemStatsResponse struct {
 	// TotalSystemSpaceBytes Path to the base directory being measured
 	TotalSystemSpaceBytes *int64 `json:"total_system_space_bytes,omitempty"`
 	UptimeSeconds         int64  `json:"uptime_seconds"`
+}
+
+// SystemStatusResponse defines model for SystemStatusResponse.
+type SystemStatusResponse struct {
+	// AllowManualRegistration True if user registration is enabled, let's users register accounts themselves
+	AllowManualRegistration bool `json:"allow_manual_registration"`
+
+	// Initialized True if the system has been initialized (at least one user exists or first_run_complete is true).
+	Initialized bool `json:"initialized"`
+
+	// NeedsSuperadmin True if the system requires initial superadmin setup.
+	NeedsSuperadmin bool `json:"needs_superadmin"`
+
+	// UserOnboardingRequired True if the authenticated user needs to complete onboarding.
+	UserOnboardingRequired bool `json:"user_onboarding_required"`
+}
+
+// UploadConfig defines model for UploadConfig.
+type UploadConfig struct {
+	Location *string `json:"location,omitempty"`
 }
 
 // User defines model for User.
@@ -574,6 +688,20 @@ type UserCreate struct {
 	Password string              `json:"password"`
 }
 
+// UserManagementConfig defines model for UserManagementConfig.
+type UserManagementConfig struct {
+	AllowManualRegistration *bool `json:"allow_manual_registration,omitempty"`
+}
+
+// UserOnboardingBody defines model for UserOnboardingBody.
+type UserOnboardingBody struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+
+	// Settings User-specific setting overrides.
+	Settings map[string]string `json:"settings"`
+}
+
 // UserPasswordUpdate defines model for UserPasswordUpdate.
 type UserPasswordUpdate struct {
 	Current string `json:"current"`
@@ -592,6 +720,14 @@ type UserSetting struct {
 	// Value The effective value (override if exists, else default).
 	Value     string `json:"value"`
 	ValueType string `json:"value_type"`
+}
+
+// UserSettingUpdateRequest defines model for UserSettingUpdateRequest.
+type UserSettingUpdateRequest struct {
+	Settings []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"settings"`
 }
 
 // UserUpdate defines model for UserUpdate.
@@ -718,6 +854,12 @@ type UpdateUserSettingJSONBody struct {
 type UpdateUserSettingParams struct {
 	// Name Setting name (e.g. 'theme', 'notifications_email')
 	Name string `form:"name" json:"name"`
+}
+
+// AdminDeleteUserJSONBody defines parameters for AdminDeleteUser.
+type AdminDeleteUserJSONBody struct {
+	// Force If true, permanently deletes the user and all associated data (sessions, settings).
+	Force *bool `json:"force,omitempty"`
 }
 
 // LoginJSONBody defines parameters for Login.
@@ -873,14 +1015,23 @@ type RegisterUserJSONRequestBody = UserCreate
 // UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
 type UpdateCurrentUserJSONRequestBody = UserUpdate
 
+// DoUserOnboardingJSONRequestBody defines body for DoUserOnboarding for application/json ContentType.
+type DoUserOnboardingJSONRequestBody = UserOnboardingBody
+
 // UpdatePasswordJSONRequestBody defines body for UpdatePassword for application/json ContentType.
 type UpdatePasswordJSONRequestBody = UserPasswordUpdate
 
 // UpdateUserSettingJSONRequestBody defines body for UpdateUserSetting for application/json ContentType.
 type UpdateUserSettingJSONRequestBody UpdateUserSettingJSONBody
 
+// UpdateUserSettingsBatchJSONRequestBody defines body for UpdateUserSettingsBatch for application/json ContentType.
+type UpdateUserSettingsBatchJSONRequestBody = UserSettingUpdateRequest
+
 // AdminCreateUserJSONRequestBody defines body for AdminCreateUser for application/json ContentType.
 type AdminCreateUserJSONRequestBody = AdminUserCreate
+
+// AdminDeleteUserJSONRequestBody defines body for AdminDeleteUser for application/json ContentType.
+type AdminDeleteUserJSONRequestBody AdminDeleteUserJSONBody
 
 // AdminUpdateUserJSONRequestBody defines body for AdminUpdateUser for application/json ContentType.
 type AdminUpdateUserJSONRequestBody = AdminUserUpdate
@@ -935,3 +1086,6 @@ type RegisterWorkerJSONRequestBody = WorkerRegisterRequest
 
 // UpdateSessionJSONRequestBody defines body for UpdateSession for application/json ContentType.
 type UpdateSessionJSONRequestBody = SessionUpdate
+
+// SetupSuperadminJSONRequestBody defines body for SetupSuperadmin for application/json ContentType.
+type SetupSuperadminJSONRequestBody = SuperadminSetupRequest

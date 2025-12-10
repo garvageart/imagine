@@ -53,7 +53,11 @@ const apiProxy: GeneratedApi = new Proxy(generated, {
             }
 
             // Inject the currentFetch into the options
-            const injectedOpts: Oazapfts.RequestOpts = { ...opts, fetch: currentFetch };
+            const injectedOpts: Oazapfts.RequestOpts = { 
+                credentials: "include", 
+                ...opts, 
+                fetch: currentFetch 
+            };
 
             if (optsIndex !== -1) {
                 // Replace the existing opts with the new one that has fetch injected

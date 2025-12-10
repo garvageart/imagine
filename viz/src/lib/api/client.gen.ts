@@ -97,6 +97,14 @@ export type UserUpdate = {
     username?: string | null;
     email?: string | null;
 };
+export type UserOnboardingBody = {
+    first_name: string;
+    last_name: string;
+    /** User-specific setting overrides. */
+    settings: {
+        [key: string]: string;
+    };
+};
 export type UserPasswordUpdate = {
     current: string;
     "new": string;
@@ -115,6 +123,12 @@ export type UserSetting = {
     is_user_editable?: boolean;
     group: string;
     description: string;
+};
+export type UserSettingUpdateRequest = {
+    settings: {
+        name: string;
+        value: string;
+    }[];
 };
 export type ImageExif = {
     exif_version?: string;
@@ -149,6 +163,7 @@ export type ImageMetadata = {
     rating?: number | null;
     keywords?: string[];
     color_space: string;
+    has_icc_profile?: boolean;
     file_modified_at: string;
     file_created_at: string;
     thumbhash?: string;
@@ -165,6 +180,7 @@ export type Image = {
     uid: string;
     name: string;
     uploaded_by?: User;
+    owner?: User;
     description?: string;
     exif?: ImageExif;
     "private": boolean;
@@ -211,6 +227,7 @@ export type DeleteAssetsResponse = {
 };
 export type ImageUpdate = {
     name?: string;
+    owner_uid?: string | null;
     description?: string | null;
     "private"?: boolean;
     exif?: ImageExif;
@@ -232,6 +249,7 @@ export type Collection = {
     "private"?: boolean | null;
     images?: CollectionImage[];
     created_by?: User;
+    owner?: User;
     description?: string;
     thumbnail?: Image;
     created_at: string;
@@ -258,6 +276,7 @@ export type CollectionDetailResponse = {
     "private"?: boolean | null;
     images: ImagesPage;
     created_by?: User;
+    owner?: User;
     description?: string;
     thumbnail?: Image;
     created_at: string;
@@ -323,6 +342,8 @@ export type DownloadToken = {
 export type SettingDefault = {
     /** Unique name for the setting (primary key). */
     name: string;
+    /** A readable and UI-friendly name for the setting (not required but highly recommended). */
+    display_name?: string;
     /** The default value everyone gets. */
     value: string;
     /** Data type of the setting. */
@@ -343,6 +364,64 @@ export type SettingOverride = {
     name: string;
     /** The user's chosen value for the setting. */
     value: string;
+};
+export type LoggingConfig = {
+    level?: string;
+};
+export type UploadConfig = {
+    location?: string;
+};
+export type DatabaseConfig = {
+    location?: string;
+    user?: string;
+    /** Masked password */
+    password?: string;
+    name?: string;
+    port?: number;
+};
+export type QueueConfig = {
+    enabled?: boolean;
+    host?: string;
+    port?: number;
+    username?: string;
+    /** Masked password */
+    password?: string;
+    db?: number;
+    use_tls?: boolean;
+    pool_size?: number;
+    dial_timeout_seconds?: number;
+    read_timeout_seconds?: number;
+    write_timeout_seconds?: number;
+};
+export type LibvipsConfig = {
+    match_system_logging?: boolean;
+    cache_max_memory_mb?: number;
+    cache_max_files?: number;
+    cache_max_operations?: number;
+    concurrency?: number;
+    vector_enabled?: boolean;
+};
+export type CacheConfig = {
+    gc_enabled?: boolean;
+};
+export type UserManagementConfig = {
+    allow_manual_registration?: boolean;
+};
+export type StorageMetricsConfig = {
+    enabled?: boolean;
+    interval_seconds?: number;
+};
+export type ImagineConfig = {
+    baseUrl?: string;
+    logging?: LoggingConfig;
+    base_directory?: string;
+    upload?: UploadConfig;
+    database?: DatabaseConfig;
+    redis?: QueueConfig;
+    libvips?: LibvipsConfig;
+    cache?: CacheConfig;
+    user_management?: UserManagementConfig;
+    storage_metrics?: StorageMetricsConfig;
 };
 export type SystemStatsResponse = {
     uptime_seconds: number;
@@ -484,6 +563,29 @@ export type WsBroadcastResponse = {
     message: string;
     clients: number;
 };
+export type SystemStatusResponse = {
+    /** True if the system has been initialized (at least one user exists or first_run_complete is true). */
+    initialized: boolean;
+    /** True if the authenticated user needs to complete onboarding. */
+    user_onboarding_required: boolean;
+    /** True if the system requires initial superadmin setup. */
+    needs_superadmin: boolean;
+    /** True if user registration is enabled, let's users register accounts themselves */
+    allow_manual_registration: boolean;
+};
+export type SuperadminSetupRequest = {
+    username: string;
+    email: string;
+    password: string;
+    firstName?: string | null;
+    lastName?: string | null;
+};
+export type SuperadminSetupResponse = {
+    message: string;
+    user: User;
+    /** Session token for the newly created superadmin */
+    sessionToken: string;
+};
 /**
  * Health ping
  */
@@ -506,6 +608,9 @@ export function registerUser(userCreate: UserCreate, opts?: Oazapfts.RequestOpts
         data: User;
     } | {
         status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 403;
         data: ErrorResponse;
     }>("/accounts/", oazapfts.json({
         ...opts,
@@ -746,6 +851,28 @@ export function updateCurrentUser(userUpdate: UserUpdate, opts?: Oazapfts.Reques
     }));
 }
 /**
+ * Onboard current authenticated user
+ */
+export function doUserOnboarding(userOnboardingBody: UserOnboardingBody, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: User;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 404;
+        data: ErrorResponse;
+    }>("/accounts/me/onboard", oazapfts.json({
+        ...opts,
+        method: "PUT",
+        body: userOnboardingBody
+    }));
+}
+/**
  * Update user password
  */
 export function updatePassword(userPasswordUpdate: UserPasswordUpdate, opts?: Oazapfts.RequestOpts) {
@@ -894,6 +1021,28 @@ export function updateUserSetting(name: string, body: {
         ...opts,
         method: "PATCH",
         body
+    }));
+}
+/**
+ * Update multiple user settings (batch override)
+ */
+export function updateUserSettingsBatch(userSettingUpdateRequest: UserSettingUpdateRequest, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: UserSetting[];
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/accounts/me/settings", oazapfts.json({
+        ...opts,
+        method: "PUT",
+        body: userSettingUpdateRequest
     }));
 }
 /**
@@ -1370,6 +1519,23 @@ export function adminHealthcheck(opts?: Oazapfts.RequestOpts) {
     });
 }
 /**
+ * Get system configuration
+ */
+export function getSystemConfig(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: ImagineConfig;
+    } | {
+        status: 401;
+        data: ErrorResponse;
+    } | {
+        status: 403;
+        data: ErrorResponse;
+    }>("/system/config", {
+        ...opts
+    });
+}
+/**
  * Get system statistics (uptime, memory)
  */
 export function getSystemStats(opts?: Oazapfts.RequestOpts) {
@@ -1523,7 +1689,10 @@ export function adminUpdateUser(uid: string, adminUserUpdate: AdminUserUpdate, o
 /**
  * Delete user (admin)
  */
-export function adminDeleteUser(uid: string, opts?: Oazapfts.RequestOpts) {
+export function adminDeleteUser(uid: string, body?: {
+    /** If true, permanently deletes the user and all associated data (sessions, settings). */
+    force?: boolean;
+}, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
         data: MessageResponse;
@@ -1539,10 +1708,11 @@ export function adminDeleteUser(uid: string, opts?: Oazapfts.RequestOpts) {
     } | {
         status: 500;
         data: ErrorResponse;
-    }>(`/admin/users/${encodeURIComponent(uid)}`, {
+    }>(`/admin/users/${encodeURIComponent(uid)}`, oazapfts.json({
         ...opts,
-        method: "DELETE"
-    });
+        method: "DELETE",
+        body
+    }));
 }
 /**
  * List all workers
@@ -1794,21 +1964,47 @@ export function broadcastWsEvent(wsBroadcastRequest: WsBroadcastRequest, opts?: 
  */
 export function sendToWsClient(clientId: string, wsBroadcastRequest: WsBroadcastRequest, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
-        status: 200;
-        data: {
-            success: boolean;
-            message: string;
-            clientId: string;
-        };
-    } | {
-        status: 400;
-        data: ErrorResponse;
-    } | {
         status: 500;
         data: ErrorResponse;
     }>(`/events/send/${encodeURIComponent(clientId)}`, oazapfts.json({
         ...opts,
         method: "POST",
         body: wsBroadcastRequest
+    }));
+}
+/**
+ * Get system and user onboarding status
+ */
+export function getSystemStatus(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: SystemStatusResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/system/status", {
+        ...opts
+    });
+}
+/**
+ * Initialize application with first superadmin user
+ */
+export function setupSuperadmin(superadminSetupRequest: SuperadminSetupRequest, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 201;
+        data: SuperadminSetupResponse;
+    } | {
+        status: 400;
+        data: ErrorResponse;
+    } | {
+        status: 409;
+        data: ErrorResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>("/setup/superadmin", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: superadminSetupRequest
     }));
 }

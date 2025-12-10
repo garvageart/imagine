@@ -102,6 +102,11 @@ type ClientInterface interface {
 
 	UpdateCurrentUser(ctx context.Context, body UpdateCurrentUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DoUserOnboardingWithBody request with any body
+	DoUserOnboardingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DoUserOnboarding(ctx context.Context, body DoUserOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// UpdatePasswordWithBody request with any body
 	UpdatePasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -114,6 +119,11 @@ type ClientInterface interface {
 	UpdateUserSettingWithBody(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUserSetting(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateUserSettingsBatchWithBody request with any body
+	UpdateUserSettingsBatchWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateUserSettingsBatch(ctx context.Context, body UpdateUserSettingsBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ClearImageCache request
 	ClearImageCache(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -144,8 +154,10 @@ type ClientInterface interface {
 
 	AdminCreateUser(ctx context.Context, body AdminCreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AdminDeleteUser request
-	AdminDeleteUser(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// AdminDeleteUserWithBody request with any body
+	AdminDeleteUserWithBody(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AdminDeleteUser(ctx context.Context, uid string, body AdminDeleteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminUpdateUserWithBody request with any body
 	AdminUpdateUserWithBody(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -342,6 +354,17 @@ type ClientInterface interface {
 	UpdateSessionWithBody(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateSession(ctx context.Context, uid string, body UpdateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetupSuperadminWithBody request with any body
+	SetupSuperadminWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetupSuperadmin(ctx context.Context, body SetupSuperadminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSystemConfig request
+	GetSystemConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSystemStatus request
+	GetSystemStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) RegisterUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -404,6 +427,30 @@ func (c *Client) UpdateCurrentUser(ctx context.Context, body UpdateCurrentUserJS
 	return c.Client.Do(req)
 }
 
+func (c *Client) DoUserOnboardingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDoUserOnboardingRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DoUserOnboarding(ctx context.Context, body DoUserOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDoUserOnboardingRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) UpdatePasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdatePasswordRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -454,6 +501,30 @@ func (c *Client) UpdateUserSettingWithBody(ctx context.Context, params *UpdateUs
 
 func (c *Client) UpdateUserSetting(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateUserSettingRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSettingsBatchWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSettingsBatchRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSettingsBatch(ctx context.Context, body UpdateUserSettingsBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSettingsBatchRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -584,8 +655,20 @@ func (c *Client) AdminCreateUser(ctx context.Context, body AdminCreateUserJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) AdminDeleteUser(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAdminDeleteUserRequest(c.Server, uid)
+func (c *Client) AdminDeleteUserWithBody(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminDeleteUserRequestWithBody(c.Server, uid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AdminDeleteUser(ctx context.Context, uid string, body AdminDeleteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminDeleteUserRequest(c.Server, uid, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1448,6 +1531,54 @@ func (c *Client) UpdateSession(ctx context.Context, uid string, body UpdateSessi
 	return c.Client.Do(req)
 }
 
+func (c *Client) SetupSuperadminWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupSuperadminRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetupSuperadmin(ctx context.Context, body SetupSuperadminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupSuperadminRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSystemConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSystemConfigRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSystemStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSystemStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewRegisterUserRequest calls the generic RegisterUser builder with application/json body
 func NewRegisterUserRequest(server string, body RegisterUserJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1546,6 +1677,46 @@ func NewUpdateCurrentUserRequestWithBody(server string, contentType string, body
 	}
 
 	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDoUserOnboardingRequest calls the generic DoUserOnboarding builder with application/json body
+func NewDoUserOnboardingRequest(server string, body DoUserOnboardingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDoUserOnboardingRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDoUserOnboardingRequestWithBody generates requests for DoUserOnboarding with any type of body
+func NewDoUserOnboardingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/accounts/me/onboard")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1671,6 +1842,46 @@ func NewUpdateUserSettingRequestWithBody(server string, params *UpdateUserSettin
 	}
 
 	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpdateUserSettingsBatchRequest calls the generic UpdateUserSettingsBatch builder with application/json body
+func NewUpdateUserSettingsBatchRequest(server string, body UpdateUserSettingsBatchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateUserSettingsBatchRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdateUserSettingsBatchRequestWithBody generates requests for UpdateUserSettingsBatch with any type of body
+func NewUpdateUserSettingsBatchRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/accounts/me/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -1936,8 +2147,19 @@ func NewAdminCreateUserRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
-// NewAdminDeleteUserRequest generates requests for AdminDeleteUser
-func NewAdminDeleteUserRequest(server string, uid string) (*http.Request, error) {
+// NewAdminDeleteUserRequest calls the generic AdminDeleteUser builder with application/json body
+func NewAdminDeleteUserRequest(server string, uid string, body AdminDeleteUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminDeleteUserRequestWithBody(server, uid, "application/json", bodyReader)
+}
+
+// NewAdminDeleteUserRequestWithBody generates requests for AdminDeleteUser with any type of body
+func NewAdminDeleteUserRequestWithBody(server string, uid string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1962,10 +2184,12 @@ func NewAdminDeleteUserRequest(server string, uid string) (*http.Request, error)
 		return nil, err
 	}
 
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4281,6 +4505,100 @@ func NewUpdateSessionRequestWithBody(server string, uid string, contentType stri
 	return req, nil
 }
 
+// NewSetupSuperadminRequest calls the generic SetupSuperadmin builder with application/json body
+func NewSetupSuperadminRequest(server string, body SetupSuperadminJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetupSuperadminRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetupSuperadminRequestWithBody generates requests for SetupSuperadmin with any type of body
+func NewSetupSuperadminRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/setup/superadmin")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetSystemConfigRequest generates requests for GetSystemConfig
+func NewGetSystemConfigRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/system/config")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSystemStatusRequest generates requests for GetSystemStatus
+func NewGetSystemStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/system/status")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -4337,6 +4655,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateCurrentUserWithResponse(ctx context.Context, body UpdateCurrentUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCurrentUserResponse, error)
 
+	// DoUserOnboardingWithBodyWithResponse request with any body
+	DoUserOnboardingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DoUserOnboardingResponse, error)
+
+	DoUserOnboardingWithResponse(ctx context.Context, body DoUserOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*DoUserOnboardingResponse, error)
+
 	// UpdatePasswordWithBodyWithResponse request with any body
 	UpdatePasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePasswordResponse, error)
 
@@ -4349,6 +4672,11 @@ type ClientWithResponsesInterface interface {
 	UpdateUserSettingWithBodyWithResponse(ctx context.Context, params *UpdateUserSettingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error)
 
 	UpdateUserSettingWithResponse(ctx context.Context, params *UpdateUserSettingParams, body UpdateUserSettingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSettingResponse, error)
+
+	// UpdateUserSettingsBatchWithBodyWithResponse request with any body
+	UpdateUserSettingsBatchWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSettingsBatchResponse, error)
+
+	UpdateUserSettingsBatchWithResponse(ctx context.Context, body UpdateUserSettingsBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSettingsBatchResponse, error)
 
 	// ClearImageCacheWithResponse request
 	ClearImageCacheWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearImageCacheResponse, error)
@@ -4379,8 +4707,10 @@ type ClientWithResponsesInterface interface {
 
 	AdminCreateUserWithResponse(ctx context.Context, body AdminCreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminCreateUserResponse, error)
 
-	// AdminDeleteUserWithResponse request
-	AdminDeleteUserWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error)
+	// AdminDeleteUserWithBodyWithResponse request with any body
+	AdminDeleteUserWithBodyWithResponse(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error)
+
+	AdminDeleteUserWithResponse(ctx context.Context, uid string, body AdminDeleteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error)
 
 	// AdminUpdateUserWithBodyWithResponse request with any body
 	AdminUpdateUserWithBodyWithResponse(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminUpdateUserResponse, error)
@@ -4577,6 +4907,17 @@ type ClientWithResponsesInterface interface {
 	UpdateSessionWithBodyWithResponse(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSessionResponse, error)
 
 	UpdateSessionWithResponse(ctx context.Context, uid string, body UpdateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSessionResponse, error)
+
+	// SetupSuperadminWithBodyWithResponse request with any body
+	SetupSuperadminWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupSuperadminResponse, error)
+
+	SetupSuperadminWithResponse(ctx context.Context, body SetupSuperadminJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupSuperadminResponse, error)
+
+	// GetSystemConfigWithResponse request
+	GetSystemConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSystemConfigResponse, error)
+
+	// GetSystemStatusWithResponse request
+	GetSystemStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSystemStatusResponse, error)
 }
 
 type RegisterUserResponse struct {
@@ -4584,6 +4925,7 @@ type RegisterUserResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *User
 	JSON400      *ErrorResponse
+	JSON403      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -4644,6 +4986,31 @@ func (r UpdateCurrentUserResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateCurrentUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DoUserOnboardingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DoUserOnboardingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DoUserOnboardingResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4718,6 +5085,31 @@ func (r UpdateUserSettingResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateUserSettingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateUserSettingsBatchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]UserSetting
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateUserSettingsBatchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateUserSettingsBatchResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5637,13 +6029,7 @@ func (r GetWSMetricsResponse) StatusCode() int {
 type SendToWSClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		ClientId string `json:"clientId"`
-		Message  string `json:"message"`
-		Success  bool   `json:"success"`
-	}
-	JSON400 *ErrorResponse
-	JSON500 *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -6260,6 +6646,78 @@ func (r UpdateSessionResponse) StatusCode() int {
 	return 0
 }
 
+type SetupSuperadminResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SuperadminSetupResponse
+	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SetupSuperadminResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetupSuperadminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSystemConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ImagineConfig
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSystemConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSystemConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSystemStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SystemStatusResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSystemStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSystemStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // RegisterUserWithBodyWithResponse request with arbitrary body returning *RegisterUserResponse
 func (c *ClientWithResponses) RegisterUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error) {
 	rsp, err := c.RegisterUserWithBody(ctx, contentType, body, reqEditors...)
@@ -6303,6 +6761,23 @@ func (c *ClientWithResponses) UpdateCurrentUserWithResponse(ctx context.Context,
 	return ParseUpdateCurrentUserResponse(rsp)
 }
 
+// DoUserOnboardingWithBodyWithResponse request with arbitrary body returning *DoUserOnboardingResponse
+func (c *ClientWithResponses) DoUserOnboardingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DoUserOnboardingResponse, error) {
+	rsp, err := c.DoUserOnboardingWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDoUserOnboardingResponse(rsp)
+}
+
+func (c *ClientWithResponses) DoUserOnboardingWithResponse(ctx context.Context, body DoUserOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*DoUserOnboardingResponse, error) {
+	rsp, err := c.DoUserOnboarding(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDoUserOnboardingResponse(rsp)
+}
+
 // UpdatePasswordWithBodyWithResponse request with arbitrary body returning *UpdatePasswordResponse
 func (c *ClientWithResponses) UpdatePasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePasswordResponse, error) {
 	rsp, err := c.UpdatePasswordWithBody(ctx, contentType, body, reqEditors...)
@@ -6344,6 +6819,23 @@ func (c *ClientWithResponses) UpdateUserSettingWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseUpdateUserSettingResponse(rsp)
+}
+
+// UpdateUserSettingsBatchWithBodyWithResponse request with arbitrary body returning *UpdateUserSettingsBatchResponse
+func (c *ClientWithResponses) UpdateUserSettingsBatchWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSettingsBatchResponse, error) {
+	rsp, err := c.UpdateUserSettingsBatchWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSettingsBatchResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateUserSettingsBatchWithResponse(ctx context.Context, body UpdateUserSettingsBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSettingsBatchResponse, error) {
+	rsp, err := c.UpdateUserSettingsBatch(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSettingsBatchResponse(rsp)
 }
 
 // ClearImageCacheWithResponse request returning *ClearImageCacheResponse
@@ -6435,9 +6927,17 @@ func (c *ClientWithResponses) AdminCreateUserWithResponse(ctx context.Context, b
 	return ParseAdminCreateUserResponse(rsp)
 }
 
-// AdminDeleteUserWithResponse request returning *AdminDeleteUserResponse
-func (c *ClientWithResponses) AdminDeleteUserWithResponse(ctx context.Context, uid string, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error) {
-	rsp, err := c.AdminDeleteUser(ctx, uid, reqEditors...)
+// AdminDeleteUserWithBodyWithResponse request with arbitrary body returning *AdminDeleteUserResponse
+func (c *ClientWithResponses) AdminDeleteUserWithBodyWithResponse(ctx context.Context, uid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error) {
+	rsp, err := c.AdminDeleteUserWithBody(ctx, uid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminDeleteUserResponse(rsp)
+}
+
+func (c *ClientWithResponses) AdminDeleteUserWithResponse(ctx context.Context, uid string, body AdminDeleteUserJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminDeleteUserResponse, error) {
+	rsp, err := c.AdminDeleteUser(ctx, uid, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -7066,6 +7566,41 @@ func (c *ClientWithResponses) UpdateSessionWithResponse(ctx context.Context, uid
 	return ParseUpdateSessionResponse(rsp)
 }
 
+// SetupSuperadminWithBodyWithResponse request with arbitrary body returning *SetupSuperadminResponse
+func (c *ClientWithResponses) SetupSuperadminWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupSuperadminResponse, error) {
+	rsp, err := c.SetupSuperadminWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupSuperadminResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetupSuperadminWithResponse(ctx context.Context, body SetupSuperadminJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupSuperadminResponse, error) {
+	rsp, err := c.SetupSuperadmin(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupSuperadminResponse(rsp)
+}
+
+// GetSystemConfigWithResponse request returning *GetSystemConfigResponse
+func (c *ClientWithResponses) GetSystemConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSystemConfigResponse, error) {
+	rsp, err := c.GetSystemConfig(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSystemConfigResponse(rsp)
+}
+
+// GetSystemStatusWithResponse request returning *GetSystemStatusResponse
+func (c *ClientWithResponses) GetSystemStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSystemStatusResponse, error) {
+	rsp, err := c.GetSystemStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSystemStatusResponse(rsp)
+}
+
 // ParseRegisterUserResponse parses an HTTP response from a RegisterUserWithResponse call
 func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7093,6 +7628,13 @@ func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -7141,6 +7683,53 @@ func ParseUpdateCurrentUserResponse(rsp *http.Response) (*UpdateCurrentUserRespo
 	}
 
 	response := &UpdateCurrentUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDoUserOnboardingResponse parses an HTTP response from a DoUserOnboardingWithResponse call
+func ParseDoUserOnboardingResponse(rsp *http.Response) (*DoUserOnboardingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DoUserOnboardingResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7300,6 +7889,53 @@ func ParseUpdateUserSettingResponse(rsp *http.Response) (*UpdateUserSettingRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateUserSettingsBatchResponse parses an HTTP response from a UpdateUserSettingsBatchWithResponse call
+func ParseUpdateUserSettingsBatchResponse(rsp *http.Response) (*UpdateUserSettingsBatchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateUserSettingsBatchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []UserSetting
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -8833,24 +9469,6 @@ func ParseSendToWSClientResponse(rsp *http.Response) (*SendToWSClientResponse, e
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			ClientId string `json:"clientId"`
-			Message  string `json:"message"`
-			Success  bool   `json:"success"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -9807,6 +10425,126 @@ func ParseUpdateSessionResponse(rsp *http.Response) (*UpdateSessionResponse, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetupSuperadminResponse parses an HTTP response from a SetupSuperadminWithResponse call
+func ParseSetupSuperadminResponse(rsp *http.Response) (*SetupSuperadminResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetupSuperadminResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SuperadminSetupResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSystemConfigResponse parses an HTTP response from a GetSystemConfigWithResponse call
+func ParseGetSystemConfigResponse(rsp *http.Response) (*GetSystemConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSystemConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImagineConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSystemStatusResponse parses an HTTP response from a GetSystemStatusWithResponse call
+func ParseGetSystemStatusResponse(rsp *http.Response) (*GetSystemStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSystemStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SystemStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

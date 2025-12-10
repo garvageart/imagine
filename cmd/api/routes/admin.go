@@ -229,8 +229,32 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger, storageStats *images.StorageS
 			hashed := hex.EncodeToString(salt) + ":" + hex.EncodeToString(hashedPass)
 
 			uwp := entities.FromUser(userEnt, &hashed)
-			if err := db.Create(&uwp).Error; err != nil {
-				libhttp.ServerError(res, req, err, logger, nil, "Failed to create user", "Internal server error")
+
+			txErr := db.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Create(&uwp).Error; err != nil {
+					return err
+				}
+
+				// Reload the user to get the auto-generated CreatedAt timestamp
+				if err := tx.First(&userEnt, "uid = ?", userEnt.Uid).Error; err != nil {
+					return err
+				}
+
+				// Initialize onboarding_complete to false for new users created by admin
+				onboardingOverride := entities.SettingOverride{
+					UserId: id,
+					Name:   "onboarding_complete",
+					Value:  "false",
+				}
+				if err := tx.Create(&onboardingOverride).Error; err != nil {
+					return err
+				}
+
+				return nil
+			})
+
+			if txErr != nil {
+				libhttp.ServerError(res, req, txErr, logger, nil, "Failed to create user", "Internal server error")
 				return
 			}
 
@@ -289,6 +313,33 @@ func AdminRouter(db *gorm.DB, logger *slog.Logger, storageStats *images.StorageS
 			if requester.Uid == uid {
 				render.Status(req, http.StatusForbidden)
 				render.JSON(res, req, dto.ErrorResponse{Error: "Cannot delete your own account"})
+				return
+			}
+
+			// Check for force delete in body
+			// Since body is optional for DELETE in many clients, we check if there's content
+			var deleteReq struct {
+				Force bool `json:"force"`
+			}
+			if req.ContentLength > 0 {
+				if err := render.DecodeJSON(req.Body, &deleteReq); err != nil {
+					// Invalid body but we continue with safe delete or fail?
+					// Let's warn and fail to be safe
+					render.Status(req, http.StatusBadRequest)
+					render.JSON(res, req, dto.ErrorResponse{Error: "Invalid request body"})
+					return
+				}
+			}
+
+			if deleteReq.Force {
+				if err := entities.HardDeleteUser(db, uid); err != nil {
+					logger.Error("failed to force delete user", slog.String("uid", uid), slog.Any("error", err))
+					render.Status(req, http.StatusInternalServerError)
+					render.JSON(res, req, dto.ErrorResponse{Error: "Failed to force delete user"})
+					return
+				}
+				render.Status(req, http.StatusOK)
+				render.JSON(res, req, dto.MessageResponse{Message: "User permanently deleted"})
 				return
 			}
 
