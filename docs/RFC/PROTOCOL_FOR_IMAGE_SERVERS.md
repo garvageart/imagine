@@ -79,10 +79,21 @@ To ensure the protocol remains lightweight while supporting specialized use case
 -   **Open Specification:** If an extension is used for interoperability between different organizations, its specification MUST be publicly documented. "Private" extensions are only permitted for internal-only workflows that do not cross organizational boundaries. An organisation using certain extensions for internal tools **MAY NOT** use those extensions to prevent external interoperability.
 -   **Namespacing:** Extensions must use reverse-domain notation (e.g., `com.example.features.ai-tagging`) to prevent collisions. The `org.imagine.*` namespace is reserved for official protocol standards.
 
+### 7. Event Federation (Proposal)
+To maintain synchronization across servers (e.g., when an agency updates caption data or revokes usage rights), the protocol suggests an active event notification system. This section outlines a *proposed* mechanism for real-time updates, but specific event types and delivery methods are open for discussion. Events don't have to necessarily be standardised, events should ideally be documented so that servers can opt into which ones they wish to support.
+
+-   **Mechanism:** Compliant servers SHOULD consider implementing a webhook subscription model (WebSub maybe) or similar push-based notification system.
+-   **Example Events:**
+    -   `asset.updated`: Metadata or file content has changed.
+    -   `asset.deleted`: The asset has been removed or unshared.
+    -   `rights.changed`: Critical event. Usage rights have been updated (e.g., expiration).
+    -   `collection.items_added` / `collection.items_removed`: For keeping shared folders in sync.
+-   **Security:** To ensure trust, it is RECOMMENDED that webhook payloads be signed (HMAC) using a shared secret.
+-   **Resilience:** Senders SHOULD implement retry logic for failed deliveries.
+
 ## Technical Requirements
 - **API Extension:** New endpoints for federation (e.g., `/.well-known/imagine`).
 - **Metadata Standardization:** strict adherence to IPTC/XMP to ensure metadata survives transfer.
-- **Webhooks/Events:** Subscription model for updates (e.g., "Notify me if the remote image is updated").
 
 ### Leveraging OpenAPI
 Beyond simple documentation, the OpenAPI specification is a functional component of the protocol ecosystem:
