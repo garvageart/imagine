@@ -122,19 +122,37 @@ func ExifProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onProg
 		imgEnt.ImageMetadata.FileModifiedAt = fileModifiedAt
 	}
 
+	hasIcc := libvipsImg.HasICCProfile()
 	imgEnt.ImageMetadata.ColorSpace = imageops.GetColourSpaceString(libvipsImg)
-
+	imgEnt.ImageMetadata.HasIccProfile = &hasIcc
 	takenAt := imageops.GetTakenAt(imgEnt)
 
 	if onProgress != nil {
 		onProgress("Updating database", 90)
 	}
 
+	// Fetch latest image from DB to ensure we don't overwrite concurrent metadata updates (e.g. dimensions)
+	var dbImage entities.Image
+	if err := db.Where("uid = ?", imgEnt.Uid).First(&dbImage).Error; err != nil {
+		return fmt.Errorf("failed to fetch image for update: %w", err)
+	}
+
+	// Ensure metadata struct exists
+	if dbImage.ImageMetadata == nil {
+		dbImage.ImageMetadata = &dto.ImageMetadata{}
+	}
+
+	// Merge extracted data
+	dbImage.ImageMetadata.ColorSpace = imgEnt.ImageMetadata.ColorSpace
+	dbImage.ImageMetadata.HasIccProfile = imgEnt.ImageMetadata.HasIccProfile
+	dbImage.ImageMetadata.FileCreatedAt = imgEnt.ImageMetadata.FileCreatedAt
+	dbImage.ImageMetadata.FileModifiedAt = imgEnt.ImageMetadata.FileModifiedAt
+
 	if err := db.Model(&entities.Image{}).
 		Where("uid = ?", imgEnt.Uid).
 		Update("exif", imgEnt.Exif).
 		Update("taken_at", takenAt).
-		Update("image_metadata", gorm.Expr("jsonb_set(coalesce(image_metadata, '{}'::jsonb), '{color_space}', to_jsonb(?::text), true)", imgEnt.ImageMetadata.ColorSpace)).
+		Update("image_metadata", dbImage.ImageMetadata).
 		Error; err != nil {
 		return fmt.Errorf("failed to update db image exif: %w", err)
 	}

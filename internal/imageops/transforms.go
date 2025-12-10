@@ -109,6 +109,11 @@ func GenerateTransform(params *TransformParams, imgEnt entities.Image, originalD
 		return nil, fmt.Errorf("failed to auto-rotate image: %w", err)
 	}
 
+	// Ensure consistent color profile (sRGB) for web display
+	if err := NormalizeToSRGB(libvipsImg); err != nil {
+		return nil, fmt.Errorf("failed to normalize to sRGB: %w", err)
+	}
+
 	if params.Rotate > 0 {
 		var angle libvips.Angle
 		switch params.Rotate {

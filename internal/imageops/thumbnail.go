@@ -21,6 +21,13 @@ func CreateThumbnailWithSize(imgBytes []byte, width, height int) ([]byte, error)
 	opts := libvips.DefaultThumbnailBufferOptions()
 	opts.NoRotate = false
 	opts.Height = height
+	
+	// Ensure we export to sRGB, handling CMYK/ProPhoto/etc correctly
+	// Note: vips_thumbnail handles simple colorspace conversion, but explicit ICC export is better
+	opts.OutputProfile = "srgb" // Target sRGB for web
+	// InputProfile is a FALLBACK. If the image has an embedded profile, vips uses that.
+	// If it has none (e.g. untagged CMYK), it assumes this profile.
+	opts.InputProfile = "srgb" 
 
 	thumb, err := libvips.NewThumbnailBuffer(imgBytes, width, opts)
 	if err != nil {
