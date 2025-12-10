@@ -671,7 +671,7 @@
 </script>
 
 <svelte:document
-	onclick={(event) => {
+	on:click={(event) => {
 		const target = event.target as HTMLElement;
 		const element = subPanelContentElement;
 
@@ -728,6 +728,7 @@ for Splitpanes
 		<SubPanelContent
 			{keyId}
 			{tabDropper}
+			bind:panelData
 			bind:panelViews
 			bind:activeView
 			bind:subPanelContentFocused

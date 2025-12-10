@@ -14,22 +14,38 @@
 		tabDropper: TabOps;
 		onFocus: () => void;
 		componentToRender?: Component<any>;
+		panelData:
+			| {
+					type: "loaded";
+					status: number;
+					data: any;
+			  }
+			| Promise<void | {
+					type: "loaded";
+					status: number;
+					data: any;
+			  }>;
 	}
 
 	let {
 		keyId,
 		panelViews = $bindable(),
 		activeView = $bindable(),
+		panelData = $bindable(),
+		componentToRender,
 		subPanelContentFocused = $bindable(),
 		tabDropper,
 		onFocus
 	}: Props = $props();
 
-	const Comp = $state(activeView?.component);
+	let Comp = $derived(componentToRender ?? activeView?.component);
 	let subPanelContentElement: HTMLDivElement | undefined = $state();
-	let panelData = $derived(
-		activeView?.viewData ?? activeView?.getComponentData()
-	);
+
+	$effect(() => {
+		if (activeView) {
+			panelData = activeView.viewData ?? activeView.getComponentData();
+		}
+	});
 
 	if (debugMode === true) {
 		$inspect("active view", keyId, activeView);

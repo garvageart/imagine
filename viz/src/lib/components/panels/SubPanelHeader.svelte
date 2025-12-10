@@ -227,6 +227,8 @@
 	}
 
 	function triggerTabContextMenu(event: MouseEvent, view: VizView) {
+		event.preventDefault();
+		event.stopPropagation();
 		contextMenuAnchor = { x: event.clientX, y: event.clientY };
 		contextMenuItems = buildTabContextMenu(
 			view,
@@ -238,6 +240,7 @@
 	}
 
 	function triggerHeaderContextMenu(event: MouseEvent) {
+		event.preventDefault();
 		layoutContextMenuAnchor = { x: event.clientX, y: event.clientY };
 		layoutContextMenuItems = [
 			...buildLayoutContextMenu(),
@@ -326,7 +329,9 @@
 			aria-label="Scrollbar"
 			aria-valuemin="0"
 			aria-valuemax="100"
-			aria-valuenow={Math.round((scrollLeft / (scrollWidth - clientWidth)) * 100)}
+			aria-valuenow={Math.round(
+				(scrollLeft / (scrollWidth - clientWidth)) * 100
+			)}
 			tabindex="0"
 		>
 			<div
