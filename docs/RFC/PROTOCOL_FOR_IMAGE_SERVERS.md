@@ -91,6 +91,29 @@ To maintain synchronization across servers (e.g., when an agency updates caption
 -   **Security:** To ensure trust, it is RECOMMENDED that webhook payloads be signed (HMAC) using a shared secret.
 -   **Resilience:** Senders SHOULD implement retry logic for failed deliveries.
 
+### 8. Native Client (Idea, not a spec thing)
+The protocol is designed not just for server-to-server communication, but to enable a rich ecosystem of native applications (desktop, mobile, CLI) that can interact with *any* compliant server. This decouples the "viewing/editing experience" from the "hosting provider."
+
+Organisations/Agencies could adjust their current workflows to adapt to this protocol. 
+
+For example:
+
+`Media agency -> Propriatery CMS API -> InDesign -> Photoshop/Lightroom - Back to CMS` 
+
+could be:
+
+`Media agency -> Protocol API -> External Editor (Photoshop) with Custom Internal Plugin -> Protocol API (Update)`
+
+In this improved workflow:
+1.  The **Custom Plugin** (inside Photoshop/InDesign) connects directly to the Protocol API, allowing the user to search and browse the remote library without leaving the editor.
+2.  The user selects an asset, which the plugin fetches (handling high-res vs. proxy logic transparently).
+3.  Edits are performed natively in **Photoshop**.
+4.  On save, the **Plugin** pushes the updated file (or version) back to the Protocol API, ensuring the central library is immediately current.
+
+-   **Bring Your Own Client (BYOC):** Users can choose their preferred photo manager (e.g., a lightweight native viewer, a RAW editor, or a mobile gallery app) and simply point it at their data source. The protocol ensures consistent access to albums, search, and metadata regardless of the client implementation.
+-   **Offline-First & Syncing:** Native apps can leverage the protocol's sync capabilities to cache high-performance thumbnails and metadata locally. This allows for browsing and searching gigabyte-sized libraries with zero latency, even when offline, syncing changes back when connectivity is restored.
+-   **Direct Editing:** Advanced editors can open high-resolution assets directly from the server (via signed, short-lived URLs) and save edits back as new versions or sidecar files, preserving the non-destructive workflow central to professional photography.
+
 ## Technical Requirements
 - **API Extension:** New endpoints for federation (e.g., `/.well-known/imagine`).
 - **Metadata Standardization:** strict adherence to IPTC/XMP to ensure metadata survives transfer.
