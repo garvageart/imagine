@@ -361,7 +361,7 @@
 			const res = await updateJobTypeConcurrency(jobId, { concurrency: value });
 			if (res.status === 200) {
 				toastState.addToast({
-					message: (res.data && (res.data as any).message) || `Concurrency for ${jobId} set to ${value}`,
+					message: `Concurrency for ${jobId} set to ${value}`,
 					type: "success"
 				});
 			} else {
