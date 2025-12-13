@@ -8,6 +8,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"imagine/internal/entities"
 	imalog "imagine/internal/logger"
 )
 
@@ -112,21 +113,14 @@ func SetupDatabaseLogger(logLevel slog.Level) *slog.Logger {
 }
 
 func BackfillOwnership(client *gorm.DB, logger *slog.Logger) {
-	logger.Info("Backfilling ownership data...")
+	logger.Info("Backfilling ownership for images and collections...")
 
-	// Backfill images
-	result := client.Exec("UPDATE images SET owner_id = uploaded_by_id WHERE owner_id IS NULL AND uploaded_by_id IS NOT NULL")
-	if result.Error != nil {
-		logger.Error("Failed to backfill image ownership", slog.Any("error", result.Error))
-	} else if result.RowsAffected > 0 {
-		logger.Info("Backfilled image ownership", slog.Int64("rows_affected", result.RowsAffected))
+	// Use model to ensure correct table name, then Exec raw SQL for performance
+	if err := client.Model(&entities.Image{}).Exec("UPDATE images SET owner_id = uploaded_by_id WHERE owner_id IS NULL AND uploaded_by_id IS NOT NULL").Error; err != nil {
+		logger.Error("Failed to backfill image ownership", slog.Any("error", err))
 	}
 
-	// Backfill collections
-	result = client.Exec("UPDATE collections SET owner_id = created_by_id WHERE owner_id IS NULL AND created_by_id IS NOT NULL")
-	if result.Error != nil {
-		logger.Error("Failed to backfill collection ownership", slog.Any("error", result.Error))
-	} else if result.RowsAffected > 0 {
-		logger.Info("Backfilled collection ownership", slog.Int64("rows_affected", result.RowsAffected))
+	if err := client.Model(&entities.Collection{}).Exec("UPDATE collections SET owner_id = created_by_id WHERE owner_id IS NULL AND created_by_id IS NOT NULL").Error; err != nil {
+		logger.Error("Failed to backfill collection ownership", slog.Any("error", err))
 	}
 }

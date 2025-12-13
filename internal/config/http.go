@@ -57,12 +57,14 @@ func (server ImagineServer) ConnectToDatabase(dst ...any) *gorm.DB {
 	settings.CleanupSettingDefaults(client, logger)
 	settings.CleanupSettingOverrides(client, logger)
 
-	logger.Info("Running auto-migration for auth server")
 	dbError = client.AutoMigrate(dst...)
 	if dbError != nil {
 		logger.Error("error running auto-migration", slog.Any("error", dbError))
 		panic("error running auto-migration: " + dbError.Error())
 	}
+
+	// Seed default settings after migration
+	settings.SeedDefaultSettings(client, logger)
 
 	// Run backfill for ownership
 	db.BackfillOwnership(client, logger)
