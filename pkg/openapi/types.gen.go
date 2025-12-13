@@ -65,6 +65,14 @@ const (
 	CompleteOAuthParamsProviderGoogle CompleteOAuthParamsProvider = "google"
 )
 
+// Defines values for ListImagesParamsSortBy.
+const (
+	CreatedAt ListImagesParamsSortBy = "created_at"
+	Name      ListImagesParamsSortBy = "name"
+	TakenAt   ListImagesParamsSortBy = "taken_at"
+	UpdatedAt ListImagesParamsSortBy = "updated_at"
+)
+
 // Defines values for GetImageFileParamsFormat.
 const (
 	Avif GetImageFileParamsFormat = "avif"
@@ -713,6 +721,7 @@ type UserSetting struct {
 	AllowedValues  *[]string `json:"allowed_values"`
 	DefaultValue   string    `json:"default_value"`
 	Description    string    `json:"description"`
+	DisplayName    string    `json:"display_name"`
 	Group          string    `json:"group"`
 	IsUserEditable *bool     `json:"is_user_editable,omitempty"`
 	Name           string    `json:"name"`
@@ -948,9 +957,16 @@ type ListImagesParams struct {
 	// Limit Number of images per page
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// Page Page index (0-based)
-	Page *int `form:"page,omitempty" json:"page,omitempty"`
+	// Page Current page index (0-based) of images being fetched
+	Page   *int                    `form:"page,omitempty" json:"page,omitempty"`
+	SortBy *ListImagesParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+
+	// Order Ascending or descending of the phots
+	Order *string `form:"order,omitempty" json:"order,omitempty"`
 }
+
+// ListImagesParamsSortBy defines parameters for ListImages.
+type ListImagesParamsSortBy string
 
 // UploadImageByUrlTextBody defines parameters for UploadImageByUrl.
 type UploadImageByUrlTextBody = string

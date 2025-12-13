@@ -159,6 +159,8 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	router.Get("/", func(res http.ResponseWriter, req *http.Request) {
 		limitStr := req.URL.Query().Get("limit")
 		pageStr := req.URL.Query().Get("page")
+		sortByParam := req.URL.Query().Get("sort_by")
+		orderParam := req.URL.Query().Get("order")
 
 		limit := 100
 		page := 0
@@ -173,6 +175,17 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			if parsed, err := strconv.Atoi(pageStr); err == nil && parsed >= 0 {
 				page = parsed
 			}
+		}
+
+		sortBy := "taken_at"
+		allowedSortBy := []string{"taken_at", "created_at", "updated_at", "name"}
+		if slices.Contains(allowedSortBy, sortByParam) {
+			sortBy = sortByParam
+		}
+
+		order := "DESC"
+		if strings.ToUpper(orderParam) == "ASC" {
+			order = "ASC"
 		}
 
 		var images []entities.Image
@@ -196,8 +209,15 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 				return err
 			}
 
+			var orderClause string
+			if sortBy == "taken_at" {
+				orderClause = fmt.Sprintf("taken_at %s NULLS LAST, name %s", order, order)
+			} else {
+				orderClause = fmt.Sprintf("%s %s", sortBy, order)
+			}
+
 			pageOffset := max(page*limit, 0)
-			if err := query.Preload("UploadedBy").Order("taken_at DESC NULLS LAST, name DESC").Offset(pageOffset).Limit(limit).Find(&images).Error; err != nil {
+			if err := query.Preload("Owner").Preload("UploadedBy").Order(orderClause).Offset(pageOffset).Limit(limit).Find(&images).Error; err != nil {
 				return err
 			}
 
@@ -224,17 +244,28 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		// Build pagination links
-		href := fmt.Sprintf("/images?limit=%d&page=%d", limit, page)
+		queryParts := []string{fmt.Sprintf("limit=%d", limit)}
+		if sortByParam != "" {
+			queryParts = append(queryParts, fmt.Sprintf("sort_by=%s", sortBy))
+		}
+		if orderParam != "" {
+			queryParts = append(queryParts, fmt.Sprintf("order=%s", strings.ToLower(order)))
+		}
+
+		baseQuery := strings.Join(queryParts, "&")
+		href := fmt.Sprintf("/images?%s&page=%d", baseQuery, page)
+
 		var prev *string
 		var next *string
 		hasPrev := page > 0
 		hasNext := int64((page+1)*limit) < total
 		if hasPrev {
-			p := fmt.Sprintf("/images?limit=%d&page=%d", limit, page-1)
+			p := fmt.Sprintf("/images?%s&page=%d", baseQuery, page-1)
 			prev = &p
 		}
+		
 		if hasNext {
-			nx := fmt.Sprintf("/images?limit=%d&page=%d", limit, page+1)
+			nx := fmt.Sprintf("/images?%s&page=%d", baseQuery, page+1)
 			next = &nx
 		}
 
@@ -369,7 +400,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		uid := chi.URLParam(req, "uid")
 
 		var imgEnt entities.Image
-		result := db.Preload("UploadedBy").Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt)
+		result := db.Preload("Owner").Preload("UploadedBy").Model(&entities.Image{}).Where("uid = ? AND deleted_at IS NULL", uid).First(&imgEnt)
 
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
@@ -628,7 +659,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 	// it's possible that URL uploads could be a security problem.
 	// cool idea in theory i guess tho
 	router.Post("/url", func(res http.ResponseWriter, req *http.Request) {
-		if os.Getenv("ENABLE_URL_UPLOAD") == "false" {
+		if os.Getenv("ENABLE_URL_UPLOAD") != "true" {
 			render.Status(req, http.StatusForbidden)
 			render.JSON(res, req, dto.ErrorResponse{Error: "URL uploads are disabled"})
 			return

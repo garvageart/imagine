@@ -99,6 +99,7 @@ export type UserUpdate = {
 };
 export type UserSetting = {
     name: string;
+    display_name: string;
     /** The effective value (override if exists, else default). */
     value: string;
     default_value: string;
@@ -1046,9 +1047,11 @@ export function updateUserSettingsBatch(userSettingUpdateRequest: UserSettingUpd
 /**
  * List all images with pagination
  */
-export function listImages({ limit, page }: {
+export function listImages({ limit, page, sortBy, order }: {
     limit?: number;
     page?: number;
+    sortBy?: "taken_at" | "created_at" | "updated_at" | "name";
+    order?: string;
 } = {}, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
@@ -1058,7 +1061,9 @@ export function listImages({ limit, page }: {
         data: ErrorResponse;
     }>(`/images${QS.query(QS.explode({
         limit,
-        page
+        page,
+        sort_by: sortBy,
+        order
     }))}`, {
         ...opts
     });

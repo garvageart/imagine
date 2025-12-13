@@ -805,7 +805,7 @@ paths:
           in: query
           schema:
             type: integer
-            default: 25
+            default: 100
           description: Number of images per page
         - name: page
           in: query
@@ -813,7 +813,20 @@ paths:
             type: integer
             default: 0
             minimum: 0
-          description: Page index (0-based)
+          description: Current page index (0-based) of images being fetched
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            default: taken_at
+            enum: [taken_at, created_at, updated_at, name]
+            description: Key which images are sorted by
+        - name: order
+          in: query
+          schema:
+            type: string
+            default: DESC
+          description: Ascending or descending of the phots
       responses:
         "200":
           description: OK
@@ -3029,6 +3042,8 @@ components:
       properties:
         name:
           type: string
+        display_name:
+          type: string
         value:
           type: string
           description: The effective value (override if exists, else default).
@@ -3047,7 +3062,16 @@ components:
           type: string
         description:
           type: string
-      required: [name, value, default_value, value_type, group, description]
+      required:
+        [
+          name,
+          display_name,
+          value,
+          default_value,
+          value_type,
+          group,
+          description,
+        ]
 
     SignedExportResponse:
       type: object
