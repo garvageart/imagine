@@ -14,15 +14,11 @@ export function generateRandomString(length: number): string {
     return result;
 }
 
-export const fullscreen = {
-    enter: () => {
-        const documentEl = document.documentElement;
-        if (documentEl.requestFullscreen && !document.fullscreenElement) {
-            documentEl.requestFullscreen();
-        }
-    },
-    exit: () => {
-        if (document.exitFullscreen && document.fullscreenElement) {
+export const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) {
             document.exitFullscreen();
         }
     }
