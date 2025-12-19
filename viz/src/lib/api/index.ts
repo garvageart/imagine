@@ -53,10 +53,10 @@ const apiProxy: GeneratedApi = new Proxy(generated, {
             }
 
             // Inject the currentFetch into the options
-            const injectedOpts: Oazapfts.RequestOpts = { 
-                credentials: "include", 
-                ...opts, 
-                fetch: currentFetch 
+            const injectedOpts: Oazapfts.RequestOpts = {
+                credentials: "include",
+                ...opts,
+                fetch: currentFetch
             };
 
             if (optsIndex !== -1) {
@@ -301,7 +301,7 @@ export async function getImageFileBlob(
     } = {}, opts?: Oazapfts.RequestOpts
 ): Promise<
     | { status: 200; data: Blob; }
-    | { status: 304; } // Add 304 Not Modified status
+    | { status: 304; }
     | { status: 400; data: generated.ErrorResponse; }
     | { status: 401; data: generated.ErrorResponse; }
     | { status: 403; data: generated.ErrorResponse; }
@@ -339,6 +339,7 @@ export async function getImageFileBlob(
             headers
         });
 
+        // Ideally we never get here
         if (response.status === 304) {
             return { status: 304 }; // Return 304 for Not Modified
         }

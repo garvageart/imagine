@@ -192,12 +192,34 @@ export type Image = {
     updated_at: string;
     taken_at?: string | null;
 };
+export type CollectionImage = {
+    uid: string;
+    added_at: string;
+    added_by?: User;
+};
+export type Collection = {
+    uid: string;
+    name: string;
+    image_count: number;
+    "private"?: boolean | null;
+    images?: CollectionImage[];
+    created_by?: User;
+    owner?: User;
+    description?: string;
+    thumbnail?: Image;
+    created_at: string;
+    updated_at: string;
+};
+export type SearchListResponse = {
+    images: Image[];
+    collections: Collection[];
+};
 export type ImagesResponse = {
     added_at: string;
     added_by?: User;
     image: Image;
 };
-export type ImagesPage = {
+export type ImagesListResponse = {
     href?: string;
     prev?: string;
     next?: string;
@@ -236,24 +258,6 @@ export type ImageUpdate = {
         keywords?: string[];
     };
 };
-export type CollectionImage = {
-    uid: string;
-    added_at: string;
-    added_by?: User;
-};
-export type Collection = {
-    uid: string;
-    name: string;
-    image_count: number;
-    "private"?: boolean | null;
-    images?: CollectionImage[];
-    created_by?: User;
-    owner?: User;
-    description?: string;
-    thumbnail?: Image;
-    created_at: string;
-    updated_at: string;
-};
 export type CollectionListResponse = {
     href?: string;
     prev?: string;
@@ -273,7 +277,7 @@ export type CollectionDetailResponse = {
     name: string;
     image_count?: number;
     "private"?: boolean | null;
-    images: ImagesPage;
+    images: ImagesListResponse;
     created_by?: User;
     owner?: User;
     description?: string;
@@ -1045,6 +1049,27 @@ export function updateUserSettingsBatch(userSettingUpdateRequest: UserSettingUpd
     }));
 }
 /**
+ * Search for images and collections
+ */
+export function executeSearch(q: string, { limit, page }: {
+    limit?: number;
+    page?: number;
+} = {}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.fetchJson<{
+        status: 200;
+        data: SearchListResponse;
+    } | {
+        status: 500;
+        data: ErrorResponse;
+    }>(`/search${QS.query(QS.explode({
+        q,
+        limit,
+        page
+    }))}`, {
+        ...opts
+    });
+}
+/**
  * List all images with pagination
  */
 export function listImages({ limit, page, sortBy, order }: {
@@ -1055,7 +1080,7 @@ export function listImages({ limit, page, sortBy, order }: {
 } = {}, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: ImagesPage;
+        data: ImagesListResponse;
     } | {
         status: 500;
         data: ErrorResponse;
@@ -1364,7 +1389,7 @@ export function listCollectionImages(uid: string, { limit, offset }: {
 } = {}, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
-        data: ImagesPage;
+        data: ImagesListResponse;
     } | {
         status: 404;
         data: ErrorResponse;
