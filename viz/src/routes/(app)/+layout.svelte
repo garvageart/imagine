@@ -55,6 +55,7 @@
 	}
 
 	.viz-content {
+		display: flex;
 		flex: 1;
 		overflow: hidden;
 		width: 100%;

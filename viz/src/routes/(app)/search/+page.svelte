@@ -2,29 +2,34 @@
 	import { goto } from "$app/navigation";
 	import AssetGrid from "$lib/components/AssetGrid.svelte";
 	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
-	import Lightbox from "$lib/components/Lightbox.svelte";
-	import LoadingContainer from "$lib/components/LoadingContainer.svelte";
 	import LoadingSpinner from "$lib/components/LoadingSpinner.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { performSearch } from "$lib/search/execute";
-	import { lightbox, search, sort } from "$lib/states/index.svelte";
-	import { loadImage } from "$lib/utils/dom";
+	import { modal, search, sort } from "$lib/states/index.svelte";
 	import { onMount, type ComponentProps } from "svelte";
 	import { SvelteSet } from "svelte/reactivity";
 	import CollectionCard from "$lib/components/CollectionCard.svelte";
-	import { ImageObjectData } from "$lib/entities/image";
-	import type CollectionData from "$lib/entities/collection";
 	import AssetsShell from "$lib/components/AssetsShell.svelte";
 	import ImageCard from "$lib/components/ImageCard.svelte";
-	import SearchInput from "$lib/components/SearchInput.svelte";
-	import { sortCollectionImages } from "$lib/sort/sort";
-	import type { AssetGridArray } from "$lib/types/asset";
-	import { searchForData } from "../collections/[uid]/+page.svelte";
-
-	export class SelectedAssets<T> {
-		selectedAssets = $state<SvelteSet<T>>(new SvelteSet());
-		singleSelectedAsset: T | undefined = $state();
-	}
+	import PhotoAssetGrid, {
+		type AssetGridView
+	} from "$lib/components/PhotoAssetGrid.svelte";
+	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
+	import type { Collection, Image } from "$lib/api";
+	import hotkeys from "hotkeys-js";
+	import {
+		getConsolidatedGroups,
+		groupImagesByDate,
+		type ConsolidatedGroup,
+		type DateGroup,
+		type ImageWithDateLabel
+	} from "$lib/photo-layout";
+	import { DateTime } from "luxon";
+	import { downloadOriginalImageFile } from "$lib/utils/http";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import Dropdown, {
+		type DropdownOption
+	} from "$lib/components/Dropdown.svelte";
 
 	let collections = $derived(search.data.collections.data);
 	let images = $derived(search.data.images.data);
@@ -33,56 +38,101 @@
 	let timeFound = $state(0);
 
 	// Lightbox
-	let lightboxImage: ImageObjectData | undefined = $state();
-	let show = $state(false);
-	let currentImageEl: HTMLImageElement | undefined = $derived(lightboxImage ? document.createElement("img") : undefined);
+	let lightboxImage: Image | undefined = $state();
 
-	$effect(() => {
-		if (lightboxImage) {
-			show = true;
+	// Selection
+	let selectedAssets = $state(new SvelteSet<Image>()); // For images
+	let singleSelectedAsset: Image | undefined = $state();
+
+	let selectedCollections = $state(new SvelteSet<Collection>()); // For collections
+	let singleSelectedCollection: Collection | undefined = $state();
+
+	// Display state
+	let currentAssetGridView: AssetGridView = $state("grid");
+	const displayOptions: DropdownOption[] = [
+		{ title: "Grid" },
+		{ title: "List" },
+		{ title: "Card" }
+	];
+
+	// Grouping Logic for Images (Reused from photos/+page.svelte)
+	let groups: DateGroup[] = $derived(groupImagesByDate(images) ?? []);
+
+	let consolidatedGroups: ConsolidatedGroup[] = $derived.by(() => {
+		return getConsolidatedGroups(groups);
+	});
+
+	let allImagesFlat = $derived(consolidatedGroups.flatMap((g) => g.allImages));
+
+	// Grid props for Collections (using AssetsShell/AssetGrid)
+	let collectionsGrid: ComponentProps<typeof AssetGrid<Collection>> = $derived({
+		data: collections,
+		assetSnippet: collectionCard,
+		selectedAssets: selectedCollections,
+		singleSelectedAsset: singleSelectedCollection,
+		searchValue: search.value
+	});
+
+	hotkeys("escape", (e) => {
+		e.preventDefault();
+		selectedAssets.clear();
+		selectedCollections.clear();
+
+		singleSelectedAsset = undefined;
+		singleSelectedCollection = undefined;
+		lightboxImage = undefined;
+
+		if (modal.show) {
+			modal.show = false;
 		}
 	});
 
-	// Selection
-	let collectionSelectedAssets = $state(new SelectedAssets<CollectionData>());
-	let imageSelectedAssets = $state(new SelectedAssets<ImageObjectData>());
+	function openLightbox(asset: Image) {
+		lightboxImage = asset;
+	}
 
-	// Images Stuff
+	function nextLightboxImage() {
+		if (!lightboxImage || allImagesFlat.length === 0) {
+			return;
+		}
 
-	// - Search stuff
-	let collectionSearchValue = $state("");
-	let searchData = $derived(searchForData(collectionSearchValue, images));
+		const idx = allImagesFlat.findIndex((i) => i.uid === lightboxImage!.uid);
+		if (idx === -1) {
+			return;
+		}
 
-	// - Display Data
-	let imageGridArray: AssetGridArray<ImageObjectData> | undefined = $state();
-	let imageDisplayData = $derived(
-		collectionSearchValue.trim() ? sortCollectionImages(searchData, sort) : sortCollectionImages(images, sort)
-	);
+		const nextIdx = (idx - 1 + allImagesFlat.length) % allImagesFlat.length;
+		lightboxImage = allImagesFlat[nextIdx];
+	}
 
-	let imagesGrid: ComponentProps<AssetGrid<ImageObjectData>> = $derived({
-		selectedAssets: imageSelectedAssets.selectedAssets,
-		singleSelectedAsset: imageSelectedAssets.singleSelectedAsset,
-		assetGridArray: imageGridArray,
-		data: imageDisplayData,
-		assetDblClick(_, asset) {
-			lightboxImage = asset;
-		},
-		assetSnippet: imageCard
-	});
+	function prevLightboxImage() {
+		if (!lightboxImage || allImagesFlat.length === 0) {
+			return;
+		}
 
-	let collectionsGrid: ComponentProps<AssetGrid<CollectionData>> = $derived({
-		selectedAssets: collectionSelectedAssets.selectedAssets,
-		singleSelectedAsset: collectionSelectedAssets.singleSelectedAsset,
-		data: collections,
-		assetDblClick(_, asset) {
-			goto(`/collections/${asset.uid}`);
-		},
-		assetSnippet: collectionCard
-	});
+		const idx = allImagesFlat.findIndex((i) => i.uid === lightboxImage!.uid);
+		if (idx === -1) {
+			return;
+		}
 
-	let selectedAssets = $derived.by(() => {
-		return collectionSelectedAssets.selectedAssets.union(imageSelectedAssets.selectedAssets);
-	});
+		const nextIdx = (idx + 1) % allImagesFlat.length;
+		lightboxImage = allImagesFlat[nextIdx];
+	}
+
+	async function performImageDownloads(uids: string[]) {
+		// Reusing logic from photos page (simplified for single download for now, bulk needs token endpoint logic)
+		// For search page, let's just support single download via helper if bulk not fully set up here
+		if (uids.length === 1) {
+			const img = images.find((i) => i.uid === uids[0]);
+			if (img) await downloadOriginalImageFile(img);
+		} else {
+			toastState.addToast({
+				type: "info",
+				message: "Bulk download not fully implemented on search page yet",
+				timeout: 3000
+			});
+		}
+	}
 
 	onMount(() => {
 		if (search.value) {
@@ -100,37 +150,14 @@
 </svelte:head>
 
 {#if lightboxImage}
-	{@const imageToLoad = lightboxImage.image_paths?.original_path ?? ""}
-	<Lightbox
-		onclick={() => {
-			lightboxImage = undefined;
-		}}
-	>
-		{#await loadImage(imageToLoad, currentImageEl!)}
-			<div style="width: 3em; height: 3em">
-				<LoadingContainer />
-			</div>
-		{:then _}
-			<img
-				src={imageToLoad}
-				class="lightbox-image"
-				alt={lightboxImage.name}
-				title={lightboxImage.name}
-				loading="eager"
-				data-image-id={lightboxImage.uid}
-			/>
-		{:catch error}
-			<p>Failed to load image</p>
-			<p>{error}</p>
-		{/await}
-	</Lightbox>
+	<ImageLightbox bind:lightboxImage {nextLightboxImage} {prevLightboxImage} />
 {/if}
 
-{#snippet imageCard(asset: ImageObjectData)}
+{#snippet imageCard(asset: Image)}
 	<ImageCard {asset} />
 {/snippet}
 
-{#snippet collectionCard(collectionData: CollectionData)}
+{#snippet collectionCard(collectionData: Collection)}
 	<a
 		data-sveltekit-preload-data
 		data-asset-id={collectionData.uid}
@@ -141,118 +168,165 @@
 	</a>
 {/snippet}
 
-{#snippet searchInputSnippet()}
-	<SearchInput style="margin: 0em 1em;" bind:value={collectionSearchValue} />
-{/snippet}
-
-<!-- Container to show search information and context to help the user
- better understand the results and further help them find what they're looking for 
--->
-<div id="search-info-container" class="selection-container">
-	{#if selectedAssets.size > 1}
-		<AssetToolbar class="selection-toolbar">
-			<button
-				id="coll-clear-selection"
-				title="Clear selection"
-				aria-label="Clear selection"
-				style="margin-right: 0.5em;"
-				class="toolbar-button"
-				onclick={() => selectedAssets.clear()}
+<div id="search">
+	<div id="search-info-container" class="selection-container">
+		{#if selectedAssets.size > 1 || selectedCollections.size > 1}
+			<AssetToolbar class="asset-toolbar">
+				<button
+					id="coll-clear-selection"
+					title="Clear selection"
+					aria-label="Clear selection"
+					style="margin-right: 0.5em;"
+					class="toolbar-button"
+					onclick={() => {
+						selectedAssets.clear();
+						selectedCollections.clear();
+					}}
+				>
+					<MaterialIcon iconName="close" />
+				</button>
+				<span style="font-weight: 600;"
+					>{selectedAssets.size + selectedCollections.size} selected</span
+				>
+			</AssetToolbar>
+		{:else if !search.loading}
+			<AssetToolbar
+				style="position: sticky; top: 0px; display: flex; justify-content: flex-start;"
+				class="asset-toolbar"
 			>
-				<MaterialIcon iconName="close" />
-			</button>
-			<span style="font-weight: 600;">{selectedAssets.size} selected</span>
-		</AssetToolbar>
-	{:else if !search.loading}
-		<div id="search-info">
-			<p>{totalResults} results found in {(timeFound / 1000).toFixed(2)} seconds</p>
-			<div class="search-info-details">
 				<p>
-					{collections.length} collection{collections.length === 1 ? "" : "s"}, {images.length} image{images.length === 1
-						? ""
-						: "s"}
+					{totalResults} results found in {(timeFound / 1000).toFixed(2)} seconds
 				</p>
-			</div>
-		</div>
-	{/if}
-</div>
-
-<div class="search-container no-select">
-	<h1 style="margin-top: 2rem;">Search</h1>
-	{#if search.loading}
-		<div class="loading-container">
-			<p id="search-loading-text">Searching for "{search.value}"...</p>
-			<LoadingSpinner />
-		</div>
-	{:else if search.executed}
-		<div class="results">
-			{#if totalResults === 0}
-				<!-- TODO: Create a suggestions component to show other collections
-			 something like a closest match to what was searched			 
-			-->
-				<div class="no-results">
-					<p>No results found for "{search.value}"</p>
+				<div class="search-info-details">
+					<p>
+						{collections.length} collection{collections.length === 1
+							? ""
+							: "s"}, {images.length}
+						image{images.length === 1 ? "" : "s"}
+					</p>
 				</div>
-			{:else}
-				{#if collections.length > 0}
-					<section class="collections-section">
-						<h2>Collections ({collections.length})</h2>
-						<AssetsShell
-							toolbarProps={{
-								style: "justify-content: right;"
-							}}
-							bind:grid={collectionsGrid}
-						/>
-					</section>
+			</AssetToolbar>
+		{/if}
+	</div>
+
+	<div class="search-container no-select">
+		{#if search.loading}
+			<div class="loading-container">
+				<p id="search-loading-text">Searching for "{search.value}"...</p>
+				<LoadingSpinner />
+			</div>
+		{:else if search.executed}
+			<div class="results">
+				{#if totalResults === 0}
+					<div class="no-results">
+						<p>No results found for "{search.value}"</p>
+					</div>
+				{:else}
+					{#if collections.length > 0}
+						<section class="collections-section">
+							<h2>Collections ({collections.length})</h2>
+							<AssetsShell
+								toolbarProps={{
+									style: "justify-content: right;"
+								}}
+								bind:grid={collectionsGrid}
+							/>
+						</section>
+					{/if}
+					{#if images.length > 0}
+						<section class="images-section">
+							<div
+								style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--imag-20); padding-right: 1rem;"
+							>
+								<h2>Images ({images.length})</h2>
+								{#if selectedAssets.size <= 1}
+									<div style="display: flex; align-items: center; gap: 0.5rem;">
+										<Dropdown
+											title="Display"
+											class="toolbar-button"
+											icon="list_alt"
+											options={displayOptions}
+											selectedOption={displayOptions.find(
+												(o) => o.title.toLowerCase() === currentAssetGridView
+											)}
+											onSelect={(opt) => {
+												currentAssetGridView = opt.title as AssetGridView;
+											}}
+										/>
+									</div>
+								{/if}
+							</div>
+
+							<div class="photo-group-container">
+								{#each consolidatedGroups as consolidatedGroup}
+									<section class="photo-group">
+										<h2 class="photo-group-label">{consolidatedGroup.label}</h2>
+										<PhotoAssetGrid
+											{selectedAssets}
+											bind:singleSelectedAsset
+											bind:allData={allImagesFlat}
+											bind:view={currentAssetGridView}
+											data={consolidatedGroup.allImages}
+											assetDblClick={(_e, asset) => openLightbox(asset)}
+											onassetcontext={(detail: {
+												asset: Image;
+												anchor: { x: number; y: number };
+											}) => {
+												const { asset } = detail;
+												if (
+													!selectedAssets.has(asset) ||
+													selectedAssets.size <= 1
+												) {
+													singleSelectedAsset = asset;
+													selectedAssets.clear();
+													selectedAssets.add(asset);
+												}
+												// Context menu not fully implemented in search page yet,
+												// but selection works for basic actions.
+											}}
+										/>
+									</section>
+								{/each}
+							</div>
+						</section>
+					{/if}
 				{/if}
-				{#if images.length > 0}
-					<section class="images-section">
-						<h2>Images ({images.length})</h2>
-						<AssetsShell
-							toolbarSnippet={searchInputSnippet}
-							toolbarProps={{
-								style: "justify-content: center;"
-							}}
-							bind:grid={imagesGrid}
-						/>
-					</section>
-				{/if}
-			{/if}
-		</div>
-	{/if}
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>
+	#search {
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		align-items: center;
+	}
+
 	#search-info-container {
 		z-index: 1;
+		width: 100%;
+		position: sticky;
+		top: 0;
+		background-color: var(--imag-100);
 	}
 
-	#search-info {
-		padding: 1rem 1rem;
-		border-bottom: 1px solid var(--imag-60);
-		display: flex;
-		align-items: center;
-		font-size: 0.9rem;
-		color: var(--imag-40);
-	}
-
-	#search-info p {
-		margin: 0;
-		padding: 0rem 0.5rem;
+	:global(.asset-toolbar) {
+		gap: 1rem;
 	}
 
 	.search-container {
 		white-space: wrap;
-		display: flex;
-		align-items: center;
-		flex-direction: column;
-		overflow-y: auto;
-	}
+		width: 100%;
 
-	h1 {
-		margin-bottom: 1.5rem;
-		font-weight: 800;
-		text-align: center;
+		/* h1 {
+			margin: 0.5rem 0rem;
+			font-weight: 800;
+			text-align: center;
+		} */
 	}
 
 	.loading-container,
@@ -267,11 +341,11 @@
 
 	#search-loading-text {
 		font-size: 1em;
-		margin-bottom: 1rem;
 	}
 
 	.results {
 		width: 100%;
+		flex-grow: 1;
 	}
 
 	.collections-section,
@@ -284,35 +358,33 @@
 	h2 {
 		padding: 0.5rem 1rem;
 		padding-bottom: 0.5rem;
-		border-bottom: 1px solid var(--imag-20);
 		font-weight: 400;
+		margin: 0;
+		font-size: 1.2rem;
 	}
 
-	/* .collection-card,
-	.image-card {
-		border-radius: 0.5rem;
-		overflow: hidden;
-	}
-
-	.collections-grid,
-	.images-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 1.5rem;
+	.photo-group-container {
+		display: flex;
+		flex-direction: column;
+		padding: 0; /* Remove padding that might push content out of bounds */
+		box-sizing: border-box;
 		width: 100%;
-	} */
-
-	/* @media (max-width: 768px) {
-		.collections-grid,
-		.images-grid {
-			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		}
 	}
 
-	@media (max-width: 480px) {
-		.collections-grid,
-		.images-grid {
-			grid-template-columns: 1fr;
-		}
-	} */
+	.photo-group {
+		display: flex;
+		flex-direction: column;
+		box-sizing: border-box;
+		padding: 1rem 0rem;
+		width: 100%;
+	}
+
+	.photo-group-label {
+		padding: 0.5rem 2rem;
+		font-weight: 400;
+		font-size: 1.2rem;
+		color: var(--imag-10);
+		width: fit-content;
+		border-bottom: none;
+	}
 </style>

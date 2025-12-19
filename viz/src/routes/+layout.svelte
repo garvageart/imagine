@@ -23,6 +23,8 @@
 	import "@fontsource-variable/roboto-mono/index.css";
 	import "$lib/styles/scss/main.scss";
 	import "$lib/stores/appReady";
+	import { beforeNavigate, afterNavigate } from "$app/navigation";
+	import NavigationProgressBar from "$lib/components/NavigationProgressBar.svelte";
 
 	historyState.init();
 
@@ -56,6 +58,19 @@
 		e.preventDefault();
 		toggleFullscreen();
 	});
+
+	let showNavProgress = $state(false);
+
+	beforeNavigate(() => {
+		showNavProgress = true;
+	});
+
+	afterNavigate(() => {
+		showNavProgress = false;
+	});
 </script>
 
+{#if showNavProgress}
+	<NavigationProgressBar />
+{/if}
 {@render children()}

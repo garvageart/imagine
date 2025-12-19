@@ -19,7 +19,6 @@
 	import PhotoAssetGrid from "$lib/components/PhotoAssetGrid.svelte";
 	import AssetsShell from "$lib/components/AssetsShell.svelte";
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
-	import SearchInput from "$lib/components/SearchInput.svelte";
 	import { debugMode, modal, sort } from "$lib/states/index.svelte";
 	import type { AssetGridArray } from "$lib/types/asset.js";
 	import {
@@ -62,6 +61,7 @@
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 	import { copyToClipboard } from "$lib/utils/misc.js";
+	import IconButton from "$lib/components/IconButton.svelte";
 
 	// Context menu state
 	let ctxShowMenu = $state(false);
@@ -413,10 +413,7 @@
 				});
 				goto("/collections");
 			} else {
-				const errMsg =
-					(res as any).data?.error ??
-					(res as any).data?.message ??
-					"Unknown error";
+				const errMsg = res.data.error ?? "Unknown error";
 				toastState.addToast({
 					type: "error",
 					message: `Failed to delete collection: ${errMsg}`
@@ -666,10 +663,10 @@
 
 {#snippet searchInputSnippet()}
 	<div id="coll-tools">
-		<Button
+		<IconButton
+			iconName="upload"
 			id="upload_to_collection"
 			class="toolbar-button"
-			style="padding: 0.1em 0.5em; background-color: var(--imag-100);"
 			title="Upload to Collection"
 			aria-label="Upload to Collection"
 			onclick={() => {
@@ -677,12 +674,11 @@
 			}}
 		>
 			Upload
-			<MaterialIcon iconName="upload" />
-		</Button>
-		<Button
+		</IconButton>
+		<IconButton
+			iconName="edit"
 			id="upload_to_collection"
 			class="toolbar-button"
-			style="padding: 0.1em 0.5em; background-color: var(--imag-100);"
 			title="Edit Collection"
 			aria-label="Edit Collection"
 			onclick={() => {
@@ -690,8 +686,7 @@
 			}}
 		>
 			Edit
-			<MaterialIcon iconName="edit" />
-		</Button>
+		</IconButton>
 		<Dropdown
 			class="toolbar-button"
 			icon="more_horiz"

@@ -1,9 +1,7 @@
-<script module lang="ts">
-	export type ImageWithDateLabel = Image & { dateLabel?: string; isFirstOfDate?: boolean };
-</script>
-
 <script lang="ts">
-	import PhotoAssetGrid, { type AssetGridView } from "$lib/components/PhotoAssetGrid.svelte";
+	import PhotoAssetGrid, {
+		type AssetGridView
+	} from "$lib/components/PhotoAssetGrid.svelte";
 	import LoadingContainer from "$lib/components/LoadingContainer.svelte";
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
 	import { type Image } from "$lib/api";
@@ -11,24 +9,47 @@
 	import { getFullImagePath } from "$lib/api";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { SvelteSet } from "svelte/reactivity";
-	import { listImages, deleteImagesBulk, signDownload, downloadImagesZipBlob, getImageFile, getImage } from "$lib/api";
-	import { getTakenAt, compareByTakenAtDesc } from "$lib/utils/images.js";
+	import {
+		listImages,
+		deleteImagesBulk,
+		signDownload,
+		downloadImagesZipBlob,
+		getImage
+	} from "$lib/api";
 	import AssetToolbar from "$lib/components/AssetToolbar.svelte";
-	import Dropdown, { type DropdownOption } from "$lib/components/Dropdown.svelte";
+	import Dropdown, {
+		type DropdownOption
+	} from "$lib/components/Dropdown.svelte";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import { fade } from "svelte/transition";
 	import hotkeys from "hotkeys-js";
-	import UploadManager, { type ImageUploadSuccess } from "$lib/upload/manager.svelte";
+	import UploadManager, {
+		type ImageUploadSuccess,
+		waitForUploadCompletion
+	} from "$lib/upload/manager.svelte";
+	import { UploadState } from "$lib/upload/asset.svelte";
 	import { createCollection, addCollectionImages } from "$lib/api";
-	import { SUPPORTED_IMAGE_TYPES, SUPPORTED_RAW_FILES, type SupportedImageTypes } from "$lib/types/images";
+	import {
+		SUPPORTED_IMAGE_TYPES,
+		SUPPORTED_RAW_FILES,
+		type SupportedImageTypes
+	} from "$lib/types/images";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import { goto, invalidateAll } from "$app/navigation";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 	import Button from "$lib/components/Button.svelte";
-	import { debugMode, modal } from "$lib/states/index.svelte";
+	import { modal } from "$lib/states/index.svelte";
 	import { copyToClipboard } from "$lib/utils/misc.js";
 	import CollectionModal from "$lib/components/CollectionModal.svelte";
 	import ConfirmationModal from "$lib/components/modals/ConfirmationModal.svelte";
+	import { downloadOriginalImageFile } from "$lib/utils/http.js";
+	import {
+		getConsolidatedGroups,
+		groupImagesByDate,
+		type ConsolidatedGroup,
+		type DateGroup,
+		type ImageWithDateLabel
+	} from "$lib/photo-layout/index.js";
 
 	let { data } = $props();
 
@@ -44,102 +65,19 @@
 	let isPaginating = $state(false);
 
 	// Page state
-	let groups: { key: string; date: DateTime; label: string; items: Image[] }[] = $derived(groupImagesByDate(images) ?? []);
-
-	// Consolidated groups: merge small consecutive date groups into visual sections
-	type ConsolidatedGroup = {
-		label: string; // Combined label like "8 Mar - 26 Aug 2025"
-		totalCount: number;
-		allImages: ImageWithDateLabel[]; // All images merged together with date labels
-		isConsolidated: boolean; // true if multiple date groups merged
-		startDate: DateTime; // newest date in this consolidated block
-		endDate: DateTime; // oldest date in this consolidated block
-	};
+	let groups: DateGroup[] = $derived(groupImagesByDate(images) ?? []);
 
 	let consolidatedGroups: ConsolidatedGroup[] = $derived.by(() => {
-		const consolidated: ConsolidatedGroup[] = [];
-		const SMALL_GROUP_THRESHOLD = 4; // Groups with <= 4 photos are considered "small"
-		let currentConsolidation: ConsolidatedGroup | null = null;
-
-		for (let i = 0; i < groups.length; i++) {
-			const group = groups[i];
-			const isSmall = group.items.length <= SMALL_GROUP_THRESHOLD;
-			const isLastGroup = i === groups.length - 1;
-
-			if (isSmall) {
-				// Start or continue consolidation
-				if (!currentConsolidation) {
-					// Mark first image of this date group
-					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
-						...img,
-						dateLabel: group.label,
-						isFirstOfDate: idx === 0
-					}));
-
-					currentConsolidation = {
-						label: group.label,
-						totalCount: group.items.length,
-						allImages: imagesWithLabels,
-						isConsolidated: false,
-						startDate: group.date,
-						endDate: group.date
-					};
-				} else {
-					// Add to existing consolidation
-					const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img, idx) => ({
-						...img,
-						dateLabel: group.label,
-						isFirstOfDate: idx === 0
-					}));
-
-					currentConsolidation.allImages.push(...imagesWithLabels);
-					currentConsolidation.totalCount += group.items.length;
-					currentConsolidation.isConsolidated = true;
-
-					// Update oldest/newest and label
-					currentConsolidation.endDate = group.date; // groups are sorted newest -> oldest
-					const start = currentConsolidation.startDate;
-					const end = currentConsolidation.endDate;
-
-					if (start.year === end.year && start.month === end.month) {
-						currentConsolidation.label = `${start.day}\u2013${end.day} ${start.toFormat("LLL yyyy")}`; // e.g., 27–24 Aug 2025
-					} else if (start.year === end.year) {
-						currentConsolidation.label = `${start.toFormat("d LLL")} - ${end.toFormat("d LLL yyyy")}`;
-					} else {
-						currentConsolidation.label = `${start.toFormat("d LLL yyyy")} - ${end.toFormat("d LLL yyyy")}`;
-					}
-				}
-
-				// If this is the last group, flush the consolidation
-				if (isLastGroup && currentConsolidation) {
-					consolidated.push(currentConsolidation);
-					currentConsolidation = null;
-				}
-			} else {
-				// Large group: flush any pending consolidation first, then add this group standalone
-				if (currentConsolidation) {
-					consolidated.push(currentConsolidation);
-					currentConsolidation = null;
-				}
-
-				const imagesWithLabels: ImageWithDateLabel[] = group.items.map((img) => ({ ...img }));
-				consolidated.push({
-					label: group.label,
-					totalCount: group.items.length,
-					allImages: imagesWithLabels,
-					isConsolidated: false,
-					startDate: group.date,
-					endDate: group.date
-				});
-			}
-		}
-
-		return consolidated;
+		return getConsolidatedGroups(groups);
 	});
 
 	// Display state (local to photos page)
 	let currentAssetGridView: AssetGridView = $state("grid");
-	const displayOptions: DropdownOption[] = [{ title: "Grid" }, { title: "List" }, { title: "Card" }];
+	const displayOptions: DropdownOption[] = [
+		{ title: "Grid" },
+		{ title: "List" },
+		{ title: "Card" }
+	];
 
 	// Lightbox
 	let lightboxImage: Image | undefined = $state();
@@ -245,15 +183,22 @@
 				break;
 
 			case "Move to Trash":
-				const okTrash = confirm(`Move ${items.length} selected image(s) to trash?`);
+				const okTrash = confirm(
+					`Move ${items.length} selected image(s) to trash?`
+				);
 				if (!okTrash) {
 					return;
 				}
 
 				try {
-					const res = await deleteImagesBulk({ uids: items.map((i) => i.uid), force: false });
+					const res = await deleteImagesBulk({
+						uids: items.map((i) => i.uid),
+						force: false
+					});
 					if (res.status === 200 || res.status === 207) {
-						const deletedUIDs = (res.data.results ?? []).filter((r) => r.deleted).map((r) => r.uid);
+						const deletedUIDs = (res.data.results ?? [])
+							.filter((r) => r.deleted)
+							.map((r) => r.uid);
 						images = images.filter((img) => !deletedUIDs.includes(img.uid));
 						selectedAssets.clear();
 					} else {
@@ -273,15 +218,22 @@
 				break;
 
 			case "Force Delete":
-				const okForce = confirm(`Permanently delete ${items.length} image(s)? This action cannot be undone!`);
+				const okForce = confirm(
+					`Permanently delete ${items.length} image(s)? This action cannot be undone!`
+				);
 				if (!okForce) {
 					return;
 				}
 
 				try {
-					const res = await deleteImagesBulk({ uids: items.map((i) => i.uid), force: true });
+					const res = await deleteImagesBulk({
+						uids: items.map((i) => i.uid),
+						force: true
+					});
 					if (res.status === 200 || res.status === 207) {
-						const deletedUIDs = (res.data.results ?? []).filter((r) => r.deleted).map((r) => r.uid);
+						const deletedUIDs = (res.data.results ?? [])
+							.filter((r) => r.deleted)
+							.map((r) => r.uid);
 						images = images.filter((img) => !deletedUIDs.includes(img.uid));
 						selectedAssets.clear();
 					} else {
@@ -345,31 +297,7 @@
 				const uid = uids[0];
 				const img = images.find((i) => i.uid === uid)!;
 
-				const fileRes = await getImageFile(uid);
-				if (fileRes.status === 304) {
-					if (debugMode) {
-						console.log(`Image ${uid} not modified, using cached version for download`);
-					}
-					return;
-				} else if (fileRes.status !== 200) {
-					throw new Error(`Failed to download image: HTTP ${fileRes.status}`);
-				}
-
-				// this should never happen man but hey
-				const filename = img.name.trim() !== "" ? img.name : `image-${uid}-${Date.now()}`;
-				const blob = fileRes.data;
-				const url = URL.createObjectURL(blob);
-
-				const a = document.createElement("a");
-				a.href = url;
-				a.download = filename;
-				document.body.appendChild(a);
-				a.click();
-				a.remove();
-
-				URL.revokeObjectURL(url);
-
-				return;
+				return downloadOriginalImageFile(img);
 			}
 
 			const signRes = await signDownload({
@@ -390,8 +318,6 @@
 			}
 
 			const token = signRes.data.uid; // The token is stored in the uid field
-
-			// Use the custom downloadImagesZipBlob function that properly handles binary responses
 			const dlRes = await downloadImagesZipBlob(token, { uids });
 
 			if (dlRes.status !== 200) {
@@ -419,48 +345,6 @@
 				timeout: 5000
 			});
 		}
-	}
-
-	function groupImagesByDate(list: Image[]) {
-		const map = new Map<string, Image[]>();
-
-		for (const img of list) {
-			const taken = getTakenAt(img);
-			const dt = DateTime.fromJSDate(taken);
-			const key = dt.toISODate()!;
-			if (!map.has(key)) {
-				map.set(key, []);
-			}
-
-			map.get(key)!.push(img);
-		}
-
-		// Convert to array and sort by date desc. Ensure items within each
-		// date group are ordered by taken_at descending (most recent first).
-		const arr = Array.from(map.entries()).map(([key, items]) => {
-			const date = DateTime.fromISO(key);
-			items.sort(compareByTakenAtDesc);
-			return { key, date, items };
-		});
-
-		arr.sort((a, b) => b.date.toMillis() - a.date.toMillis());
-
-		// create display label (Today / Yesterday / date)
-		const labelled = arr.map((g) => {
-			const today = DateTime.now().startOf("day");
-			const diff = today.diff(g.date.startOf("day"), "days").days;
-			let label = g.date.toLocaleString(DateTime.DATE_MED);
-
-			if (diff === 0) {
-				label = "Today";
-			} else if (diff === 1) {
-				label = "Yesterday";
-			}
-
-			return { key: g.key, date: g.date, label, items: g.items };
-		});
-
-		return labelled;
 	}
 
 	function openLightbox(asset: Image) {
@@ -506,7 +390,11 @@
 
 	// Collection creation state
 	let showCollectionCreate = $state(false);
-	let collectionCreateData = $state({ name: "", description: "", private: false });
+	let collectionCreateData = $state({
+		name: "",
+		description: "",
+		private: false
+	});
 	let collectionCreatePending = $state(false);
 
 	// Small drop-target state for 'Add to Collection' box
@@ -529,9 +417,11 @@
 			const dirEntry = item as FileSystemDirectoryEntry;
 			const reader = dirEntry.createReader();
 
-			const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-				reader.readEntries(resolve, reject);
-			});
+			const entries = await new Promise<FileSystemEntry[]>(
+				(resolve, reject) => {
+					reader.readEntries(resolve, reject);
+				}
+			);
 
 			for (const entry of entries) {
 				const nestedFiles = await traverseFileTree(entry);
@@ -611,7 +501,10 @@
 			}
 
 			// Filter valid files here to avoid processing invalid ones later
-			const supportedExtensions = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_RAW_FILES];
+			const supportedExtensions = [
+				...SUPPORTED_IMAGE_TYPES,
+				...SUPPORTED_RAW_FILES
+			];
 			const validFiles = allFiles.filter((file) => {
 				const ext = file.type.split("/")[1];
 				return supportedExtensions.includes(ext as any);
@@ -627,7 +520,9 @@
 			}
 
 			uploadCandidates = validFiles;
-			suggestedCollectionName = detectedFolderName || `New Collection ${new Date().toLocaleDateString()}`;
+			suggestedCollectionName =
+				detectedFolderName ||
+				`New Collection ${new Date().toLocaleDateString()}`;
 
 			// If we detected a folder or simply want to offer the choice always:
 			showUploadConfirm = true;
@@ -651,7 +546,10 @@
 			});
 		}
 
-		const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+		const manager = new UploadManager([
+			...SUPPORTED_RAW_FILES,
+			...SUPPORTED_IMAGE_TYPES
+		] as SupportedImageTypes[]);
 		const tasks = manager.addFiles(files);
 
 		toastState.addToast({
@@ -661,7 +559,18 @@
 		});
 
 		// Start uploads with concurrency control
-		const uploadedImages = await manager.start(tasks);
+		await manager.start(tasks);
+
+		// Wait for completion
+		await waitForUploadCompletion(tasks);
+
+		const uploadedImages = tasks
+			.filter(
+				(t) => t.state === UploadState.DONE || t.state === UploadState.DUPLICATE
+			)
+			.map((t) => t.imageData)
+			.filter((img): img is ImageUploadSuccess => !!img);
+
 		if (uploadedImages.length > 0) {
 			toastState.addToast({
 				type: "success",
@@ -700,7 +609,11 @@
 				try {
 					const uids: string[] = JSON.parse(json);
 					if (uids.length === 0) {
-						toastState.addToast({ type: "info", message: "No images to add to collection", timeout: 3000 });
+						toastState.addToast({
+							type: "info",
+							message: "No images to add to collection",
+							timeout: 3000
+						});
 						return;
 					}
 
@@ -711,14 +624,22 @@
 					});
 
 					if (createRes.status !== 201) {
-						toastState.addToast({ type: "error", message: `Failed to create collection (${createRes.status})`, timeout: 4000 });
+						toastState.addToast({
+							type: "error",
+							message: `Failed to create collection (${createRes.status})`,
+							timeout: 4000
+						});
 						return;
 					}
 
 					const collectionUid = createRes.data.uid;
 					const addRes = await addCollectionImages(collectionUid, { uids });
 					if (addRes.status === 200) {
-						toastState.addToast({ type: "success", message: `Collection created with ${uids.length} image(s)`, timeout: 4000 });
+						toastState.addToast({
+							type: "success",
+							message: `Collection created with ${uids.length} image(s)`,
+							timeout: 4000
+						});
 						await invalidateAll();
 						goto(`/collections/${collectionUid}`);
 						return;
@@ -761,22 +682,36 @@
 			}
 
 			if (allFiles.length === 0) {
-				toastState.addToast({ type: "info", message: "No files to add to collection", timeout: 3000 });
+				toastState.addToast({
+					type: "info",
+					message: "No files to add to collection",
+					timeout: 3000
+				});
 				return;
 			}
 
-			const supportedExtensions = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_RAW_FILES];
+			const supportedExtensions = [
+				...SUPPORTED_IMAGE_TYPES,
+				...SUPPORTED_RAW_FILES
+			];
 			const validFiles = allFiles.filter((file) => {
 				const ext = file.type.split("/")[1];
 				return supportedExtensions.includes(ext as any);
 			});
 
 			if (validFiles.length === 0) {
-				toastState.addToast({ type: "error", message: "No supported image files found to add to collection", timeout: 4000 });
+				toastState.addToast({
+					type: "error",
+					message: "No supported image files found to add to collection",
+					timeout: 4000
+				});
 				return;
 			}
 
-			const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+			const manager = new UploadManager([
+				...SUPPORTED_RAW_FILES,
+				...SUPPORTED_IMAGE_TYPES
+			] as SupportedImageTypes[]);
 			const tasks = manager.addFiles(validFiles);
 
 			toastState.addToast({
@@ -785,10 +720,40 @@
 				timeout: 2500
 			});
 
-			const uploadedImages = await manager.start(tasks);
+			// Start uploads with concurrency control
+			await manager.start(tasks);
+
+			// Wait for completion
+			await waitForUploadCompletion(tasks);
+
+			const uploadedImages = tasks
+				.filter(
+					(t) =>
+						t.state === UploadState.DONE || t.state === UploadState.DUPLICATE
+				)
+				.map((t) => t.imageData)
+				.filter((img): img is ImageUploadSuccess => !!img);
+
+			if (uploadedImages.length > 0) {
+				toastState.addToast({
+					type: "success",
+					message: `Successfully uploaded ${uploadedImages.length} file(s)`,
+					timeout: 3000
+				});
+
+				try {
+					await invalidateAll();
+				} catch (err) {
+					console.error("Failed to fetch uploaded images:", err);
+				}
+			}
 
 			if (!uploadedImages || uploadedImages.length === 0) {
-				toastState.addToast({ type: "error", message: "Upload failed, no images available to add to collection", timeout: 4000 });
+				toastState.addToast({
+					type: "error",
+					message: "Upload failed, no images available to add to collection",
+					timeout: 4000
+				});
 				return;
 			}
 
@@ -800,7 +765,11 @@
 			});
 
 			if (createRes.status !== 201) {
-				toastState.addToast({ type: "error", message: `Failed to create collection (${createRes.status})`, timeout: 4000 });
+				toastState.addToast({
+					type: "error",
+					message: `Failed to create collection (${createRes.status})`,
+					timeout: 4000
+				});
 				return;
 			}
 
@@ -810,7 +779,11 @@
 			if (uids.length > 0) {
 				const addRes = await addCollectionImages(collectionUid, { uids });
 				if (addRes.status === 200) {
-					toastState.addToast({ type: "success", message: `Collection created with ${uids.length} image(s)`, timeout: 4000 });
+					toastState.addToast({
+						type: "success",
+						message: `Collection created with ${uids.length} image(s)`,
+						timeout: 4000
+					});
 					goto(`/collections/${collectionUid}`);
 				} else {
 					toastState.addToast({
@@ -820,11 +793,19 @@
 					});
 				}
 			} else {
-				toastState.addToast({ type: "warning", message: "Collection created but no uploaded image UIDs found", timeout: 4000 });
+				toastState.addToast({
+					type: "warning",
+					message: "Collection created but no uploaded image UIDs found",
+					timeout: 4000
+				});
 			}
 		} catch (err) {
 			console.error("Add-to-collection drop error:", err);
-			toastState.addToast({ type: "error", message: `Failed to create collection from dropped images: ${err}`, timeout: 5000 });
+			toastState.addToast({
+				type: "error",
+				message: `Failed to create collection from dropped images: ${err}`,
+				timeout: 5000
+			});
 		}
 	}
 
@@ -834,7 +815,11 @@
 	async function createCollectionFromSelected() {
 		const items = Array.from(selectedAssets);
 		if (!items || items.length === 0) {
-			toastState.addToast({ type: "info", message: "Select images first, or drag files here to upload", timeout: 3000 });
+			toastState.addToast({
+				type: "info",
+				message: "Select images first, or drag files here to upload",
+				timeout: 3000
+			});
 			return;
 		}
 
@@ -846,14 +831,22 @@
 				private: false
 			});
 			if (createRes.status !== 201) {
-				toastState.addToast({ type: "error", message: `Failed to create collection (${createRes.status})`, timeout: 4000 });
+				toastState.addToast({
+					type: "error",
+					message: `Failed to create collection (${createRes.status})`,
+					timeout: 4000
+				});
 				return;
 			}
 
 			const collectionUid = createRes.data.uid;
 			const addRes = await addCollectionImages(collectionUid, { uids });
 			if (addRes.status === 200) {
-				toastState.addToast({ type: "success", message: `Collection created with ${uids.length} image(s)`, timeout: 4000 });
+				toastState.addToast({
+					type: "success",
+					message: `Collection created with ${uids.length} image(s)`,
+					timeout: 4000
+				});
 				await invalidateAll();
 				goto(`/collections/${collectionUid}`);
 			} else {
@@ -865,7 +858,11 @@
 			}
 		} catch (err) {
 			console.error("createCollectionFromSelected error", err);
-			toastState.addToast({ type: "error", message: `Failed to create collection: ${err}`, timeout: 5000 });
+			toastState.addToast({
+				type: "error",
+				message: `Failed to create collection: ${err}`,
+				timeout: 5000
+			});
 		}
 	}
 
@@ -873,7 +870,9 @@
 	let addImagesDebounceTimer: number | undefined;
 	const ADD_IMAGES_DEBOUNCE_MS = 550;
 
-	async function resolveRawToImages(items: ImageUploadSuccess[]): Promise<Image[]> {
+	async function resolveRawToImages(
+		items: ImageUploadSuccess[]
+	): Promise<Image[]> {
 		if (!items || items.length === 0) {
 			return [];
 		}
@@ -937,7 +936,10 @@
 	}
 
 	async function addImagesToImagine() {
-		const manager = new UploadManager([...SUPPORTED_RAW_FILES, ...SUPPORTED_IMAGE_TYPES] as SupportedImageTypes[]);
+		const manager = new UploadManager([
+			...SUPPORTED_RAW_FILES,
+			...SUPPORTED_IMAGE_TYPES
+		] as SupportedImageTypes[]);
 		const uploadedImages = await manager.openPickerAndUpload();
 
 		if (uploadedImages.length === 0) {
@@ -994,7 +996,11 @@
 	function handleConfirmUploadCollection() {
 		showUploadConfirm = false;
 		// Keep modal open, switch to collection create
-		collectionCreateData = { name: suggestedCollectionName, description: "", private: false };
+		collectionCreateData = {
+			name: suggestedCollectionName,
+			description: "",
+			private: false
+		};
 		showCollectionCreate = true;
 	}
 
@@ -1022,7 +1028,9 @@
 			const uploadedImages = await processUploads(uploadCandidates);
 
 			// 3. Add to Collection
-			const uids = uploadedImages.filter((img) => img && img.uid).map((i: any) => i.uid);
+			const uids = uploadedImages
+				.filter((img) => img && img.uid)
+				.map((i: any) => i.uid);
 
 			if (uids.length > 0) {
 				const addRes = await addCollectionImages(collectionUid, { uids });
@@ -1056,7 +1064,12 @@
 	}
 </script>
 
-<svelte:body ondragenter={handleDragEnter} ondragleave={handleDragLeave} ondragover={handleDragOver} ondrop={handleDrop} />
+<svelte:body
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
+/>
 
 <svelte:head>
 	<title>Photos</title>
@@ -1075,7 +1088,10 @@
 
 		{#snippet actions()}
 			<Button onclick={handleConfirmUploadOnly}>Upload Individually</Button>
-			<Button onclick={handleConfirmUploadCollection} style="background-color: var(--imag-primary); color: white;">
+			<Button
+				onclick={handleConfirmUploadCollection}
+				style="background-color: var(--imag-primary); color: white;"
+			>
 				Create Collection & Upload
 			</Button>
 		{/snippet}
@@ -1094,7 +1110,10 @@
 {#if isDragging}
 	<div class="drop-overlay" transition:fade={{ duration: 150 }}>
 		<div class="drop-overlay-content">
-			<MaterialIcon iconName="upload" style="font-size: 4rem; margin-bottom: 1rem; color: var(--imag-10-dark);" />
+			<MaterialIcon
+				iconName="upload"
+				style="font-size: 4rem; margin-bottom: 1rem; color: var(--imag-10-dark);"
+			/>
 			<p style="font-size: 1.5rem; font-weight: 600;">Drop files to upload</p>
 			<p style="font-size: 1rem; opacity: 0.8;">Supports images and folders</p>
 
@@ -1152,7 +1171,9 @@
 
 {#snippet noAssetsSnippet()}
 	<div id="add_to_imagine-container">
-		<span style="margin: 1em; color: var(--imag-20); font-size: 1.2rem;">Add your first images</span>
+		<span style="margin: 1em; color: var(--imag-20); font-size: 1.2rem;"
+			>Add your first images</span
+		>
 		<Button
 			id="add_to_collection-button"
 			style="padding: 2em 8em; display: flex; align-items: center; justify-content: center;"
@@ -1166,7 +1187,12 @@
 	</div>
 {/snippet}
 
-<VizViewContainer name="Photos" bind:data={images} {hasMore} paginate={() => paginate()}>
+<VizViewContainer
+	name="Photos"
+	bind:data={images}
+	{hasMore}
+	paginate={() => paginate()}
+>
 	{#if images.length > 0}
 		{#if selectedAssets.size > 1}
 			<AssetToolbar class="selection-toolbar" stickyToolbar={true}>
@@ -1180,7 +1206,9 @@
 					<MaterialIcon iconName="close" />
 				</button>
 				<span style="font-weight: 600;">{selectedAssets.size} selected</span>
-				<div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
+				<div
+					style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;"
+				>
 					<Dropdown
 						class="toolbar-button"
 						icon="more_horiz"
@@ -1192,14 +1220,19 @@
 				</div>
 			</AssetToolbar>
 		{:else}
-			<AssetToolbar style="position: sticky; top: 0px; display: flex; justify-content: flex-end;" stickyToolbar={true}>
+			<AssetToolbar
+				style="position: sticky; top: 0px; display: flex; justify-content: flex-end;"
+				stickyToolbar={true}
+			>
 				<div style="display: flex; align-items: center; gap: 0.5rem;">
 					<Dropdown
 						title="Display"
 						class="toolbar-button"
 						icon="list_alt"
 						options={displayOptions}
-						selectedOption={displayOptions.find((o) => o.title.toLowerCase() === currentAssetGridView)}
+						selectedOption={displayOptions.find(
+							(o) => o.title.toLowerCase() === currentAssetGridView
+						)}
 						onSelect={(opt) => {
 							currentAssetGridView = opt.title as AssetGridView;
 						}}
@@ -1224,9 +1257,11 @@
 						bind:allData={allImagesFlat}
 						bind:view={currentAssetGridView}
 						data={consolidatedGroup.allImages}
-						disableOutsideUnselect={true}
 						assetDblClick={(_e, asset) => openLightbox(asset)}
-						onassetcontext={(detail: { asset: Image; anchor: { x: number; y: number } }) => {
+						onassetcontext={(detail: {
+							asset: Image;
+							anchor: { x: number; y: number };
+						}) => {
 							const { asset, anchor } = detail;
 							if (!selectedAssets.has(asset) || selectedAssets.size <= 1) {
 								singleSelectedAsset = asset;
@@ -1240,7 +1275,9 @@
 								icon: opt.icon,
 								action: () => {
 									if (opt.title === "Download") {
-										const selected = Array.from(selectedAssets).map((i) => i.uid);
+										const selected = Array.from(selectedAssets).map(
+											(i) => i.uid
+										);
 										performImageDownloads(selected);
 									} else {
 										handleActionMenu(opt);
@@ -1258,7 +1295,12 @@
 </VizViewContainer>
 
 <!-- Context menu for right-click on assets -->
-<ContextMenu bind:showMenu={ctxShowMenu} items={ctxItems} anchor={ctxAnchor} offsetY={0} />
+<ContextMenu
+	bind:showMenu={ctxShowMenu}
+	items={ctxItems}
+	anchor={ctxAnchor}
+	offsetY={0}
+/>
 
 <style lang="scss">
 	.photo-group-container {

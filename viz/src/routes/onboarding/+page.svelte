@@ -9,8 +9,6 @@
 	import {
 		setupSuperadmin,
 		doUserOnboarding,
-		updateUserSettingsBatch,
-		updateCurrentUser,
 		getUserSettings,
 		type UserSetting
 	} from "$lib/api";
@@ -20,7 +18,7 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import { onMount } from "svelte";
-	import { fade, slide } from "svelte/transition";
+	import { fade } from "svelte/transition";
 	import { formatLabel } from "$lib/settings/utils";
 	import ProgressBar from "$lib/components/ProgressBar.svelte";
 
@@ -191,6 +189,7 @@
 				last_name: userForm.lastName,
 				settings: userSettings.map((setting) => ({
 					name: setting.name,
+					display_name: setting.display_name,
 					value: userSettingsValues[setting.name] || setting.default_value,
 					default_value: setting.default_value,
 					value_type: setting.value_type,

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import VizPanel from "$lib/components/panels/VizPanel.svelte";
-	import { login, search } from "$lib/states/index.svelte";
+	import { search } from "$lib/states/index.svelte";
 	import SearchPage from "./search/+page.svelte";
 	import { onMount } from "svelte";
 
 	let vizContentContainer: HTMLDivElement | undefined = $state();
-	const loginState = login.state;
 </script>
 
 <svelte:head>
