@@ -270,7 +270,7 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		}
 
 		count := int(total)
-		response := dto.ImagesPage{
+		response := dto.ImagesListResponse{
 			Href:  &href,
 			Prev:  prev,
 			Next:  next,
@@ -295,7 +295,9 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
-		if params.Height <= 0 || params.Width <= 0 {
+		logger.Debug("params for image", slog.String("uid", uid), slog.Any("params", params))
+
+		if params.Height < 0 || params.Width < 0 {
 			render.Status(req, http.StatusBadRequest)
 			render.JSON(res, req, dto.ErrorResponse{Error: "Invalid width/height parameters"})
 			return

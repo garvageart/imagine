@@ -81,7 +81,7 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 		r.Mount("/auth", routes.AuthRouter(dbClient, logger))
 		r.Mount("/accounts", routes.AccountsRouter(dbClient, logger)) // auth middleware added internally
 		r.Mount("/system", routes.SystemRouter(dbClient, logger))
-		r.Mount("/setup", routes.SetupRouter(dbClient, logger))   // superadmin setup
+		r.Mount("/setup", routes.SetupRouter(dbClient, logger)) // superadmin setup
 		r.Get("/ping", func(res http.ResponseWriter, req *http.Request) {
 			jsonResponse := map[string]any{"message": "pong"}
 			render.JSON(res, req, jsonResponse)
@@ -113,7 +113,13 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 				}))
 				r.Mount("/images", routes.ImagesRouter(dbClient, logger))
 			})
-
+			r.Group(func(r chi.Router) {
+				r.Use(libhttp.ScopeMiddleware([]auth.Scope{
+					auth.ImagesReadScope,
+					auth.CollectionsReadScope,
+				}))
+				r.Mount("/search", routes.SearchRouter(dbClient, logger))
+			})
 			r.Group(func(r chi.Router) {
 				r.Use(libhttp.ScopeMiddleware([]auth.Scope{
 					auth.DownloadsCreateScope,
@@ -154,6 +160,16 @@ func (server APIServer) Launch(router *chi.Mux) *http.Server {
 
 	go func() {
 		logger.Info(fmt.Sprintf("Hey, you want some pics? 👀 - %s: %s", ServerConfig.Key, address))
+
+		if server.LogLevel == slog.LevelDebug {
+			var allRoutes []string
+			chi.Walk(router, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+				allRoutes = append(allRoutes, fmt.Sprintf("%s %s", method, route))
+				return nil
+			})
+
+			logger.Debug("mounted routes", slog.Any("routes", allRoutes))
+		}
 
 		if err := srv.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {

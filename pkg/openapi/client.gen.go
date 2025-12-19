@@ -338,6 +338,9 @@ type ClientInterface interface {
 	// Ping request
 	Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ExecuteSearch request
+	ExecuteSearch(ctx context.Context, params *ExecuteSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteSessions request
 	DeleteSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1449,6 +1452,18 @@ func (c *Client) RetryJob(ctx context.Context, uid string, reqEditors ...Request
 
 func (c *Client) Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPingRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExecuteSearch(ctx context.Context, params *ExecuteSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExecuteSearchRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4368,6 +4383,83 @@ func NewPingRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewExecuteSearchRequest generates requests for ExecuteSearch
+func NewExecuteSearchRequest(server string, params *ExecuteSearchParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "q", runtime.ParamLocationQuery, params.Q); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, *params.Page); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteSessionsRequest generates requests for DeleteSessions
 func NewDeleteSessionsRequest(server string) (*http.Request, error) {
 	var err error
@@ -4922,6 +5014,9 @@ type ClientWithResponsesInterface interface {
 
 	// PingWithResponse request
 	PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error)
+
+	// ExecuteSearchWithResponse request
+	ExecuteSearchWithResponse(ctx context.Context, params *ExecuteSearchParams, reqEditors ...RequestEditorFn) (*ExecuteSearchResponse, error)
 
 	// DeleteSessionsWithResponse request
 	DeleteSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteSessionsResponse, error)
@@ -5849,7 +5944,7 @@ func (r DeleteCollectionImagesResponse) StatusCode() int {
 type ListCollectionImagesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ImagesPage
+	JSON200      *ImagesListResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -6158,7 +6253,7 @@ func (r DeleteImagesBulkResponse) StatusCode() int {
 type ListImagesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ImagesPage
+	JSON200      *ImagesListResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6553,6 +6648,29 @@ func (r PingResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ExecuteSearchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SearchListResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ExecuteSearchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExecuteSearchResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7543,6 +7661,15 @@ func (c *ClientWithResponses) PingWithResponse(ctx context.Context, reqEditors .
 		return nil, err
 	}
 	return ParsePingResponse(rsp)
+}
+
+// ExecuteSearchWithResponse request returning *ExecuteSearchResponse
+func (c *ClientWithResponses) ExecuteSearchWithResponse(ctx context.Context, params *ExecuteSearchParams, reqEditors ...RequestEditorFn) (*ExecuteSearchResponse, error) {
+	rsp, err := c.ExecuteSearch(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExecuteSearchResponse(rsp)
 }
 
 // DeleteSessionsWithResponse request returning *DeleteSessionsResponse
@@ -9170,7 +9297,7 @@ func ParseListCollectionImagesResponse(rsp *http.Response) (*ListCollectionImage
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ImagesPage
+		var dest ImagesListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9645,7 +9772,7 @@ func ParseListImagesResponse(rsp *http.Response) (*ListImagesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ImagesPage
+		var dest ImagesListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -10264,6 +10391,39 @@ func ParsePingResponse(rsp *http.Response) (*PingResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExecuteSearchResponse parses an HTTP response from a ExecuteSearchWithResponse call
+func ParseExecuteSearchResponse(rsp *http.Response) (*ExecuteSearchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExecuteSearchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SearchListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

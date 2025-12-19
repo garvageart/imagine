@@ -264,7 +264,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		count := len(imgResponse)
 
-		imagesPage := dto.ImagesPage{
+		ImagesListResponse := dto.ImagesListResponse{
 			Href:  &href,
 			Prev:  prev,
 			Next:  next,
@@ -282,7 +282,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			Name:        collectionDTO.Name,
 			ImageCount:  &collectionDTO.ImageCount,
 			Private:     collectionDTO.Private,
-			Images:      imagesPage,
+			Images:      ImagesListResponse,
 			CreatedBy:   collectionDTO.CreatedBy,
 			CreatedAt:   collectionDTO.CreatedAt,
 			UpdatedAt:   collectionDTO.UpdatedAt,
@@ -474,7 +474,7 @@ func CollectionsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 		count := len(imgResponse)
 
-		result := dto.ImagesPage{
+		result := dto.ImagesListResponse{
 			Href:  &href,
 			Prev:  prev,
 			Next:  next,

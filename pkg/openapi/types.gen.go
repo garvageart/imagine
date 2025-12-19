@@ -209,17 +209,17 @@ type CollectionCreate struct {
 
 // CollectionDetailResponse defines model for CollectionDetailResponse.
 type CollectionDetailResponse struct {
-	CreatedAt   time.Time  `json:"created_at"`
-	CreatedBy   *User      `json:"created_by,omitempty"`
-	Description *string    `json:"description,omitempty"`
-	ImageCount  *int       `json:"image_count,omitempty"`
-	Images      ImagesPage `json:"images"`
-	Name        string     `json:"name"`
-	Owner       *User      `json:"owner,omitempty"`
-	Private     *bool      `json:"private"`
-	Thumbnail   *Image     `json:"thumbnail,omitempty"`
-	Uid         string     `json:"uid"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	CreatedAt   time.Time          `json:"created_at"`
+	CreatedBy   *User              `json:"created_by,omitempty"`
+	Description *string            `json:"description,omitempty"`
+	ImageCount  *int               `json:"image_count,omitempty"`
+	Images      ImagesListResponse `json:"images"`
+	Name        string             `json:"name"`
+	Owner       *User              `json:"owner,omitempty"`
+	Private     *bool              `json:"private"`
+	Thumbnail   *Image             `json:"thumbnail,omitempty"`
+	Uid         string             `json:"uid"`
+	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
 // CollectionImage defines model for CollectionImage.
@@ -443,8 +443,8 @@ type ImageUploadResponse struct {
 	Uid      string                  `json:"uid"`
 }
 
-// ImagesPage defines model for ImagesPage.
-type ImagesPage struct {
+// ImagesListResponse defines model for ImagesListResponse.
+type ImagesListResponse struct {
 	Count *int             `json:"count,omitempty"`
 	Href  *string          `json:"href,omitempty"`
 	Items []ImagesResponse `json:"items"`
@@ -517,6 +517,12 @@ type QueueConfig struct {
 	UseTls              *bool   `json:"use_tls,omitempty"`
 	Username            *string `json:"username,omitempty"`
 	WriteTimeoutSeconds *int    `json:"write_timeout_seconds,omitempty"`
+}
+
+// SearchListResponse defines model for SearchListResponse.
+type SearchListResponse struct {
+	Collections []Collection `json:"collections"`
+	Images      []Image      `json:"images"`
 }
 
 // Session defines model for Session.
@@ -1024,6 +1030,18 @@ type ListJobsParams struct {
 
 // ListJobsParamsStatus defines parameters for ListJobs.
 type ListJobsParamsStatus string
+
+// ExecuteSearchParams defines parameters for ExecuteSearch.
+type ExecuteSearchParams struct {
+	// Q Search query string (e.g. "johannesburg rating:>=4")
+	Q string `form:"q" json:"q"`
+
+	// Limit Max items per category
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page Page number
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = UserCreate
