@@ -1,13 +1,10 @@
 import { dev } from "$app/environment";
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { createTestUser, createTestImageObject, createTestCollection } from "$lib/data/test";
-import CollectionData from "$lib/entities/collection";
-import { ImageObjectData } from "$lib/entities/image";
+import { executeSearch } from "$lib/api";
 import { search } from "$lib/states/index.svelte";
-import { generateRandomString, sleep } from "$lib/utils/misc";
+import { sleep } from "$lib/utils/misc";
 import { updateURLParameter } from "$lib/utils/url";
-import { faker } from "@faker-js/faker";
 
 export function transformQueryString(queryStr: string) {
     return queryStr.replace(/\s/g, "+");
@@ -34,22 +31,21 @@ export async function performSearch() {
     search.executed = true;
 
     try {
-        const randomLatency = dev ? Math.floor(Math.random() * 2000) + 500 : 0;
+        const randomLatency = dev ? Math.floor(Math.random() * 200) + 100 : 0;
         await sleep(randomLatency);
 
         updateURLParameter("q", search.value);
 
-        // Generate mock collections
-        search.data.collections.data = Array.from(
-            { length: Math.floor(Math.random() * 45) + 15 },
-            () => createTestCollection()
-        );
+        const res = await executeSearch(search.value, { limit: 100, page: 0 });
+        if (res.status === 200) {
+            search.data.images.data = res.data.images ?? [];
+            search.data.collections.data = res.data.collections ?? [];
+        } else {
+            console.error("Search failed:", res.status);
+            search.data.images.data = [];
+            search.data.collections.data = [];
+        }
 
-        // Generate mock images
-        search.data.images.data = Array.from(
-            { length: Math.floor(Math.random() * 90) + 54 },
-            () => createTestImageObject()
-        );
     } catch (error) {
         console.error("Search failed:", error);
     } finally {

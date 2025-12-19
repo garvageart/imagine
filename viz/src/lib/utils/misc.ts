@@ -46,19 +46,16 @@ export function copyToClipboard(text: string) {
     document.body.removeChild(textArea);
 }
 
-export function debounce(func: () => any, wait: number | undefined) {
-    let timeoutId: number | null = null;
-    return (...args: any) => {
-        if (timeoutId !== null) {
-            window.clearTimeout(timeoutId);
-        }
-
-        timeoutId = window.setTimeout(() => {
-            // @ts-ignore
-            func(...args);
-        }, wait);
-    };
-};
+export function debounce<T extends (...args: any[]) => void>(
+    fn: T,
+    delay: number
+): T {
+    let timeoutID: ReturnType<typeof setTimeout> | undefined;
+    return function (this: any, ...args: any[]) {
+        clearTimeout(timeoutID);
+        timeoutID = setTimeout(() => fn.apply(this, args), delay);
+    } as T;
+}
 
 export function isObject(obj: any) {
     return obj !== null && typeof obj === 'object';

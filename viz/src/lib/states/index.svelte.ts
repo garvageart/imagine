@@ -1,8 +1,6 @@
-import type { ImageObjectData } from "$lib/entities/image";
-import type CollectionData from "$lib/entities/collection";
 import type { AssetSort } from "$lib/types/asset";
 import type { UploadImage } from "$lib/upload/asset.svelte";
-import { type User, type SystemStatusResponse } from "$lib/api";
+import { type User, type SystemStatusResponse, type Image, type Collection } from "$lib/api";
 import { VizLocalStorage, VizCookieStorage } from "$lib/utils/misc";
 import { MediaQuery } from "svelte/reactivity";
 
@@ -64,10 +62,10 @@ export let search = $state({
     executed: false,
     data: {
         collections: {
-            data: [] as CollectionData[]
+            data: [] as Collection[]
         },
         images: {
-            data: [] as ImageObjectData[]
+            data: [] as Image[]
         }
     },
     value: "",

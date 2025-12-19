@@ -17,52 +17,54 @@ export interface ImageUploadSuccess {
 let activeCount = $state(0);
 
 /**
+ * Waits for a list of upload tasks to complete (success, error, cancel, or duplicate).
+ */
+export function waitForUploadCompletion(tasks: UploadImage[]): Promise<void> {
+    return new Promise((resolve) => {
+        const check = () => {
+            const allDone = tasks.every(
+                (t) =>
+                    t.state === UploadState.DONE ||
+                    t.state === UploadState.ERROR ||
+                    t.state === UploadState.CANCELED ||
+                    t.state === UploadState.DUPLICATE
+            );
+
+            if (allDone) {
+                resolve();
+            } else {
+                setTimeout(check, 200);
+            }
+        };
+        check();
+    });
+}
+
+/**
  * dynamic queue processor that respects global concurrency.
  * Can be called repeatedly to fill available slots.
  */
 export function processGlobalQueue() {
-    // Find pending tasks
-    const pendingTasks = upload.files.filter(t => t.state === UploadState.PENDING);
-
-    if (pendingTasks.length === 0 && activeCount === 0) {
+    if (activeCount >= upload.concurrency) {
         return;
     }
 
-    // Fill available slots
-    while (activeCount < upload.concurrency && pendingTasks.length > 0) {
-        const task = pendingTasks.shift();
-        if (!task) break;
+    const pendingTasks = upload.files.filter(t => t.state === UploadState.PENDING);
 
+    if (pendingTasks.length === 0) {
+        return;
+    }
+
+    const slotsAvailable = upload.concurrency - activeCount;
+    const tasksToStart = pendingTasks.slice(0, slotsAvailable);
+
+    for (const task of tasksToStart) {
         activeCount++;
 
-        // We don't await here so the loop continues to fill slots
-        task.upload()
-            .then((result) => {
-                if (result) {
-                    upload.stats.success++;
-                }
-            })
-            .catch((err) => {
-                console.error(`Upload failed for ${task.data.file_name}:`, err);
-                upload.stats.errors++;
-            })
-            .finally(() => {
-                activeCount--;
-
-                // Clean up completed tasks from the list if needed
-                if (task.state === UploadState.DONE || task.state === UploadState.CANCELED || task.state === UploadState.ERROR) {
-                    const idx = upload.files.indexOf(task);
-                    if (idx !== -1) {
-                        upload.files.splice(idx, 1);
-                    }
-                } else if (task.state === UploadState.DUPLICATE) {
-                    upload.stats.duplicates++;
-                    // We keep duplicates visible
-                }
-
-                // Trigger next processing cycle
-                processGlobalQueue();
-            });
+        task.upload().finally(() => {
+            activeCount--;
+            processGlobalQueue();
+        });
     }
 }
 
@@ -88,7 +90,7 @@ export default class UploadManager {
         for (const file of files) {
             // Validate file type
             const fileType = file.type.split("/")[1];
-            if (!this.allowedTypes.includes(fileType as any)) {
+            if (!this.allowedTypes.includes(fileType)) {
                 console.warn(`Skipping unsupported file type: ${file.type}`);
                 continue;
             }
@@ -116,8 +118,6 @@ export default class UploadManager {
      * If no tasks provided, uploads all pending tasks in the global store.
      */
     async start(tasks?: UploadImage[]): Promise<void> {
-        // We no longer return a promise of all results because the queue is dynamic.
-        // The UI updates reactively based on task state.
         processGlobalQueue();
     }
 
@@ -153,12 +153,23 @@ export default class UploadManager {
     /**
      * Open picker, add files, and start upload in one call.
      * Convenience method for backward compatibility.
+     * Waits for all selected files to be uploaded (or failed) before returning.
      */
-    async openPickerAndUpload(): Promise<void> {
+    async openPickerAndUpload(): Promise<ImageUploadSuccess[]> {
         const files = await this.openPicker();
-        if (files.length === 0) return;
+        if (files.length === 0) return [];
 
-        this.addFiles(files);
+        const tasks = this.addFiles(files);
         await this.start();
+
+        await waitForUploadCompletion(tasks);
+
+        const success = tasks
+            .filter(t => (t.state === UploadState.DONE || t.state === UploadState.DUPLICATE) && t.imageData)
+            .map(t => ({
+                uid: t.imageData!.uid,
+                metadata: t.imageData
+            }));
+        return success;
     }
-}
+} 

@@ -1,6 +1,6 @@
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-export class SelectionScope<T extends { uid: string } = any> {
+export class SelectionScope<T extends { uid: string; } = any> {
     selected = $state(new SvelteSet<T>());
     active = $state<T | undefined>(undefined);
     id: string;
@@ -54,7 +54,7 @@ export class SelectionScope<T extends { uid: string } = any> {
             this.selected.add(item);
         }
     }
-    
+
     /**
      * Adds multiple items to current selection
      */
@@ -66,14 +66,14 @@ export class SelectionScope<T extends { uid: string } = any> {
 }
 
 export class SelectionManager {
-    scopes = new Map<string, SelectionScope>();
-    
+    scopes = new SvelteMap<string, SelectionScope>();
+
     // A default global scope for simple use cases
     global = new SelectionScope("global");
 
-    constructor() {}
+    constructor() { }
 
-    getScope<T extends { uid: string } = any>(scopeId: string): SelectionScope<T> {
+    getScope<T extends { uid: string; } = any>(scopeId: string): SelectionScope<T> {
         if (!this.scopes.has(scopeId)) {
             this.scopes.set(scopeId, new SelectionScope<T>(scopeId));
         }
@@ -83,16 +83,16 @@ export class SelectionManager {
     removeScope(scopeId: string) {
         this.scopes.delete(scopeId);
     }
-    
+
     /**
      * aggregated helper: get all selected items across all scopes
      * (Useful for global filtering/actions)
      */
-    getAllSelectedItems<T extends { uid: string } = any>(): T[] {
+    getAllSelectedItems<T extends { uid: string; } = any>(): T[] {
         const all: T[] = [];
         // Include default global
         all.push(...this.global.selected as unknown as T[]);
-        
+
         for (const scope of this.scopes.values()) {
             all.push(...scope.selected as unknown as T[]);
         }

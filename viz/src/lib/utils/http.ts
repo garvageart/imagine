@@ -1,5 +1,6 @@
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
-import { API_BASE_URL } from "$lib/api";
+import { API_BASE_URL, getImageFile, getImageFileBlob, type Image } from "$lib/api";
+import { debugMode } from "$lib/states/index.svelte";
 
 type RequestInitOptions = { fetch?: typeof fetch; } & RequestInit;
 
@@ -65,3 +66,33 @@ export const uploadRequest = async <T>(options: UploadRequestOptions): Promise<{
         xhr.send(formData);
     });
 };
+
+export async function downloadOriginalImageFile(img: Image) {
+    const uid = img.uid;
+    const fileRes = await getImageFileBlob(uid, {}, { cache: "no-cache" });
+    if (fileRes.status === 304) {
+        if (debugMode) {
+            console.log(
+                `Image ${uid} not modified, using cached version for download`
+            );
+        }
+        return;
+    } else if (fileRes.status !== 200) {
+        throw new Error(`Failed to download image: ${fileRes.data.error}`);
+    }
+
+    // this should never happen man but hey
+    const filename =
+        img.name.trim() !== "" ? img.name : `image-${uid}-${Date.now()}`;
+    const blob = fileRes.data;
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+}
