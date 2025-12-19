@@ -4,10 +4,17 @@
 	import Lightbox from "./Lightbox.svelte";
 	import LoadingContainer from "./LoadingContainer.svelte";
 	import MaterialIcon from "./MaterialIcon.svelte";
-	import { getFullImagePath, updateImage, type Image, type ImageUpdate } from "$lib/api";
+	import {
+		getFullImagePath,
+		updateImage,
+		type Image,
+		type ImageUpdate
+	} from "$lib/api";
 	import hotkeys from "hotkeys-js";
 	import { formatBytes, getTakenAt, getThumbhashURL } from "$lib/utils/images";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import IconButton from "./IconButton.svelte";
+	import { downloadOriginalImageFile } from "$lib/utils/http";
 
 	interface Props {
 		lightboxImage: Image | undefined;
@@ -15,10 +22,19 @@
 		nextLightboxImage?: () => void;
 	}
 
-	let { lightboxImage = $bindable(), prevLightboxImage, nextLightboxImage }: Props = $props();
+	let {
+		lightboxImage = $bindable(),
+		prevLightboxImage,
+		nextLightboxImage
+	}: Props = $props();
 
 	let show = $derived(lightboxImage !== undefined);
-	let imageToLoad = $derived(getFullImagePath(lightboxImage!.image_paths?.preview || lightboxImage!.image_paths?.original));
+	let imageToLoad = $derived(
+		getFullImagePath(
+			lightboxImage!.image_paths?.preview ||
+				lightboxImage!.image_paths?.original
+		)
+	);
 
 	let direction = $state<"left" | "right">("right");
 	let showMetadata = $state(true);
@@ -33,12 +49,18 @@
 		nextLightboxImage?.();
 	}
 
-	let thumbhashURL = $derived(lightboxImage ? getThumbhashURL(lightboxImage) : undefined);
-	let currentImageEl: HTMLImageElement | undefined = $derived(lightboxImage ? document.createElement("img") : undefined);
+	let thumbhashURL = $derived(
+		lightboxImage ? getThumbhashURL(lightboxImage) : undefined
+	);
+	let currentImageEl: HTMLImageElement | undefined = $derived(
+		lightboxImage ? document.createElement("img") : undefined
+	);
 
 	// Rating UI state: previewRating for hover preview, rating is the set value
 	let previewRating = $state<number | null>(null);
-	let rating = $state<number | null>(lightboxImage?.image_metadata?.rating ?? null);
+	let rating = $state<number | null>(
+		lightboxImage?.image_metadata?.rating ?? null
+	);
 
 	// Star values moved to state to avoid rebuilding the array on each render
 	let starValues = $state<number[]>([1, 2, 3, 4, 5]);
@@ -103,15 +125,13 @@
 		return formatBytes(size) ?? "—";
 	}
 
-	const lightboxMaterialIconColour = "color: var(--imag-10-dark);";
+	const lightboxMaterialIconColour =
+		"color: var(--imag-10-dark); fill: var(--imag-10-dark);";
 </script>
 
 {#snippet metadataEditor()}
 	<div class="metadata-editor">
 		<div class="metadata-header">
-			<button title="Close" onclick={() => (lightboxImage = undefined)}>
-				<MaterialIcon iconName="close" />
-			</button>
 			<h3>Info</h3>
 		</div>
 		<div class="metadata-exif-box">
@@ -123,7 +143,10 @@
 							{#if lightboxImage?.exif?.model && lightboxImage?.exif?.make}
 								<div class="value-big">
 									{lightboxImage.exif.make}
-									{lightboxImage.exif.model.replace(new RegExp(`^${lightboxImage.exif.make} `), "")}
+									{lightboxImage.exif.model.replace(
+										new RegExp(`^${lightboxImage.exif.make} `),
+										""
+									)}
 								</div>
 							{:else}
 								<div class="value-big">Unknown Camera</div>
@@ -146,8 +169,14 @@
 						<div class="card-row main-row">
 							<MaterialIcon iconName="camera" class="exif-material-icon" />
 							<div class="card-values">
-								<div class="value-sub">{lightboxImage?.exif?.f_number ?? lightboxImage?.exif?.aperture ?? "—"}</div>
-								<div class="value-sub">{lightboxImage?.exif?.exposure_time ?? "—"}</div>
+								<div class="value-sub">
+									{lightboxImage?.exif?.f_number ??
+										lightboxImage?.exif?.aperture ??
+										"—"}
+								</div>
+								<div class="value-sub">
+									{lightboxImage?.exif?.exposure_time ?? "—"}
+								</div>
 							</div>
 						</div>
 						<div class="card-row meta-row">
@@ -166,27 +195,41 @@
 					<div class="exif-card">
 						<div class="card-row main-row">
 							<div class="card-values">
-								<div class="value-sub">{lightboxImage?.width} x {lightboxImage?.height}</div>
+								<div class="value-sub">
+									{lightboxImage?.width} x {lightboxImage?.height}
+								</div>
 							</div>
 						</div>
 						<div class="card-row main-row">
-							<MaterialIcon iconName="aspect_ratio" class="exif-material-icon" />
+							<MaterialIcon
+								iconName="aspect_ratio"
+								class="exif-material-icon"
+							/>
 							<div class="card-values">
-								<div class="value-sub">{Math.floor((lightboxImage?.width! * lightboxImage?.height!) / 1_000_000)} MP</div>
+								<div class="value-sub">
+									{Math.floor(
+										(lightboxImage?.width! * lightboxImage?.height!) / 1_000_000
+									)} MP
+								</div>
 								<div class="value-sub">{formatFileSize()}</div>
 							</div>
 						</div>
 						<div class="card-row meta-row">
 							<MaterialIcon iconName="palette" class="exif-material-icon" />
 							<div class="card-values">
-								<div class="value-sub">{lightboxImage?.image_metadata?.color_space ?? "—"}</div>
+								<div class="value-sub">
+									{lightboxImage?.image_metadata?.color_space ?? "—"}
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 				<div class="exif-card">
 					<div class="card-row main-row">
-						<MaterialIcon iconName="calendar_today" class="exif-material-icon" />
+						<MaterialIcon
+							iconName="calendar_today"
+							class="exif-material-icon"
+						/>
 						<div class="card-values">
 							<div class="value-big">
 								{#if lightboxImage?.image_metadata?.file_created_at}
@@ -213,7 +256,11 @@
 			</div>
 
 			<div class="rating-container">
-				<div class="rating-stars" role="group" onmouseleave={() => (previewRating = null)}>
+				<div
+					class="rating-stars"
+					role="group"
+					onmouseleave={() => (previewRating = null)}
+				>
 					{#each starValues as i}
 						<button
 							class="rating-button"
@@ -223,11 +270,20 @@
 							onclick={() => setRating(i)}
 							disabled={updatingRating}
 						>
-							<MaterialIcon fill={i <= (previewRating ?? rating ?? 0)} iconName="star" iconStyle={"sharp"} />
+							<MaterialIcon
+								fill={i <= (previewRating ?? rating ?? 0)}
+								iconName="star"
+								iconStyle={"sharp"}
+							/>
 						</button>
 					{/each}
 					{#if rating !== null && rating !== 0}
-						<button class="rating-clear" aria-label="Clear rating" onclick={() => setRating(0)} disabled={updatingRating}>
+						<button
+							class="rating-clear"
+							aria-label="Clear rating"
+							onclick={() => setRating(0)}
+							disabled={updatingRating}
+						>
 							<MaterialIcon iconName="close" weight={600} />
 						</button>
 					{/if}
@@ -239,32 +295,43 @@
 
 <Lightbox
 	bind:show
-	backgroundOpacity={0.9}
+	backgroundOpacity={0.95}
 	onclick={() => {
 		lightboxImage = undefined;
 	}}
 >
 	<div class="image-lightbox-container">
 		<div class="image-container">
-			<button
+			<IconButton
 				id="lightbox-icon-close"
-				class="image-icon-buttons-shadow"
+				class="lightbox-button-icon"
+				hoverColor="var(--imag-30-light)"
 				title="Close"
+				iconName="close"
 				onclick={() => (lightboxImage = undefined)}
-			>
-				<MaterialIcon iconName="close" style={lightboxMaterialIconColour} />
-			</button>
+			/>
 			<div class="image-icon-buttons">
-				<button
-					class="image-icon-buttons-shadow"
+				<IconButton
+					class="lightbox-button-icon"
+					hoverColor="var(--imag-30-light)"
+					style={lightboxMaterialIconColour}
+					title="Download"
+					iconName="download"
+					onclick={() => {
+						downloadOriginalImageFile(lightboxImage!);
+					}}
+				/>
+				<IconButton
+					class="lightbox-button-icon"
+					hoverColor="var(--imag-30-light)"
+					style={lightboxMaterialIconColour}
 					title={`${showMetadata ? "Hide" : "Show"} Info`}
 					onclick={(e) => {
 						e.stopPropagation();
 						showMetadata = !showMetadata;
 					}}
-				>
-					<MaterialIcon iconName="info" style={lightboxMaterialIconColour} />
-				</button>
+					iconName="info"
+				/>
 			</div>
 			{#key lightboxImage?.uid}
 				<div class="image-wrapper">
@@ -305,24 +372,30 @@
 			{#if prevLightboxImage && nextLightboxImage}
 				<div class="lightbox-nav">
 					<button
-						class="lightbox-nav-btn prev image-icon-buttons-shadow"
+						class="lightbox-nav-btn prev lightbox-button-icon"
 						aria-label="Previous image"
 						onclick={(e) => {
 							e.stopPropagation();
 							goToPrev();
 						}}
 					>
-						<MaterialIcon iconName="arrow_back" style={lightboxMaterialIconColour} />
+						<MaterialIcon
+							iconName="arrow_back"
+							style={lightboxMaterialIconColour}
+						/>
 					</button>
 					<button
-						class="lightbox-nav-btn next image-icon-buttons-shadow"
+						class="lightbox-nav-btn next lightbox-button-icon"
 						aria-label="Next image"
 						onclick={(e) => {
 							e.stopPropagation();
 							goToNext();
 						}}
 					>
-						<MaterialIcon iconName="arrow_forward" style={lightboxMaterialIconColour} />
+						<MaterialIcon
+							iconName="arrow_forward"
+							style={lightboxMaterialIconColour}
+						/>
 					</button>
 				</div>
 			{/if}
@@ -353,7 +426,7 @@
 		pointer-events: none;
 	}
 
-	.image-icon-buttons {
+	:global(.image-icon-buttons) {
 		position: absolute;
 		top: 1em;
 		right: 1em;
@@ -361,18 +434,9 @@
 		pointer-events: auto;
 		display: flex;
 		gap: 0.5em;
-
-		button {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			padding: 0.25em;
-			background: transparent;
-			border: none;
-		}
 	}
 
-	#lightbox-icon-close {
+	:global(#lightbox-icon-close) {
 		position: absolute;
 		top: 1em;
 		left: 1em;
@@ -380,10 +444,24 @@
 		pointer-events: auto;
 	}
 
-	.image-icon-buttons-shadow {
-		filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1)) drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
+	:global(.lightbox-button-icon) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.25em;
+		background: transparent;
+		border: none;
+
+		:global(span) {
+			color: var(--imag-10-dark) !important;
+			fill: var(--imag-10-dark) !important;
+		}
+
+		filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1))
+			drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
 			drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
-		-webkit-filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1)) drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
+		-webkit-filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 1))
+			drop-shadow(0 2px 6px rgba(0, 0, 0, 1))
 			drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
 		will-change: filter;
 	}

@@ -10,7 +10,6 @@
 	import { SvelteSet } from "svelte/reactivity";
 	import { fade } from "svelte/transition";
 	import { getTakenAt, getThumbhashURL } from "$lib/utils/images";
-	import { type ImageWithDateLabel } from "../../routes/(app)/photos/+page.svelte";
 	import { page } from "$app/state";
 	import ImageCard from "./ImageCard.svelte";
 	import {
@@ -21,6 +20,7 @@
 	} from "tippy.js";
 	import PhotoTooltip from "$lib/components/tooltips/PhotoTooltip.svelte";
 	import "tippy.js/dist/tippy.css";
+	import type { ImageWithDateLabel } from "$lib/photo-layout";
 
 	interface PhotoSpecificProps {
 		/** Custom photo card snippet - if not provided, uses default photo card */
@@ -513,11 +513,10 @@
 	}
 
 	function unselectImagesOnClickOutsideAssetContainer(element: HTMLElement) {
-		if (disableOutsideUnselect) {
-			return;
-		}
-
 		const clickHandler = (e: MouseEvent) => {
+			if (disableOutsideUnselect) {
+				return;
+			}
 			const target = e.target as HTMLElement;
 			const selectionToolbar = target.closest(".selection-toolbar") as
 				| HTMLElement
@@ -533,8 +532,36 @@
 				document.querySelectorAll(".viz-photo-grid-container")
 			) as HTMLElement[];
 			const insideAnyGrid = allGrids.some((g) => g.contains(target));
+			const isAsset = target.closest(".asset-photo");
+
 			if (insideAnyGrid) {
-				return;
+				// If we clicked on an asset, definitely don't clear
+				if (isAsset) {
+					return;
+				}
+
+				// If we clicked on the scrollbar of the current grid, don't clear
+				// We can detect this if the target is the grid element itself, and the click is outside client bounds
+				if (target === element) {
+					const rect = element.getBoundingClientRect();
+					// check if click is on vertical scrollbar (right side)
+					if (
+						e.clientX >=
+						rect.right - (element.offsetWidth - element.clientWidth)
+					) {
+						return;
+					}
+					// check if click is on horizontal scrollbar (bottom)
+					if (
+						e.clientY >=
+						rect.bottom - (element.offsetHeight - element.clientHeight)
+					) {
+						return;
+					}
+				}
+
+				// If we are here, we clicked inside a grid (background/gap), so we SHOULD clear selection.
+				// Fall through to clear logic.
 			}
 
 			// Otherwise clear selection
@@ -542,13 +569,13 @@
 			selectedAssets.clear();
 		};
 
-		$effect(() => {
-			document.addEventListener("click", clickHandler);
+		document.addEventListener("click", clickHandler);
 
-			return () => {
+		return {
+			destroy() {
 				document.removeEventListener("click", clickHandler);
-			};
-		});
+			}
+		};
 	}
 </script>
 
@@ -757,7 +784,7 @@
 		left: 6px;
 		z-index: 2;
 		background: rgba(0, 0, 0, 0.55);
-		color: var(--imag-text-color);
+		color: var(--imag-10-dark);
 		padding: 2px 6px;
 		font-size: 12px;
 		line-height: 1.2;

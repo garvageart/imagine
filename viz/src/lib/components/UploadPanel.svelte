@@ -2,7 +2,10 @@
 	import { upload } from "$lib/states/index.svelte";
 	import { fade, scale } from "svelte/transition";
 	import { UploadState } from "$lib/upload/asset.svelte";
-	import { processGlobalQueue } from "$lib/upload/manager.svelte";
+	import {
+		processGlobalQueue,
+		waitForUploadCompletion
+	} from "$lib/upload/manager.svelte";
 	import Button from "./Button.svelte";
 	import MaterialIcon from "./MaterialIcon.svelte";
 
@@ -11,7 +14,6 @@
 	let listEl: HTMLDivElement | null = $state(null);
 
 	let prevCompletedCount = $state(0);
-	let initialUploadArray = upload.files;
 
 	const isUserNearBottom = (el: HTMLDivElement) => {
 		const threshold = 150; // px
@@ -26,6 +28,27 @@
 	$effect(() => {
 		upload.concurrency = Math.min(Math.max(upload.concurrency || 1, 1), 10);
 		processGlobalQueue();
+	});
+
+	$effect(() => {
+		if (upload.files.length > 0) {
+			waitForUploadCompletion(upload.files).then(() => {
+				setTimeout(() => {
+					// Double check that we are still done (user might have added more files during the 3s wait)
+					const allDone = upload.files.every(
+						(f) =>
+							f.state === UploadState.DONE ||
+							f.state === UploadState.ERROR ||
+							f.state === UploadState.CANCELED ||
+							f.state === UploadState.DUPLICATE
+					);
+
+					if (allDone) {
+						upload.files = [];
+					}
+				}, 3000);
+			});
+		}
 	});
 
 	$effect(() => {

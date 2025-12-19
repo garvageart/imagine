@@ -27,14 +27,12 @@
 
 <script lang="ts">
 	import {
-		onMount,
 		setContext,
 		untrack,
 		type ComponentProps,
 		type Snippet
 	} from "svelte";
 	import { Pane } from "$lib/third-party/svelte-splitpanes";
-	import MaterialIcon from "../MaterialIcon.svelte";
 	import { dev } from "$app/environment";
 	import type { TabData } from "$lib/views/tabs.svelte";
 	import TabOps from "$lib/views/tabs.svelte";
@@ -44,17 +42,13 @@
 		resetAndReloadLayout
 	} from "$lib/dev/components.svelte";
 	import { views } from "$lib/layouts/views";
-	import LoadingContainer from "../LoadingContainer.svelte";
 	import { isElementScrollable } from "$lib/utils/dom";
 	import { findSubPanel, generateKeyId } from "$lib/utils/layout";
 	import { goto } from "$app/navigation";
 	import ContextMenu, {
 		type MenuItem
 	} from "$lib/context-menu/ContextMenu.svelte";
-	import {
-		layoutState,
-		layoutTree
-	} from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import {
 		cleanupEmptyPanels,
 		duplicateView,
@@ -63,12 +57,7 @@
 		splitPanelHorizontally,
 		splitPanelVertically
 	} from "$lib/layouts/panel-operations";
-	import {
-		buildLayoutContextMenu,
-		buildPanelContextMenu,
-		buildTabContextMenu,
-		type TabHandlers
-	} from "./subpanel-context";
+	import { type TabHandlers } from "./subpanel-context";
 	import { debugMode } from "$lib/states/index.svelte";
 	import SubPanelHeader from "./SubPanelHeader.svelte";
 	import SubPanelContent from "./SubPanelContent.svelte";
@@ -253,7 +242,6 @@
 	let showContextMenu = $state(false);
 	let contextMenuItems = $state<MenuItem[]>([]);
 	let contextMenuAnchor = $state<{ x: number; y: number } | null>(null);
-	let contextMenuTargetView: VizView | null = $state(null);
 
 	// Layout-level context menu (for locking the entire splitpanes)
 	let showLayoutContextMenu = $state(false);
@@ -319,19 +307,6 @@
 			});
 		}
 	});
-
-	function headerDraggable(node: HTMLElement) {
-		if (checkIfPanelLocked()) {
-			return { destroy: () => {} };
-		}
-
-		// If header dragging is implemented later, return its destroy here.
-		return { destroy: () => {} };
-	}
-
-	function subPanelDrop(node: HTMLElement, data: TabData) {
-		return tabDropper.subPanelDropInside(node, data);
-	}
 
 	function makeViewActive(view: VizView) {
 		if (view.id === activeView.id) {
@@ -547,7 +522,9 @@
 	 * Moves a view to an existing panel group
 	 */
 	function moveToPanel(view: VizView, direction: string) {
-		if (checkIfPanelLocked() || view.locked) return;
+		if (checkIfPanelLocked() || view.locked) {
+			return;
+		}
 
 		// Validate direction and cast to the narrower union for internal logic
 		if (!["left", "right", "up", "down"].includes(direction)) {
@@ -559,7 +536,9 @@
 		// Resolve the location of the view by its parent id to be precise
 		const viewParentId = view.parent ?? keyId;
 		const result = findSubPanel("paneKeyId", viewParentId);
-		if (!result) return;
+		if (!result) {
+			return;
+		}
 
 		if (debugMode) {
 			const layoutSummary = layoutState.tree.map((p) => ({

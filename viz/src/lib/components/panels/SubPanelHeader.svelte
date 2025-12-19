@@ -3,7 +3,6 @@
 	import type { TabData } from "$lib/views/tabs.svelte.ts";
 	import type TabOps from "$lib/views/tabs.svelte.ts";
 	import VizView from "$lib/views/views.svelte";
-	import { resetAndReloadLayout } from "$lib/dev/components.svelte";
 	import ContextMenu, {
 		type MenuItem
 	} from "$lib/context-menu/ContextMenu.svelte";
@@ -355,7 +354,7 @@
 				class="viz-tab-button icon-only"
 				aria-label="Reset and Reload"
 				title="Reset and Reload"
-				onclick={() => resetAndReloadLayout()}
+				onclick={() => window.resetAndReloadLayout?.()}
 			>
 				<MaterialIcon iconName="refresh" />
 			</button>

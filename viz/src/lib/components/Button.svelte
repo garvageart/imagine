@@ -4,13 +4,21 @@
 	interface Props extends HTMLButtonAttributes {
 		hoverColor?: string;
 		variant?: "primary" | "small" | "mini";
+		element?: HTMLButtonElement;
 	}
 
-	let { children, hoverColor = "var(--imag-80)", variant = "primary", ...props }: Props = $props();
+	let {
+		children,
+		hoverColor = "var(--imag-80)",
+		variant = "primary",
+		element = $bindable(),
+		...props
+	}: Props = $props();
 </script>
 
 <button
 	{...props}
+	bind:this={element}
 	class="{variant} {props.class || ''}"
 	aria-label={props["aria-label"] ?? props.title}
 	style:--button-hover-bg={hoverColor}

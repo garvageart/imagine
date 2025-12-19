@@ -136,6 +136,7 @@
 		align-items: center;
 		flex-direction: column;
 		overflow: auto;
+		width: 100%;
 		max-width: 100%;
 		height: 100%;
 	}

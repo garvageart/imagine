@@ -120,7 +120,7 @@
 	}
 
 	.search-input__field {
-		font-size: 0.7rem;
+		font-size: 0.85em;
 		background-color: var(--imag-bg-color);
 		color: var(--imag-text-color);
 		outline: none;

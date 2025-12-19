@@ -11,12 +11,12 @@
 	import type { IPagination } from "$lib/types/asset";
 	import Dropdown, { type DropdownOption } from "./Dropdown.svelte";
 	import { sort } from "$lib/states/index.svelte";
+	import IconButton from "./IconButton.svelte";
 
 	type Props = {
 		grid:
 			| ComponentProps<typeof AssetGrid<T>>
 			| ComponentProps<typeof PhotoAssetGrid>;
-		/** Optional: specify PhotoAssetGrid component for photo-specific features */
 		gridComponent?: Component<any>;
 		pagination?: IPagination;
 		children?: Snippet;
@@ -133,12 +133,17 @@
 			icon={opts.iconName}
 		/>
 	{:else}
-		<button class="toolbar-button" {...opts} title={opts.text}>
-			<MaterialIcon iconName={opts.iconName} iconStyle={opts.iconStyle} />
+		<IconButton
+			{...opts}
+			iconName={opts.iconName}
+			iconStyle={opts.iconStyle}
+			class="toolbar-button"
+			title={opts.text}
+		>
 			{#if opts.text.trim()}
 				<span style="margin: 0em 0.2em;">{opts.text}</span>
 			{/if}
-		</button>
+		</IconButton>
 	{/if}
 {/snippet}
 
@@ -204,7 +209,7 @@
 		{#if noAssetsSnippet}
 			{@render noAssetsSnippet()}
 		{:else}
-			<p style="text-align: center; margin: 2em; color: var(--imag-20);">
+			<p style="text-align: center; margin: 2em; color: var(--imag-10);">
 				No assets to display.
 			</p>
 		{/if}
@@ -223,15 +228,7 @@
 	#asset-tools {
 		display: flex;
 		align-items: center;
-
-		& > button {
-			margin: 0em 0.5em;
-
-			&:focus {
-				outline: 2px solid var(--imag-60);
-				background-color: var(--imag-80);
-			}
-		}
+		gap: 0.5rem;
 	}
 
 	#viz-no_assets {

@@ -171,7 +171,7 @@
 
 	type IconStyle = "sharp" | "outlined" | "rounded" | "filled";
 
-	interface Props {
+	export interface IconProps {
 		fill?: boolean;
 		weight?: number;
 		grade?: -25 | 0 | 200;
@@ -188,7 +188,7 @@
 		grade = 0,
 		opticalSize = 24,
 		...props
-	}: Props & SvelteHTMLElements["span"] = $props();
+	}: IconProps & SvelteHTMLElements["span"] = $props();
 </script>
 
 {#if GeneratedComponent}

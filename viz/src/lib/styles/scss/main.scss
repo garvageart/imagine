@@ -7,7 +7,7 @@
 /* Fonts */
 :root {
     --imag-display-font: "Manrope Variable", sans-serif;
-    --imag-code-font: "Roboto Mono", monospace;
+    --imag-code-font: "Roboto Mono Variable", monospace;
 }
 
 /* Colours */
@@ -15,6 +15,15 @@
     --imag-error-color: #{v.$imag-error-color};
     --imag-success-color: #{v.$imag-success-color};
     --imag-warning-color: #{v.$imag-warning-color};
+    --imag-info-color: #{v.$imag-info-color};
+
+    --imag-color-tag-red: #{v.$imag-color-tag-red};
+    --imag-color-tag-orange: #{v.$imag-color-tag-orange};
+    --imag-color-tag-yellow: #{v.$imag-color-tag-yellow};
+    --imag-color-tag-purple: #{v.$imag-color-tag-purple};
+    --imag-color-tag-pink: #{v.$imag-color-tag-pink};
+    --imag-color-tag-green: #{v.$imag-color-tag-green};
+    --imag-color-tag-blue: #{v.$imag-color-tag-blue};
 }
 
 html {

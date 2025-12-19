@@ -14,7 +14,7 @@
 
 <div
 	{...props}
-	class="viz-toolbar-container"
+	class="viz-toolbar-container {props.class ?? ""}"
 	style={`${stickyToolbar === true ? "position: sticky; top: 0px;" : "position: relative;"} ${props.style ?? ""}`}
 >
 	{@render children?.()}

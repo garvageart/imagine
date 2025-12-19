@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { HTMLButtonAttributes } from "svelte/elements";
-	import MaterialIcon from "./MaterialIcon.svelte";
-	import type { ComponentProps } from "svelte";
+	import MaterialIcon, { type IconProps } from "./MaterialIcon.svelte";
 
 	interface ButtonProps extends HTMLButtonAttributes {
 		hoverColor?: string;
 		variant?: "primary" | "small" | "mini";
+		element?: HTMLButtonElement;
 	}
 
-	type Props = ButtonProps & ComponentProps<typeof MaterialIcon>;
+	type Props = ButtonProps & IconProps;
 
 	let {
 		iconName = $bindable(),
@@ -20,12 +20,14 @@
 		children,
 		hoverColor = "var(--imag-80)",
 		variant = "primary",
+		element = $bindable(),
 		...props
 	}: Props = $props();
 </script>
 
 <button
 	{...props}
+	bind:this={element}
 	class="{variant} {props.class || ''}"
 	aria-label={props["aria-label"] ?? props.title}
 	style:--button-hover-bg={hoverColor}
@@ -43,7 +45,7 @@
 		height: max-content;
 		border: none;
 		padding: 0.25em;
-		gap: 1em;
+		gap: 0.25em;
 		display: inline-flex;
 		align-items: center;
 		flex-direction: row;

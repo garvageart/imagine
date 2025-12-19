@@ -10,7 +10,11 @@
 	import { isEqual } from "lodash-es";
 	import MaterialIcon from "./MaterialIcon.svelte";
 	import type { MaterialSymbol } from "material-symbols";
-	import ContextMenu, { type MenuItem } from "$lib/context-menu/ContextMenu.svelte";
+	import ContextMenu, {
+		type MenuItem
+	} from "$lib/context-menu/ContextMenu.svelte";
+	import IconButton from "./IconButton.svelte";
+	import Button from "./Button.svelte";
 
 	interface Props {
 		class?: string;
@@ -45,15 +49,22 @@
 		class: className
 	}: Props = $props();
 
-	let buttonEl: HTMLElement | null = $state(null);
+	let buttonEl: HTMLButtonElement | undefined = $state(undefined);
 	let containerEl: HTMLElement | null = $state(null);
+
+    let currentIcon: MaterialSymbol | undefined = $derived(selectedOption?.icon ?? icon);
+
 	// Build MenuItem array for ContextMenu
 	function buildMenuItems(): MenuItem[] {
 		return options.map((opt, idx) => ({
 			id: `opt-${idx}`,
 			label: opt.title,
 			// Show option's icon if provided, or check mark if this is the selected option (when showSelectionIndicator is true)
-			icon: opt.icon ?? (showSelectionIndicator && isEqual(selectedOption, opt) ? ("check" as any) : undefined),
+			icon:
+				opt.icon ??
+				(showSelectionIndicator && isEqual(selectedOption, opt)
+					? ("check" as any)
+					: undefined),
 			disabled: opt.disabled,
 			action: (e) => handleOptionSelect(opt as any)
 		}));
@@ -67,6 +78,11 @@
 			selectedOption = option;
 		}
 		showMenu = false;
+	}
+
+	function toggleMenu() {
+		menuItems = buildMenuItems();
+		showMenu = !showMenu;
 	}
 </script>
 
@@ -86,46 +102,50 @@
 	}}
 />
 
-<div class="viz-dropdown-container" bind:this={containerEl}>
-	<button
-		class="viz-dropdown-button {className}"
-		bind:this={buttonEl}
-		onclick={async () => {
-			menuItems = buildMenuItems();
-			if (showMenu) {
-				showMenu = false;
-			} else {
-				showMenu = true;
-			}
-		}}
-	>
-		{#if selectedOption}
-			<span class="viz-dropdown-icon">
-				{#if selectedOption.icon}
-					<MaterialIcon weight={300} iconName={selectedOption.icon} />
-				{:else if icon}
-					<MaterialIcon weight={300} iconName={icon} />
-				{/if}
-			</span>
+{#snippet buttonContent()}
+	{#if selectedOption}
+		<p class="viz-dropdown-title">
+			{selectedOption.title}
+		</p>
+	{:else}
+		{#if title}
 			<p class="viz-dropdown-title">
-				{selectedOption.title}
+				{title}
 			</p>
-		{:else}
-			{#if icon}
-				<span class="viz-dropdown-icon">
-					<MaterialIcon weight={300} iconName={icon} />
-				</span>
-			{/if}
-			{#if title}
-				<p class="viz-dropdown-title">
-					{title}
-				</p>
-			{/if}
 		{/if}
-	</button>
+	{/if}
+{/snippet}
+
+<div class="viz-dropdown-container" bind:this={containerEl}>
+	{#if currentIcon}
+		<IconButton
+			class="viz-dropdown-button {className}"
+			weight={300}
+			iconName={currentIcon}
+			bind:element={buttonEl}
+			onclick={toggleMenu}
+		>
+			{@render buttonContent()}
+		</IconButton>
+	{:else}
+		<Button
+			class="viz-dropdown-button {className}"
+			bind:element={buttonEl}
+			onclick={toggleMenu}
+		>
+			{@render buttonContent()}
+		</Button>
+	{/if}
 
 	<!-- Render menu without a positioned wrapper; ContextMenu uses fixed coords anchored to button -->
-	<ContextMenu bind:showMenu items={menuItems} anchor={buttonEl as HTMLElement} offsetY={0} {align} {debug} />
+	<ContextMenu
+		bind:showMenu
+		items={menuItems}
+		anchor={buttonEl as HTMLElement}
+		offsetY={0}
+		{align}
+		{debug}
+	/>
 </div>
 
 <style lang="scss">
@@ -141,7 +161,7 @@
 		text-overflow: ellipsis;
 	}
 
-	.viz-dropdown-button {
+	:global(.viz-dropdown-button) {
 		display: flex;
 		align-items: center;
 		border-radius: 10em;

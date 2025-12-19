@@ -24,6 +24,8 @@
 	import MaterialIcon from "./MaterialIcon.svelte";
 	import SearchInput from "./SearchInput.svelte";
 	import IconButton from "./IconButton.svelte";
+	import { goto } from "$app/navigation";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 
 	let { ...props }: SvelteHTMLElements["header"] = $props();
 
@@ -59,7 +61,7 @@
 		}
 	});
 
-	function handleUpload(e: MouseEvent) {
+	async function handleUpload(e: MouseEvent) {
 		e.preventDefault();
 		// allowed image types will come from the config but for now just hardcode
 		const manager = new UploadManager([
@@ -67,8 +69,25 @@
 			...SUPPORTED_IMAGE_TYPES
 		] as SupportedImageTypes[]);
 
-		// Use new API: open picker and upload (fire and forget - panel will show progress)
-		manager.openPickerAndUpload();
+		const uploadedImages = await manager.openPickerAndUpload();
+
+		if (uploadedImages.length === 0) {
+			return;
+		}
+
+		if (page.url.pathname !== "/") {
+			toastState.addToast({
+				title: "Upload Success",
+				type: "success",
+				message: `${uploadedImages.length} image(s) sucessfully uploaded`,
+				actions: [
+					{
+						label: "Go to Photos",
+						onClick: () => goto("/")
+					}
+				]
+			});
+		}
 	}
 
 	let openAccPanel = $state(false);
@@ -126,10 +145,10 @@
 		<div class="menu-seperator"></div>
 		<div class="icon-group-container">
 			<a class="page-nav-btn" href="/photos" title="Go to Photos">
-				<IconButton class="header-button" iconName="photo_library" />
+				<IconButton class="header-button" iconName="gallery_thumbnail" />
 			</a>
 			<a class="page-nav-btn" href="/collections" title="Go to Collections">
-				<IconButton class="header-button" iconName="photo_album" />
+				<IconButton class="header-button" iconName="photo_library" />
 			</a>
 		</div>
 	</div>

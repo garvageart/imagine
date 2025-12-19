@@ -29,7 +29,10 @@
 	let contextMenu: HTMLDivElement | undefined = $state();
 	let activeIndex = $state(0);
 	// Start off-screen to avoid any layout shift / scrollbars until we compute proper coords
-	let position = $state<{ top: number; left: number }>({ top: -9999, left: -9999 });
+	let position = $state<{ top: number; left: number }>({
+		top: -9999,
+		left: -9999
+	});
 	// Default to fixed so initial render doesn't participate in layout
 	let cssPosition = $state("fixed");
 	let positioned = $state(false);
@@ -83,7 +86,9 @@
 		const firstEnabled = items.findIndex((i) => !i.disabled && !i.separator);
 		activeIndex = firstEnabled === -1 ? 0 : firstEnabled;
 		tick().then(() => {
-			const current = contextMenu?.querySelector<HTMLButtonElement>(`[data-index="${activeIndex}"]`);
+			const current = contextMenu?.querySelector<HTMLButtonElement>(
+				`[data-index="${activeIndex}"]`
+			);
 			current?.focus();
 		});
 	}
@@ -133,7 +138,10 @@
 			// Flip above if necessary
 			const spaceBelow = window.innerHeight - rect.bottom;
 			const spaceAbove = rect.top;
-			if (menuRect.height + safeMargin > spaceBelow && menuRect.height + safeMargin <= spaceAbove) {
+			if (
+				menuRect.height + safeMargin > spaceBelow &&
+				menuRect.height + safeMargin <= spaceAbove
+			) {
 				// flip above using same offset magnitude
 				top = Math.round(rect.top - menuRect.height - offsetY);
 			}
@@ -144,8 +152,14 @@
 		}
 
 		// Clamp into viewport
-		const maxLeft = Math.max(safeMargin, window.innerWidth - menuRect.width - safeMargin);
-		const maxTop = Math.max(safeMargin, window.innerHeight - menuRect.height - safeMargin);
+		const maxLeft = Math.max(
+			safeMargin,
+			window.innerWidth - menuRect.width - safeMargin
+		);
+		const maxTop = Math.max(
+			safeMargin,
+			window.innerHeight - menuRect.height - safeMargin
+		);
 		left = Math.round(Math.max(safeMargin, Math.min(left, maxLeft)));
 		top = Math.round(Math.max(safeMargin, Math.min(top, maxTop)));
 
@@ -169,9 +183,16 @@
 
 				if (debug) {
 					// Log rects and computed coords for debugging
-					const aRect = anchor instanceof HTMLElement ? anchor.getBoundingClientRect() : null;
+					const aRect =
+						anchor instanceof HTMLElement
+							? anchor.getBoundingClientRect()
+							: null;
 					const mRect = contextMenu?.getBoundingClientRect();
-					console.log("ContextMenu debug:", { anchorRect: aRect, menuRect: mRect, position });
+					console.log("ContextMenu debug:", {
+						anchorRect: aRect,
+						menuRect: mRect,
+						position
+					});
 					renderDebugOverlays(aRect, mRect);
 				}
 			});
@@ -188,7 +209,10 @@
 	let debugAnchorEl: HTMLDivElement | null = null;
 	let debugMenuEl: HTMLDivElement | null = null;
 
-	function renderDebugOverlays(aRect: DOMRect | null, mRect: DOMRect | undefined | null) {
+	function renderDebugOverlays(
+		aRect: DOMRect | null,
+		mRect: DOMRect | undefined | null
+	) {
 		removeDebugOverlays();
 		if (!aRect || !mRect) return;
 		debugAnchorEl = document.createElement("div");
@@ -221,8 +245,10 @@
 	}
 
 	function removeDebugOverlays() {
-		if (debugAnchorEl && debugAnchorEl.parentElement) debugAnchorEl.parentElement.removeChild(debugAnchorEl);
-		if (debugMenuEl && debugMenuEl.parentElement) debugMenuEl.parentElement.removeChild(debugMenuEl);
+		if (debugAnchorEl && debugAnchorEl.parentElement)
+			debugAnchorEl.parentElement.removeChild(debugAnchorEl);
+		if (debugMenuEl && debugMenuEl.parentElement)
+			debugMenuEl.parentElement.removeChild(debugMenuEl);
 		debugAnchorEl = null;
 		debugMenuEl = null;
 	}
@@ -328,7 +354,9 @@
 
 	function focusActive() {
 		tick().then(() => {
-			const el = contextMenu?.querySelector<HTMLButtonElement>(`[data-index="${activeIndex}"]`);
+			const el = contextMenu?.querySelector<HTMLButtonElement>(
+				`[data-index="${activeIndex}"]`
+			);
 			el?.focus();
 		});
 	}
@@ -345,16 +373,19 @@
 	}
 </script>
 
-<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onWindowKeyDown} />
+<svelte:window
+	onpointerdown={onWindowPointerDown}
+	onkeydown={onWindowKeyDown}
+/>
 
 {#if showMenu}
 	<div
-		class="context-menu"
+		{...htmlProps}
+		class="context-menu {htmlProps?.class ?? ''}"
 		role="menu"
 		bind:this={contextMenu}
 		use:portal
 		style={`position: ${cssPosition || "absolute"}; top:${position.top}px; left:${position.left}px; z-index: 10000; visibility: ${positioned ? "visible" : "hidden"}; ${htmlProps?.style ?? ""}`}
-		{...htmlProps}
 	>
 		<div class="context-menu-options">
 			<ul role="menu" aria-orientation="vertical">
@@ -362,7 +393,12 @@
 					{#if item.separator}
 						<li class="separator" role="separator" aria-hidden="true"></li>
 					{:else}
-						<ContextMenuItem {item} index={i} active={i === activeIndex} onselect={(detail) => activate(i, detail.event)} />
+						<ContextMenuItem
+							{item}
+							index={i}
+							active={i === activeIndex}
+							onselect={(detail) => activate(i, detail.event)}
+						/>
 					{/if}
 				{/each}
 			</ul>
