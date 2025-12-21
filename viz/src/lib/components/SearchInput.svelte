@@ -151,7 +151,7 @@
 		outline: none;
 		height: 100%;
 		padding: 0.15em 0.4em;
-		font-size: 1rem;
+		font-size: 1em;
 		display: flex;
 		align-items: center;
 		justify-content: center;

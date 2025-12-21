@@ -13,24 +13,23 @@
 		description,
 		disabled = false,
 		...props
-	}: Props & SvelteHTMLElements["input"] = $props();
+	}: Props & SvelteHTMLElements["textarea"] = $props();
 	const inputId = props.id ?? generateRandomString(6);
 </script>
 
-<div class="input-container" class:disabled>
+<div class="textarea-container" class:disabled>
 	{#if label}
-		<label for={inputId} class="input-label"
+		<label for={inputId} class="textarea-label"
 			>{label}
 			{#if props.required}
 				<span class="required-asterisk">*</span>
 			{/if}
 		</label>
 	{/if}
-	<input
+	<textarea
 		{...props}
 		id={inputId}
 		name={props.name}
-		type={props.type ?? "text"}
 		placeholder={props.placeholder}
 		bind:value
 		{disabled}
@@ -46,14 +45,14 @@
 		onblur={(e) => {
 			props.onblur?.(e);
 		}}
-	/>
+	></textarea>
 	{#if description}
-		<div class="input-description">{description}</div>
+		<div class="textarea-description">{description}</div>
 	{/if}
 </div>
 
 <style lang="scss">
-	.input-container {
+	.textarea-container {
 		display: flex;
 		flex-direction: column;
 		min-width: 0%;
@@ -64,25 +63,25 @@
 		&.disabled {
 			opacity: 0.5;
 
-			input {
+			textarea {
 				cursor: not-allowed;
 			}
 		}
 	}
 
-	.input-label {
+	.textarea-label {
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--imag-40);
 	}
 
-	.input-description {
+	.textarea-description {
 		font-size: 0.85rem;
 		color: var(--imag-60);
 		padding-left: 0.5rem;
 	}
 
-	input:not([type="submit"]) {
+	textarea {
 		max-width: 100%;
 		min-height: 2.5rem;
 		color: var(--imag-text-color);
@@ -93,7 +92,7 @@
 		font-family: var(--imag-display-font);
 		font-size: 1rem;
 		padding: 0.5rem 1rem;
-		margin-bottom: 0; /* Changed from 1rem */
+		margin-bottom: 0;
 
 		&::placeholder {
 			color: var(--imag-40);
