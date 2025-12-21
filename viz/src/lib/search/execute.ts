@@ -31,8 +31,10 @@ export async function performSearch() {
     search.executed = true;
 
     try {
-        const randomLatency = dev ? Math.floor(Math.random() * 200) + 100 : 0;
-        await sleep(randomLatency);
+        if (dev) {
+            const randomLatency = dev ? Math.floor(Math.random() * 200) + 100 : 0;
+            await sleep(randomLatency);
+        }
 
         updateURLParameter("q", search.value);
 
@@ -51,4 +53,4 @@ export async function performSearch() {
     } finally {
         search.loading = false;
     }
-}
+} 

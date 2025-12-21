@@ -1,8 +1,9 @@
-import type { AssetSort } from "$lib/types/asset";
+import type { AssetSort, AssetGridView } from "$lib/types/asset";
 import type { UploadImage } from "$lib/upload/asset.svelte";
 import { type User, type SystemStatusResponse, type Image, type Collection } from "$lib/api";
 import { VizLocalStorage, VizCookieStorage } from "$lib/utils/misc";
 import { MediaQuery } from "svelte/reactivity";
+import type { DropdownOption } from "$lib/types/settings";
 
 // Types
 interface UserState {
@@ -117,6 +118,45 @@ class SortState {
 export const sortState = new SortState();
 export let sort = sortState.value;
 
+export class TableColumnSettings {
+    storage = new VizLocalStorage<string[]>('tableColumnSettings');
+    // Default columns (Preview is hardcoded in AssetGrid, so we just track the dynamic ones)
+    value: string[] = $state(this.storage.get() ?? ['name', 'created_at']);
+
+    toggle(column: string) {
+        if (this.value.includes(column)) {
+            this.value = this.value.filter(c => c !== column);
+        } else {
+            this.value = [...this.value, column];
+        }
+        this.storage.set(this.value);
+    }
+
+    set(columns: string[]) {
+        this.value = columns;
+        this.storage.set(this.value);
+    }
+}
+
+export const tableColumnSettings = new TableColumnSettings();
+
+class ViewSettingsState {
+    storage = new VizLocalStorage<AssetGridView>('viewSettings');
+    current: AssetGridView = $state(this.storage.get() ?? 'grid');
+    displayOptions: DropdownOption[] = [
+        { title: "Grid" },
+        { title: "List" },
+        { title: "Cards" }
+    ];
+
+    setView(view: AssetGridView) {
+        this.current = view;
+        this.storage.set(view);
+    }
+}
+
+export const viewSettings = new ViewSettingsState();
+
 export let upload = $state({
     files: [] as UploadImage[],
     concurrency: 2,
@@ -177,4 +217,4 @@ export function getTheme() {
 
 export function toggleTheme() {
     themeState.toggle();
-}
+} 
