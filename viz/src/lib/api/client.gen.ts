@@ -436,8 +436,10 @@ export type SystemStatsResponse = {
     /** Total size of files in the base directory */
     storage_used_bytes: number;
     storage_path: string;
-    /** Path to the base directory being measured */
-    total_system_space_bytes?: number;
+    /** Total disk space on the system */
+    total_system_space_bytes: number;
+    /** Total available disk space on the system */
+    total_available_space_bytes: number;
 };
 export type DatabaseStatsResponse = {
     user_count: number;
