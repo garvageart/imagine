@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { EventHandler } from "svelte/elements";
-	import Button from "./Button.svelte";
-	import ModalOverlay from "./modals/ModalContainer.svelte";
-	import SliderToggle from "./SliderToggle.svelte";
-	import InputText from "./dom/InputText.svelte";
+	import Button from "../Button.svelte";
+	import ModalOverlay from "./ModalContainer.svelte";
+	import SliderToggle from "../SliderToggle.svelte";
+	import InputText from "../dom/InputText.svelte";
+	import TextArea from "../dom/TextArea.svelte";
 	import type { Collection } from "$lib/api";
 
 	interface Props {
@@ -20,7 +21,7 @@
 		modalAction
 	}: Props = $props();
 
-	let allData = $state(data ?? { name: "", description: "", private: false });
+	let allData = $derived(data ?? { name: "", description: "", private: false });
 
 	let isPrivate: "on" | "off" = $derived(allData.private ? "on" : "off");
 </script>
@@ -45,10 +46,10 @@
 				bind:value={allData.name}
 				required
 			/>
-			<!-- svelte-ignore element_invalid_self_closing_tag -->
-			<textarea
+			<TextArea
 				id="collection-description"
 				name="description"
+				label="Description"
 				placeholder="Description (optional)"
 				bind:value={allData.description}
 			/>
@@ -58,7 +59,7 @@
 				label="Private"
 				bind:value={isPrivate}
 			/>
-			<Button style="margin-top: 1rem;">
+			<Button style="margin-top: 1rem; width: 100%;">
 				<input id="collection-submit" type="submit" value={buttonText} />
 			</Button>
 		</form>
@@ -73,65 +74,22 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
+
+		h1 {
+			margin-bottom: 1.5rem;
+			font-size: 1.5rem;
+			color: var(--imag-text-color);
+		}
 	}
 
 	form {
 		width: 60%;
+		max-width: 90%;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: flex-start;
-		height: 80%;
-		max-height: 100%;
-		margin-top: 1em;
-		position: relative;
-	}
-
-	textarea {
-		width: 100%;
-		max-width: 100%;
-		min-width: 100%;
-		min-height: 2rem;
-		color: var(--imag-text-color);
-		background-color: var(--imag-bg-color);
-		outline: none;
-		border: none;
-		box-shadow: 0 -1.5px 0 var(--imag-60) inset;
-		font-size: 2rem;
-		font-family: var(--imag-display-font);
-		font-weight: bold;
-		padding: 0.5rem 1rem;
-		margin-bottom: 1em;
-
-		&::placeholder {
-			color: var(--imag-40);
-			font-family: var(--imag-display-font);
-		}
-
-		&:focus::placeholder {
-			color: var(--imag-60);
-		}
-
-		&:focus {
-			background-color: var(--imag-100);
-			box-shadow: 0 -2px 0 var(--imag-primary) inset;
-		}
-
-		&:-webkit-autofill,
-		&:-webkit-autofill:focus {
-			-webkit-text-fill-color: var(--imag-text-color);
-			-webkit-box-shadow: 0 0 0px 1000px var(--imag-100) inset;
-			-webkit-box-shadow: 0 -5px 0 var(--imag-primary) inset;
-			transition:
-				background-color 0s 600000s,
-				color 0s 600000s !important;
-		}
-	}
-
-	#collection-description {
-		font-size: 1rem;
-		resize: none;
-		font-weight: 400;
+		gap: 1.25rem;
 	}
 
 	#collection-submit {

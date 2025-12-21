@@ -263,37 +263,6 @@
 	}
 
 	$effect(() => {
-		if (panelViews.length) {
-			const element = subPanelContentElement;
-			if (!element) {
-				return;
-			}
-
-			const lastChild = element.lastElementChild as HTMLElement;
-			if (!lastChild) {
-				return;
-			}
-
-			if (subPanelContentFocused) {
-				if (isElementScrollable(lastChild)) {
-					element.classList.add("with__scrollbar");
-				}
-				element.classList.add("splitpanes__pane__active");
-			} else {
-				element.classList.remove("with__scrollbar");
-				element.classList.remove("splitpanes__pane__active");
-			}
-		}
-	});
-
-	// make the last view in the panel active if the current active view is removed
-	$effect(() => {
-		if (!panelViews.find((view) => view.id === activeView?.id)) {
-			activeView = panelViews[panelViews.length - 1];
-		}
-	});
-
-	$effect(() => {
 		if (tabDropper?.activeView) {
 			activeView = tabDropper?.activeView;
 		}
@@ -726,6 +695,7 @@ for Splitpanes
 			bind:panelViews
 			bind:activeView
 			bind:subPanelContentFocused
+			bind:subPanelContentElement
 			componentToRender={Comp}
 			onFocus={() => (subPanelContentFocused = true)}
 		/>

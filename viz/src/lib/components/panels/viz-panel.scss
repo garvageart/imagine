@@ -7,26 +7,12 @@
         box-sizing: border-box;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
-        box-shadow:
-            0 1.5px 0 var(--imag-primary) inset,
-            1.5px 0 0 var(--imag-primary) inset,
-            -1.5px 0 0 var(--imag-primary) inset,
-            0 -1.5px 0 var(--imag-primary) inset;
-        z-index: 10;
-
-        &.with__scrollbar {
-            box-shadow:
-                0 1.5px 0 var(--imag-primary) inset,
-                1.5px 0 0 var(--imag-primary) inset,
-                -15.5px 0 0 var(--imag-primary) inset,
-                0 -1.5px 0 var(--imag-primary) inset;
-        }
     }
 }
 
 .splitpanes__splitter {
     position: relative;
-    z-index: 2;
+    z-index: 99999;
     background-color: var(--imag-60);
     box-sizing: border-box;
     flex-shrink: 0;
@@ -45,7 +31,7 @@
         transform: translate(-50%, -50%);
         background: transparent;
         pointer-events: auto;
-        z-index: 2;
+        z-index: 99999;
         transition:
             background-color 0.2s,
             opacity 0.2s;

@@ -25,6 +25,7 @@
 					status: number;
 					data: any;
 			  }>;
+		subPanelContentElement?: HTMLDivElement;
 	}
 
 	let {
@@ -35,11 +36,11 @@
 		componentToRender,
 		subPanelContentFocused = $bindable(),
 		tabDropper,
-		onFocus
+		onFocus,
+		subPanelContentElement = $bindable()
 	}: Props = $props();
 
 	let Comp = $derived(componentToRender ?? activeView?.component);
-	let subPanelContentElement: HTMLDivElement | undefined = $state();
 
 	$effect(() => {
 		if (activeView) {
@@ -58,30 +59,6 @@
 		$inspect("panel views", keyId, panelViews);
 	}
 
-	$effect(() => {
-		if (panelViews.length) {
-			const element = subPanelContentElement;
-			if (!element) {
-				return;
-			}
-
-			const lastChild = element.lastElementChild as HTMLElement;
-			if (!lastChild) {
-				return;
-			}
-
-			if (subPanelContentFocused) {
-				if (isElementScrollable(lastChild)) {
-					element.classList.add("with__scrollbar");
-				}
-				element.classList.add("splitpanes__pane__active");
-			} else {
-				element.classList.remove("with__scrollbar");
-				element.classList.remove("splitpanes__pane__active");
-			}
-		}
-	});
-
 	function subPanelDrop(node: HTMLElement, data: any) {
 		return tabDropper.subPanelDropInside(node, data);
 	}
@@ -99,14 +76,17 @@
 		view: activeView
 	}}
 >
+	{#if subPanelContentFocused}
+		<div class="viz-panel-active-overlay"></div>
+	{/if}
 	{#await panelData}
 		<LoadingContainer />
 	{:then loadedData}
 		{#if Comp}
 			{#if loadedData}
-				<Comp data={loadedData.data} />
+				<Comp data={loadedData.data} view={activeView} />
 			{:else}
-				<Comp />
+				<Comp view={activeView} />
 			{/if}
 		{/if}
 	{:catch error}
@@ -133,6 +113,21 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
+	}
+
+	.viz-panel-active-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		z-index: 900;
+		box-shadow:
+			0 1.5px 0 var(--imag-primary) inset,
+			1.5px 0 0 var(--imag-primary) inset,
+			-1.5px 0 0 var(--imag-primary) inset,
+			0 -1.5px 0 var(--imag-primary) inset;
 	}
 
 	:global(
