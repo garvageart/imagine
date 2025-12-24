@@ -1,7 +1,7 @@
 import type VizView from "$lib/views/views.svelte";
 import { findSubPanel, generateKeyId } from "$lib/utils/layout";
 import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
-import type { MenuItem } from "$lib/context-menu/ContextMenu.svelte";
+import type { MenuItem } from "$lib/context-menu/types";
 
 export type TabHandlers = {
     closeTab: (v: VizView) => void;

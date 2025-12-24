@@ -9,6 +9,7 @@
 	import { arrayHasDuplicates, generateRandomString } from "$lib/utils/misc";
 	import type { Content, VizSubPanel } from "$lib/components/panels/SubPanel.svelte";
 	import { getAllSubPanels } from "$lib/utils/layout";
+	import { layoutState } from "./state.svelte";
 
 	const {
 		ssrRegisterPaneSize,
@@ -56,16 +57,13 @@
 		throw new Error("Splitpanes: id is required");
 	}
 
-	let allPanes: Array<VizSubPanel & Content> = getAllSubPanels();
+	let subPanels = getAllSubPanels();
+	let allPanes: Array<VizSubPanel | Content> = [...subPanels];
 
 	// I hate this so much
-	if (allPanes.flatMap((panel) => panel.childs).length > 0) {
-		if (allPanes.flatMap((panel) => panel.childs?.internalSubPanelContainer).length > 0) {
-			allPanes = allPanes.concat(
-				allPanes
-					.flatMap((panel) => panel.childs?.internalSubPanelContainer ?? [])
-					.filter((pane): pane is VizSubPanel => !!pane && typeof pane === "object" && "id" in pane)
-			);
+	for (const panel of layoutState.tree) {
+		if (panel.childs?.internalSubPanelContainer) {
+			allPanes.push(panel.childs.internalSubPanelContainer as unknown as VizSubPanel);
 		}
 	}
 
@@ -79,7 +77,7 @@
 		}
 	}
 
-	let paneInfo: VizSubPanel | undefined = allPanes.find((pane) => pane.id === usedId);
+	let paneInfo: VizSubPanel | Content | undefined = allPanes.find((pane) => pane.id === usedId);
 	if (paneInfo) {
 		usedKeyId = paneInfo.paneKeyId!;
 

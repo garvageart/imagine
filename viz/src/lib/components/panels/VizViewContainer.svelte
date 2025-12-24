@@ -5,6 +5,7 @@
 	import { dev } from "$app/environment";
 	import type { SvelteHTMLElements } from "svelte/elements";
 	import { isElementScrollable } from "$lib/utils/dom";
+	import { isLayoutPage } from "$lib/states/index.svelte";
 
 	interface Props {
 		children: Snippet;
@@ -107,7 +108,7 @@
 	data-view-name={name}
 	bind:this={viewContainer}
 >
-	{#if page.url.pathname === "/"}
+	{#if isLayoutPage()}
 		{@render children()}
 	{:else}
 		{#await pageData}

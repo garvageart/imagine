@@ -114,6 +114,7 @@ type ISplitpanes = ComponentProps<typeof Splitpanes> & {
   element: HTMLElement;
   childs: VizSubPanelData[];
   locked?: boolean;
+  activeContentId?: string;
 };
 
 export type ITree = ISplitpanes;

@@ -12,6 +12,7 @@
 	export type Content = Omit<VizSubPanel, "childs" | "id"> & {
 		id?: string;
 		views: VizView[];
+		isActive?: boolean;
 	};
 	export type SubPanelChilds = {
 		internalSubPanelContainer: InternalSubPanelContainer;
@@ -45,10 +46,11 @@
 	import { isElementScrollable } from "$lib/utils/dom";
 	import { findSubPanel, generateKeyId } from "$lib/utils/layout";
 	import { goto } from "$app/navigation";
-	import ContextMenu, {
-		type MenuItem
-	} from "$lib/context-menu/ContextMenu.svelte";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
+	import {
+		layoutState,
+		layoutTree
+	} from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import {
 		cleanupEmptyPanels,
 		duplicateView,
@@ -62,6 +64,7 @@
 	import SubPanelHeader from "./SubPanelHeader.svelte";
 	import SubPanelContent from "./SubPanelContent.svelte";
 	import type VizSubPanelData from "$lib/layouts/subpanel.svelte";
+	import type { MenuItem } from "$lib/context-menu/types";
 
 	if (dev) {
 		window.resetAndReloadLayout = resetAndReloadLayout;
@@ -237,7 +240,7 @@
 	}
 
 	let subPanelContentElement: HTMLDivElement | undefined = $state();
-	let subPanelContentFocused = $state(false);
+	let subPanelContentFocused = $derived(layoutTree.activeContentId === keyId);
 
 	let showContextMenu = $state(false);
 	let contextMenuItems = $state<MenuItem[]>([]);
@@ -627,6 +630,7 @@
 			return;
 		}
 
+		layoutTree.activeContentId = keyId;
 		makeViewActive(view instanceof VizView ? view : new VizView(view));
 	}
 </script>
@@ -697,7 +701,7 @@ for Splitpanes
 			bind:subPanelContentFocused
 			bind:subPanelContentElement
 			componentToRender={Comp}
-			onFocus={() => (subPanelContentFocused = true)}
+			onFocus={() => (layoutTree.activeContentId = keyId)}
 		/>
 	{/if}
 	{#if children}

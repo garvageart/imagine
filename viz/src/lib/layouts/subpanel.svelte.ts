@@ -25,6 +25,7 @@ interface ContentOptions {
     minSize?: number;
     maxSize?: number;
     locked?: boolean;
+    isActive?: boolean;
 }
 
 class Content implements IContent {
@@ -35,6 +36,7 @@ class Content implements IContent {
     minSize?: number;
     maxSize?: number;
     locked?: boolean;
+    isActive?: boolean = $state(false);
 
 
     constructor(opts: ContentOptions) {
@@ -48,6 +50,7 @@ class Content implements IContent {
         this.minSize = opts.minSize ?? 10;
         this.maxSize = opts.maxSize ?? 100;
         this.locked = opts.locked ?? false;
+        this.isActive = opts.isActive ?? false;
 
         if (!this.views.length) {
             throw new Error("Viz: No views provided in subpanel content. Please provide at least one view");

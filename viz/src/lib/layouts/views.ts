@@ -1,6 +1,9 @@
 import DifferentContent from "$lib/components/panels/workspace/generic/DifferentContent.svelte";
 import SomeContent from "$lib/components/panels/workspace/generic/SomeContent.svelte";
 import EvenMoreDifferent from "$lib/components/panels/workspace/generic/EvenMoreDifferent.svelte";
+import HistogramPanel from "$lib/components/panels/workspace/HistogramPanel.svelte";
+import FilterPanel from "$lib/components/panels/workspace/FilterPanel.svelte";
+import ImagePreview from "$lib/components/panels/workspace/ImagePreview.svelte";
 import DevWelcomeText from "$lib/components/DevWelcomeText.svelte";
 import VizView from "$lib/views/views.svelte";
 import Collections from "../../routes/(app)/collections/+page.svelte";
@@ -34,5 +37,17 @@ export const views: VizView[] = [
         name: "Collection",
         component: CollectionPage,
         path: "/collections/[uid]"
+    }),
+    new VizView({
+        name: "Filter",
+        component: FilterPanel,
+    }),
+    new VizView({
+        name: "Preview",
+        component: ImagePreview,
+    }),
+    new VizView({
+        name: "Histogram",
+        component: HistogramPanel
     })
 ];

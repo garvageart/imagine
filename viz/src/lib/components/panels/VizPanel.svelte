@@ -59,6 +59,9 @@
 		layoutTree.pushOtherPanes = storedTree.pushOtherPanes;
 		layoutTree.horizontal = storedTree.horizontal;
 		layoutTree.firstSplitter = storedTree.firstSplitter;
+		if (storedTree.activeContentId) {
+			layoutTree.activeContentId = storedTree.activeContentId;
+		}
 	}
 
 	if (storedLayout && storedLayout?.length === 0) {
@@ -122,6 +125,7 @@
 		layoutTree.childs = layoutState.tree;
 		const layoutTreeSave = { ...layoutTree } as unknown as ITree;
 		layoutTreeSave.childs = layoutToSave;
+		layoutTreeSave.activeContentId = layoutTree.activeContentId;
 		treeLayout.set(layoutTreeSave);
 	});
 
@@ -133,30 +137,7 @@
 
 <Panel {id} {theme} keyId={generateKeyId(16)} style="max-height: 100%;" pushOtherPanes={false} on:resized={handleResize}>
 	<!--
-Okay so, here's the problem,
-
-I need a single source of (reactive) truth for the layout.
-There are a couple of sources for the layout, that being:
-- A described layout like the one in `test.ts`, that includes the Component that
-  needs to be rendered by the Pane/SubPanel
-- A serialized layout that is stored like the one stored
-  in localStorage, that doesn't include any component
-
-I need to find a way to be able to create a single source of truth (likely in the shape of VizSubPanel[])
-that can be used to generate the layout (like it is currently below)
-
-I can maybe use a schema of some sort that describes the layout based on a sort of input structure,
-similar to what ProseMirror does, but without all of the complicated shape stuff and regex etc etc.
-Just something that sort of describes the shape
-
-Update - 28/06/2025:
-I think in V1, if I'm not able to find a decent way to describe a model,
-the user will have to create their own tabs/layout on their first launch
-and I can give them some pre-configured layouts to choose if they wish.
-However, those will have to be custom made and typed out manually :)
-
-We can soooort of generate layouts at the moment (like those stored in localStorage) but those don't contain the
-component yet which is a bit of a problem I guess
+TODO: Rewrite the ENTIRE layout code and create a new framework that isn't this hodgepodge of reworked code
 	-->
 	{#each internalLayoutState as panel, i}
 		{#key panel.childs.content.length}
@@ -178,3 +159,4 @@ component yet which is a bit of a problem I guess
 		{/key}
 	{/each}
 </Panel>
+

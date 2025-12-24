@@ -3,9 +3,7 @@
 	import type { TabData } from "$lib/views/tabs.svelte.ts";
 	import type TabOps from "$lib/views/tabs.svelte.ts";
 	import VizView from "$lib/views/views.svelte";
-	import ContextMenu, {
-		type MenuItem
-	} from "$lib/context-menu/ContextMenu.svelte";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import {
 		buildLayoutContextMenu,
 		buildPanelContextMenu,
@@ -13,6 +11,7 @@
 	} from "./subpanel-context";
 	import type { TabHandlers } from "./subpanel-context";
 	import { layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import type { MenuItem } from "$lib/context-menu/types";
 
 	interface Props {
 		keyId: string;
@@ -305,7 +304,7 @@
 				>
 					<MaterialIcon
 						style={`transform: translateY(${view.opticalCenterFix}px);`}
-						weight={200}
+						weight={300}
 						iconName="menu"
 					/>
 					<span class="viz-sub_panel-name">{view.name}</span>
@@ -440,13 +439,14 @@
 		display: flex;
 		align-items: center;
 		position: relative;
-		padding: 0.3em 0.7em;
+		padding: 0.2em 0.5em;
 		cursor: default;
 		height: 100%;
 		max-width: 11em;
 		overflow: hidden;
 		gap: 0.3em;
-		font-size: 0.9em;
+		font-size: 0.85em;
+		font-weight: 450;
 		border: none;
 		background: transparent;
 		color: inherit;
