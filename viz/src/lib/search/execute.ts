@@ -30,27 +30,21 @@ export async function performSearch() {
     search.loading = true;
     search.executed = true;
 
-    try {
-        if (dev) {
-            const randomLatency = dev ? Math.floor(Math.random() * 200) + 100 : 0;
-            await sleep(randomLatency);
-        }
+    if (dev) {
+        const randomLatency = dev ? Math.floor(Math.random() * 200) + 100 : 0;
+        await sleep(randomLatency);
+    }
 
-        updateURLParameter("q", search.value);
+    updateURLParameter("q", search.value);
 
-        const res = await executeSearch(search.value, { limit: 100, page: 0 });
-        if (res.status === 200) {
-            search.data.images.data = res.data.images ?? [];
-            search.data.collections.data = res.data.collections ?? [];
-        } else {
-            console.error("Search failed:", res.status);
-            search.data.images.data = [];
-            search.data.collections.data = [];
-        }
-
-    } catch (error) {
-        console.error("Search failed:", error);
-    } finally {
+    const res = await executeSearch(search.value, { limit: 100, page: 0 });
+    if (res.status === 200) {
+        search.data.images.data = res.data.images ?? [];
+        search.data.collections.data = res.data.collections ?? [];
         search.loading = false;
+    } else {
+        search.data.images.data = [];
+        search.data.collections.data = [];
+        throw new Error(`Error fetching search results: ${res.data.error}`);
     }
 } 
