@@ -1,34 +1,24 @@
-<script lang="ts" module>
-	export type DropdownOption = {
-		title: string;
-		icon?: MaterialSymbol;
-		disabled?: boolean;
-	};
-</script>
-
-<script lang="ts" generics="T">
-	import { isEqual } from "lodash-es";
-	import MaterialIcon from "./MaterialIcon.svelte";
+<script lang="ts">
 	import type { MaterialSymbol } from "material-symbols";
-	import ContextMenu, {
-		type MenuItem
-	} from "$lib/context-menu/ContextMenu.svelte";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import IconButton from "./IconButton.svelte";
 	import Button from "./Button.svelte";
-
+	import type { MenuItem } from "$lib/context-menu/types";
+	
 	interface Props {
 		class?: string;
-		options: DropdownOption[];
-		/** If provided, shows this as the current selection and displays a check icon next to it in the menu */
-		selectedOption?: DropdownOption;
+		/** Menu items to render directly in ContextMenu */
+		items: MenuItem[];
+		/** If provided, shows this id as the current selection and displays a check icon next to it in the menu */
+		selectedItemId?: string;
 		showMenu?: boolean;
 		/** Button text when no selection (or for action menus that don't track selection) */
 		title?: string;
 		/** Icon to show on the button */
 		icon?: MaterialSymbol;
-		/** Called when an option is selected */
-		onSelect?: (option: DropdownOption) => void;
-		/** If true, show check icons for selected option. Set to false for action menus. Default: true */
+		/** Called when an item is selected */
+		onSelect?: (item: MenuItem) => void;
+		/** If true, show check icons for selected item. Set to false for action menus. Default: true */
 		showSelectionIndicator?: boolean;
 		/** Horizontal alignment of the menu relative to the button: 'left' or 'right' */
 		align?: "left" | "right";
@@ -37,8 +27,8 @@
 	}
 
 	let {
-		options,
-		selectedOption = $bindable(),
+		items,
+		selectedItemId = $bindable(),
 		showMenu = $bindable(false),
 		title,
 		icon,
@@ -52,32 +42,38 @@
 	let buttonEl: HTMLButtonElement | undefined = $state(undefined);
 	let containerEl: HTMLElement | null = $state(null);
 
-    let currentIcon: MaterialSymbol | undefined = $derived(selectedOption?.icon ?? icon);
+	// Derived selected item from items by id
+	let selectedItem: MenuItem | undefined = $derived(
+		items?.find((i) => i.id === selectedItemId)
+	);
 
-	// Build MenuItem array for ContextMenu
-	function buildMenuItems(): MenuItem[] {
-		return options.map((opt, idx) => ({
-			id: `opt-${idx}`,
-			label: opt.title,
-			// Show option's icon if provided, or check mark if this is the selected option (when showSelectionIndicator is true)
-			icon:
-				opt.icon ??
-				(showSelectionIndicator && isEqual(selectedOption, opt)
-					? ("check" as any)
-					: undefined),
-			disabled: opt.disabled,
-			action: (e) => handleOptionSelect(opt as any)
-		}));
-	}
+	let currentIcon: MaterialSymbol | undefined = $derived(
+		(selectedItem?.icon as MaterialSymbol | undefined) ?? icon
+	);
 
 	let menuItems: MenuItem[] = $state([]);
 
-	function handleOptionSelect(option: DropdownOption) {
-		onSelect?.(option);
+	function buildMenuItems(): MenuItem[] {
+		return items.map((it) => ({
+			...it,
+			icon:
+				it.icon ??
+				(showSelectionIndicator && selectedItemId === it.id
+					? "check"
+					: undefined),
+			// wrap existing action so dropdown selection handling runs first
+			action: (e) => handleItemSelect(it, e)
+		}));
+	}
+
+	function handleItemSelect(item: MenuItem, e: MouseEvent | KeyboardEvent) {
+		onSelect?.(item);
 		if (showSelectionIndicator) {
-			selectedOption = option;
+			selectedItemId = item.id;
 		}
 		showMenu = false;
+		// Call item's own action if present (forward the event)
+		item.action?.(e);
 	}
 
 	function toggleMenu() {
@@ -103,16 +99,10 @@
 />
 
 {#snippet buttonContent()}
-	{#if selectedOption}
-		<p class="viz-dropdown-title">
-			{selectedOption.title}
-		</p>
-	{:else}
-		{#if title}
-			<p class="viz-dropdown-title">
-				{title}
-			</p>
-		{/if}
+	{#if selectedItem}
+		<p class="viz-dropdown-title">{selectedItem.label}</p>
+	{:else if title}
+		<p class="viz-dropdown-title">{title}</p>
 	{/if}
 {/snippet}
 

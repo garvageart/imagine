@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import ContextMenu, {
-		type MenuItem
-	} from "$lib/context-menu/ContextMenu.svelte";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
+	import type { MenuItem } from "$lib/context-menu/types";
 	import { user } from "$lib/states/index.svelte";
 
 	let { isOpen = $bindable(false), anchor = $bindable() } = $props<{

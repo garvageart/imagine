@@ -4,6 +4,7 @@
 
 	interface Props extends HTMLSelectAttributes {
 		label?: string;
+		labelPosition?: "top" | "side";
 		description?: string;
 		children?: import("svelte").Snippet;
 		value?: string | number | string[];
@@ -11,6 +12,7 @@
 
 	let {
 		label,
+		labelPosition = "top",
 		description,
 		children,
 		value = $bindable(),
@@ -20,7 +22,11 @@
 	const selectId = props.id ?? generateKeyId();
 </script>
 
-<div class="input-container" class:disabled={props.disabled}>
+<div
+	class="input-container"
+	class:disabled={props.disabled}
+	class:side-label={labelPosition === "side"}
+>
 	{#if label}
 		<label for={selectId} class="input-label">{label}</label>
 	{/if}
@@ -45,8 +51,17 @@
 		flex-direction: column;
 		min-width: 0%;
 		position: relative;
-		width: 100%;
-		gap: 0.5rem;
+		gap: 0.25rem;
+
+		&.side-label {
+			flex-direction: row;
+			align-items: center;
+
+			.input-label {
+				margin-right: 0.5rem;
+				white-space: nowrap;
+			}
+		}
 
 		&.disabled {
 			opacity: 0.5;
@@ -77,7 +92,7 @@
 	.select-input {
 		width: 100%;
 		max-width: 100%;
-		min-height: 2.5rem;
+		min-height: 2rem;
 		color: var(--imag-text-color);
 		background-color: var(--imag-100);
 		outline: none;
@@ -92,7 +107,7 @@
 		appearance: none;
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
 		background-repeat: no-repeat;
-		background-position: right 1rem center;
+		background-position: right 0.5rem center;
 		background-size: 1rem;
 
 		&:focus {

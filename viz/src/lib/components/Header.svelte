@@ -8,7 +8,9 @@
 		getTheme,
 		search,
 		toggleTheme,
-		user
+		user,
+		themeState,
+		isLayoutPage
 	} from "$lib/states/index.svelte";
 	import { historyState } from "$lib/states/history.svelte";
 	import {
@@ -26,6 +28,15 @@
 	import IconButton from "./IconButton.svelte";
 	import { goto } from "$app/navigation";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
+	import type { MenuItem } from "$lib/context-menu/types";
+	import { views } from "$lib/layouts/views";
+	import { findSubPanel, getAllSubPanels } from "$lib/utils/layout";
+	import {
+		layoutState,
+		layoutTree
+	} from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import { duplicateView } from "$lib/layouts/panel-operations";
 
 	let { ...props }: SvelteHTMLElements["header"] = $props();
 
@@ -93,6 +104,116 @@
 	let openAccPanel = $state(false);
 	let openAppMenu = $state(false);
 	let appMenuButton: HTMLButtonElement | undefined = $state();
+
+	const activeViewNames = $derived.by(() => {
+		const names = new Set<string>();
+		const subPanels = getAllSubPanels();
+
+		for (const sub of subPanels) {
+			if (sub.views) {
+				for (const view of sub.views) {
+					if (view && view.name) {
+						names.add(view.name);
+					}
+				}
+			}
+		}
+		return names;
+	});
+
+	// Context Menu for Theme
+	let ctxShowMenu = $state(false);
+	let ctxAnchor = $state<{ x: number; y: number } | null>(null);
+	let ctxItems = $state<MenuItem[]>([]);
+
+	function handleThemeContext(e: MouseEvent) {
+		e.preventDefault();
+		ctxAnchor = { x: e.clientX, y: e.clientY };
+		ctxItems = [
+			{
+				id: "theme-default-system",
+				label: "System",
+				icon: "settings_brightness",
+				action: () => themeState.setPreferredTheme("system"),
+				disabled: themeState.preferredTheme === "system"
+			},
+			{
+				id: "theme-default-light",
+				label: "Light",
+				icon: "light_mode",
+				action: () => themeState.setPreferredTheme("light"),
+				disabled: themeState.preferredTheme === "light"
+			},
+			{
+				id: "theme-default-dark",
+				label: "Dark",
+				icon: "dark_mode",
+				action: () => themeState.setPreferredTheme("dark"),
+				disabled: themeState.preferredTheme === "dark"
+			}
+		];
+		ctxShowMenu = true;
+	}
+
+	function handleViewMenu(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		const dynamicRouteRegex = /\[.*\].*$/;
+		ctxAnchor = { x: e.clientX, y: e.clientY };
+		ctxItems = views
+			.filter((view) => !view.path || !dynamicRouteRegex.test(view.path))
+			.map((view) => ({
+				id: view.name,
+				label: view.name,
+				action: () => {
+					let activeId = layoutTree.activeContentId;
+
+					// Fallback to the first available content group if no panel is active
+					if (!activeId) {
+						const allSubPanels = getAllSubPanels();
+						if (allSubPanels.length > 0) {
+							activeId = allSubPanels[0].paneKeyId;
+							layoutTree.activeContentId = activeId;
+						} else {
+							toastState.addToast({
+								title: "No Panels Available",
+								type: "error",
+								message: "There are no panels to add the view to."
+							});
+							return;
+						}
+					}
+
+					const result = findSubPanel("paneKeyId", activeId as any);
+					if (result && result.subPanel) {
+						const { parentIndex, childIndex } = result;
+
+						const targetContent =
+							layoutState.tree[parentIndex].childs.content[childIndex];
+						const existingView = targetContent.views.find(
+							(v) => v.name === view.name
+						);
+
+						targetContent.views.forEach((v) => (v.isActive = false));
+
+						if (existingView) {
+							existingView.isActive = true;
+						} else {
+							const newView = duplicateView(view);
+							newView.parent = activeId;
+							newView.isActive = true;
+							targetContent.views.push(newView);
+						}
+
+						layoutState.tree[parentIndex].views = layoutState.tree[
+							parentIndex
+						].childs.content.flatMap((c) => c.views);
+					}
+				},
+				disabled: activeViewNames.has(view.name)
+			}));
+		ctxShowMenu = true;
+	}
 </script>
 
 <svelte:window
@@ -141,6 +262,15 @@
 				style="font-size: 1.2em; margin-left: 0.15em;"
 			/>
 		</button>
+		{#if isLayoutPage()}
+			<div class="menu-seperator"></div>
+			<IconButton
+				class="header-button"
+				iconName="grid_view"
+				title="Views"
+				onclick={handleViewMenu}
+			/>
+		{/if}
 		<AppMenu bind:isOpen={openAppMenu} bind:anchor={appMenuButton} />
 		<div class="menu-seperator"></div>
 		<div class="icon-group-container">
@@ -178,29 +308,29 @@
 		/>
 	</div>
 	<div class="header-button-container">
-		<button
+		<IconButton
+			weight={300}
+			iconName={getTheme() === "dark" ? "dark_mode" : "light_mode"}
 			id="theme-toggle"
 			class="header-button theme-toggle"
-			title="Toggle theme"
+			title="Toggle theme (Right-click to set default)"
 			aria-label="Toggle Theme"
 			onclick={() => toggleTheme()}
-		>
-			<MaterialIcon
-				weight={300}
-				iconName={getTheme() === "dark" ? "dark_mode" : "light_mode"}
-			/>
-		</button>
-		<button
-			id="upload-button"
+			oncontextmenu={handleThemeContext}
+		></IconButton>
+		<IconButton
+			iconName="upload"
+			iconStyle="sharp"
+			id="header-upload-button"
 			class="header-button"
 			aria-label="Upload"
 			onclick={handleUpload}
 		>
-			<MaterialIcon iconName="upload" iconStyle="sharp" />
 			<span style="font-size: 0.75rem; font-weight: 500;"> Upload </span>
-		</button>
+		</IconButton>
 		{#if dev || !CLIENT_IS_PRODUCTION}
-			<button
+			<IconButton
+				iconName="bug_report"
 				id="debug-button"
 				class="header-button"
 				aria-label="Toggle Debug Mode"
@@ -208,8 +338,7 @@
 				title="Toggle Debug Mode"
 			>
 				<span class="debug-mode-text">{debugState.value ? "ON" : "OFF"}</span>
-				<MaterialIcon iconName="bug_report" />
-			</button>
+			</IconButton>
 		{/if}
 		<div id="account-container">
 			<button
@@ -236,11 +365,17 @@
 	</div>
 </header>
 
+<ContextMenu
+	bind:showMenu={ctxShowMenu}
+	bind:items={ctxItems}
+	anchor={ctxAnchor}
+/>
+
 <style lang="scss">
 	header {
 		background-color: var(--imag-bg-color);
 		max-height: 2em;
-		padding: 0.3em 0.8em;
+		padding: 0.1em 0.8em;
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--imag-60);
@@ -335,8 +470,8 @@
 		unicode-bidi: isolate;
 	}
 
-	#upload-button {
-		margin-right: 1.5em;
+	:global(#header-upload-button) {
+		margin: auto 1rem;
 		color: var(--imag-text-color);
 		font-size: 0.8rem;
 		padding: 0.25em 0.5em;
@@ -345,10 +480,11 @@
 	.header-button-container {
 		display: flex;
 		align-items: center;
+		gap: 0.5rem;
 	}
 
-	#theme-toggle {
-		margin: auto 1.5rem;
+	:global(#theme-toggle) {
+		margin: auto 0.5rem;
 	}
 
 	:global(.header-button) {
@@ -359,7 +495,6 @@
 		padding: 0.15em 0.4em;
 		font-size: 0.8rem;
 		color: var(--imag-10);
-		margin-right: 0.6em;
 		cursor: pointer;
 
 		&:focus {

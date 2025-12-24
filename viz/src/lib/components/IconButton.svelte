@@ -39,7 +39,7 @@
 <style lang="scss">
 	button {
 		cursor: pointer;
-		color: var(--imag-text-colour);
+		color: var(--imag-text-color);
 		font-weight: 400;
 		letter-spacing: 0.02em;
 		height: max-content;

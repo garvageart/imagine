@@ -3,6 +3,7 @@
 	import type { Snippet } from "svelte";
 	import type { SvelteHTMLElements } from "svelte/elements";
 	import MaterialIcon from "../MaterialIcon.svelte";
+	import IconButton from "../IconButton.svelte";
 
 	let {
 		children,
@@ -51,13 +52,13 @@
 </script>
 
 <div {...props} id="viz-modal" bind:this={modalEl}>
-	<button
-		class="modal-close-btn"
-		onclick={() => (modal.show = false)}
-		title="Close Modal"
-	>
-		<MaterialIcon iconName="close" />
-	</button>
+	<div id="modal-header">
+		<IconButton
+			iconName="close"
+			onclick={() => (modal.show = false)}
+			title="Close Modal"
+		/>
+	</div>
 	{@render children()}
 </div>
 
@@ -65,9 +66,11 @@
 	#viz-modal {
 		width: 35%;
 		max-height: 70%;
+		gap: 0.5rem;
 		background-color: var(--imag-bg-color);
 		z-index: 9999;
 		display: flex;
+		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		padding: 1em;
@@ -76,27 +79,9 @@
 		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 	}
 
-	.modal-close-btn {
-		position: absolute;
-		top: 0.75em;
-		right: 0.75em;
-		background: transparent;
-		border: none;
-		color: var(--imag-text-color);
-		cursor: pointer;
-		padding: 0.25em;
-		border-radius: 50%;
+	#modal-header {
+		width: 100%;
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0.6;
-		transition:
-			opacity 0.2s,
-			background-color 0.2s;
-
-		&:hover {
-			opacity: 1;
-			background-color: var(--imag-80);
-		}
+		justify-content: space-between;
 	}
 </style>

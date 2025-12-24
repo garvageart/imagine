@@ -95,7 +95,7 @@
 		justify-content: center;
 		width: 1rem;
 		height: 1rem;
-		border: 2px solid var(--imag-60);
+		border: 1.5px solid var(--imag-60);
 		border-radius: 4px;
 		background-color: transparent;
 		transition: all 0.2s ease;
@@ -111,13 +111,13 @@
 	/* Checked state */
 	input[type="checkbox"]:checked + label .viz-checkbox {
 		background-color: var(--imag-primary);
-		border: 2px solid var(--imag-90);
+		border: 1.5px solid var(--imag-90);
 		color: white;
 	}
 
 	/* Focus state */
 	input[type="checkbox"]:focus + label .viz-checkbox {
-		box-shadow: 0 0 0 3px rgba(var(--imag-primary-rgb), 0.2);
+		box-shadow: 0 0 0 3px rgba(var(--imag-primary), 0.2);
 		border-color: var(--imag-primary);
 	}
 

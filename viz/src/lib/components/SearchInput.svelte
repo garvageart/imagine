@@ -133,6 +133,7 @@
 		font-family: var(--imag-display-font);
 
 		&::placeholder {
+			font-size: 0.9em;
 			color: var(--imag-40);
 			font-family: var(--imag-display-font);
 		}

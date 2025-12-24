@@ -29,7 +29,7 @@
 
 {#if showing}
 	<div class="app-progress">
-		<ProgressBar variant="medium" bind:width={progress.target} />
+		<ProgressBar variant="small" bind:width={progress.target} />
 	</div>
 {/if}
 

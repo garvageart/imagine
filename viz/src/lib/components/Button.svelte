@@ -29,7 +29,7 @@
 <style lang="scss">
 	button {
 		cursor: pointer;
-		color: var(--imag-text-colour);
+		color: var(--imag-text-color);
 		font-weight: 400;
 		font-size: 1em; /* default */
 		letter-spacing: 0.02em;
