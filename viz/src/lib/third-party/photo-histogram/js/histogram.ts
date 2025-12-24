@@ -49,7 +49,7 @@ export class Histogram {
             throw new Error("luminance weights must have 3 values that sum to one");
         }
         this._luminanceWeights = luminanceWeights.slice();
-        this.data = this._calcData();
+        this.data = this.calcData();
     }
 
     get red(): number[] {
@@ -96,7 +96,7 @@ export class Histogram {
         return this.data.max;
     }
 
-    _calcData(): HistogramData {
+    private calcData(): HistogramData {
         // draw image/canvas source to a new canvas and get pixel data
         this._canvas.width = this._source.width;
         this._canvas.height = this._source.height;
@@ -187,7 +187,7 @@ export class Histogram {
      * Recalculate all data
      */
     refresh(): void {
-        this.data = this._calcData();
+        this.data = this.calcData();
     }
 }
 

@@ -91,7 +91,7 @@ $widget-min-height: 150px;
       }
 
       select {
-        font-family: $font-stack;
+        font-family: var(--imag-code-font);
         background-color: $background-color;
         color: $text-color;
         border-color: $border-color;
@@ -187,7 +187,7 @@ $widget-min-height: 150px;
           input,
           label {
             font-size: 0.75em;
-            font-family: $font-stack;
+            font-family: var(--imag-code-font);
           }
         }
       }

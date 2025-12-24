@@ -1,6 +1,9 @@
 /**
  * Count the number of elements in a histogram
  */
+/**
+ * Count the number of elements in a histogram
+ */
 export function cnt(histogram: number[]): number {
     let count = 0;
     for (let i = 0; i < histogram.length; i++) {
@@ -172,6 +175,7 @@ export function clientXY2SvgPoint(svg: SVGSVGElement, clientX: number, clientY: 
     point.y = clientY;
     return point.matrixTransform(svg.getScreenCTM()!.inverse());
 }
+
 
 
 

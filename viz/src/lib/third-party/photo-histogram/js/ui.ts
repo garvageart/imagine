@@ -104,7 +104,7 @@ export class Ui {
     colors: ColorScheme;
     id: ElementIds;
 
-    constructor(parent: Element, source: HTMLCanvasElement | HTMLImageElement, options?: UiOptions) {
+    constructor(parent: HTMLElement, source: HTMLCanvasElement | HTMLImageElement, options?: UiOptions) {
         const opts = options ?? {};
         const optColors = opts.colors ?? {};
 
