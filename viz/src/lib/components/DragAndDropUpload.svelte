@@ -620,63 +620,65 @@
 	/>
 {/if}
 
-<div class="drop-overlay" transition:fade={{ duration: 150 }}>
-	<div class="drop-overlay-content">
-		<MaterialIcon
-			iconName="upload"
-			style="font-size: 4rem; margin-bottom: 1rem; color: var(--imag-10-dark);"
-		/>
-		<p style="font-size: 1.5rem; font-weight: 600;">Drop files to upload</p>
-		<p style="font-size: 1rem; opacity: 0.8;">Supports images and folders</p>
+{#if isDragging}
+	<div class="drop-overlay" transition:fade={{ duration: 150 }}>
+		<div class="drop-overlay-content">
+			<MaterialIcon
+				iconName="upload"
+				style="font-size: 4rem; margin-bottom: 1rem; color: var(--imag-10-dark);"
+			/>
+			<p style="font-size: 1.5rem; font-weight: 600;">Drop files to upload</p>
+			<p style="font-size: 1rem; opacity: 0.8;">Supports images and folders</p>
 
-		{#if showCollectionCreateBox}
-			<!-- Small Add to Collection drop box placed below the main content -->
-			<div
-				class="add-to-collection-box"
-				class:hover={addBoxHover}
-				role="button"
-				tabindex="0"
-				aria-label="Add to Collection — drop images here or press Enter to create from selected images"
-				onclick={async () => {
-					// Keyboard/click activation: create collection from selected images (if any)
-					await createCollectionFromSelected?.();
-				}}
-				onkeydown={async (e: KeyboardEvent) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
+			{#if showCollectionCreateBox}
+				<!-- Small Add to Collection drop box placed below the main content -->
+				<div
+					class="add-to-collection-box"
+					class:hover={addBoxHover}
+					role="button"
+					tabindex="0"
+					aria-label="Add to Collection — drop images here or press Enter to create from selected images"
+					onclick={async () => {
+						// Keyboard/click activation: create collection from selected images (if any)
 						await createCollectionFromSelected?.();
-					}
-				}}
-				ondragenter={(e) => {
-					e.preventDefault();
-					addBoxHover = true;
-				}}
-				ondragleave={(e) => {
-					e.preventDefault();
-					addBoxHover = false;
-				}}
-				ondragover={(e) => {
-					e.preventDefault();
-					if (e.dataTransfer) {
-						e.dataTransfer.dropEffect = "copy";
-					}
+					}}
+					onkeydown={async (e: KeyboardEvent) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							await createCollectionFromSelected?.();
+						}
+					}}
+					ondragenter={(e) => {
+						e.preventDefault();
+						addBoxHover = true;
+					}}
+					ondragleave={(e) => {
+						e.preventDefault();
+						addBoxHover = false;
+					}}
+					ondragover={(e) => {
+						e.preventDefault();
+						if (e.dataTransfer) {
+							e.dataTransfer.dropEffect = "copy";
+						}
 
-					addBoxHover = true;
-				}}
-				ondrop={async (e) => {
-					addBoxHover = false;
-					await handleDropCreateCollection?.(e);
-				}}
-			>
-				<MaterialIcon
-					iconName="collections_bookmark"
-					style="font-size: 1.6rem; margin-bottom: 0.25rem; color: var(--imag-10-dark);"
-				/>
-				<span>Add to Collection</span>
-			</div>
-		{/if}
+						addBoxHover = true;
+					}}
+					ondrop={async (e) => {
+						addBoxHover = false;
+						await handleDropCreateCollection?.(e);
+					}}
+				>
+					<MaterialIcon
+						iconName="collections_bookmark"
+						style="font-size: 1.6rem; margin-bottom: 0.25rem; color: var(--imag-10-dark);"
+					/>
+					<span>Add to Collection</span>
+				</div>
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style lang="scss">
 	.drop-overlay {

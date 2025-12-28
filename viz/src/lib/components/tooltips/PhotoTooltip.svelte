@@ -4,7 +4,7 @@
 	import { DateTime } from "luxon";
 
 	let { asset }: { asset: Image } = $props();
-	const takenAt = getTakenAt(asset);
+	let takenAt = $derived(getTakenAt(asset));
 </script>
 
 <div class="photo-tooltip-content">

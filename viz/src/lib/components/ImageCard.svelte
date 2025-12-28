@@ -7,7 +7,7 @@
 	import { normalizeBase64 } from "$lib/utils/misc";
 
 	let { asset }: { asset: Image } = $props();
-	const imageDate = DateTime.fromJSDate(getTakenAt(asset));
+	let imageDate = $derived(DateTime.fromJSDate(getTakenAt(asset)));
 	
 	let placeholderDataURL = $state<string | undefined>();
 	let imageLoaded = $state(false);

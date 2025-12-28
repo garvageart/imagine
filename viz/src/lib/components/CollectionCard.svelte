@@ -49,7 +49,9 @@
 					console.debug(
 						`[openCollection] Checking view id=${v.id} path="${v.path}" name="${v.name}"`
 					);
-					if (v.path === collectionPath) {
+					// Match by exact path or by component type if it's a collection page
+					// This allows reusing the same "slot" for different collections
+					if (v.path === collectionPath || (v.component === CollectionPage as any && content.paneKeyId === currentContent.paneKeyId)) {
 						console.debug(`[openCollection] Found match: ${v.id}`);
 						existingView = v;
 						existingContent = content;
@@ -69,6 +71,13 @@
 			console.debug(
 				`[openCollection] Activating existing view: ${existingView.id}`
 			);
+			
+			// If it's the same component but different collection, reset it
+			if (existingView.path !== collectionPath) {
+				existingView.reset(collection.name);
+				existingView.path = collectionPath;
+			}
+
 			// Deactivate all views in the content and activate the existing one
 			existingContent.views.forEach((v) => v.setActive(false));
 			existingView.setActive(true);
@@ -110,12 +119,7 @@
 	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { findPanelIndex, getSubPanelParent } from "$lib/views/utils";
 	import type { SvelteHTMLElements } from "svelte/elements";
-	import {
-		getFullImagePath,
-		getImage,
-		type Collection,
-		type Image
-	} from "$lib/api";
+	import { getFullImagePath, getImage, type Collection } from "$lib/api";
 
 	interface Props {
 		collection: Collection;
@@ -123,7 +127,7 @@
 
 	let { collection, ...props }: Props & SvelteHTMLElements["div"] = $props();
 
-	let thumbnail = $state<Image | undefined>(collection.thumbnail);
+	let thumbnail = $derived(collection.thumbnail);
 
 	$effect(() => {
 		if (collection.thumbnail) {
