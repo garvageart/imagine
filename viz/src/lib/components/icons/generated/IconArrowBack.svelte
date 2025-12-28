@@ -1,12 +1,11 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "200": "<path d=\"M258.62-464.62 502-222l-22 22-280-280 280-280 22 22-243.38 242.62H760v30.76z\" />",
     "300": "<path d=\"M266.31-457.31 512-212l-32 32-300-300 300-300 32 32-245.69 245.31H780v45.38z\" />",
     "400": "<path d=\"m274-450 248 248-42 42-320-320 320-320 42 42-248 248h526v60z\" />",
     "600": "<path d=\"m297.18-440.39 238.95 238.96L480-145.87 145.87-480 480-814.7l56.13 56.13-238.95 238.96H814.7v79.22z\" />"
 };
     let { size = "1.5em", className = "", title = "IconArrowBack", viewBox = "0 0 24 24", weight = "400" } = $props();
-    const inner = variants[String(weight)] || variants["400"] || Object.values(variants)[0];
+    const inner = $derived(variants[String(weight)] || variants["400"] || Object.values(variants)[0]);
 </script>
 
 <svg

@@ -46,7 +46,6 @@
 	import UploadManager from "$lib/upload/manager.svelte.js";
 	import {
 		addCollectionImages,
-		getFullImagePath,
 		updateCollection,
 		deleteCollection,
 		deleteCollectionImages,
@@ -60,12 +59,10 @@
 	import {
 		signDownload,
 		downloadImagesZipBlob,
-		API_BASE_URL,
 		createCollection
 	} from "$lib/api";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
-	import { copyToClipboard } from "$lib/utils/misc.js";
 	import IconButton from "$lib/components/IconButton.svelte";
 	import type VizView from "$lib/views/views.svelte";
 	import type { PageProps } from "./$types";
@@ -87,6 +84,12 @@
 	let showFilterModal = $state(false);
 	let showCollectionModal = $state(false);
 
+    $effect(() => {
+        if (debugMode) {
+            console.log(`[CollectionPage] Mount/Update. View ID: ${view?.id}, View Name: ${view?.name}, Data Name: ${data.name}`);
+        }
+    });
+
 	$effect(() => {
 		untrack(() => {
 			filterManager.setActiveScopeType("images");
@@ -103,35 +106,33 @@
 	permittedKeys.push(...selectKeys, ...moveKeys);
 
 	// Data
-	let loadedData = $state(data);
-	// Track local edits separately to avoid clobbering them on refresh
 	let localDataUpdates = $state({
-		name: data.name,
-		description: data.description,
-		private: data.private as boolean | undefined
+		name: untrack(() => data.name),
+		description: untrack(() => data.description ?? ""),
+		private: untrack(() => data.private ?? false)
 	});
 
-	// React to data changes (e.g. from invalidation or navigation)
 	$effect(() => {
-		loadedData = data;
-		localDataUpdates = {
-			name: data.name,
-			description: data.description,
-			private: data.private as boolean | undefined
-		};
+		localDataUpdates.name = data.name;
+		localDataUpdates.description = data.description ?? "";
+		localDataUpdates.private = data.private ?? false;
 	});
 
 	let loadedImages = $derived(
-		loadedData.images?.items?.map((img) => img.image) ?? []
+		data.images?.items?.map((img) => img.image) ?? []
 	);
 
 	// Sync tab name with collection name directly on the passed view instance
-	// No more global tree walking!
 	$effect(() => {
 		if (view && localDataUpdates.name) {
+			// Ensure we aren't applying stale data to a new view
+			if (view.path && !view.path.includes(data.uid)) {
+				return;
+			}
+
 			if (debugMode) {
 				console.log(
-					`Syncing tab name to "${localDataUpdates.name}" for view ${view.id}`
+					`Syncing tab name to "${localDataUpdates.name}" for view ${view.id}. Data Name: ${data.name}`
 				);
 			}
 			view.name = localDataUpdates.name;
@@ -149,20 +150,16 @@
 	// Pagination
 	// NOTE: This might be moved to a settings thing and this could just be default
 	let pagination = $derived({
-		limit: loadedData.images?.limit ?? 25,
-		page: loadedData.images?.page ?? 0
+		limit: data.images?.limit ?? 25,
+		page: data.images?.page ?? 0
 	});
 
 	// Server tells us if there are more pages via the next field
 	// When searching, we're filtering client-side so no more server pages needed
-	let shouldUpdate = $derived(
-		!!loadedData.images?.next && searchValue.trim() === ""
-	);
+	let shouldUpdate = $derived(!!data.images?.next && searchValue.trim() === "");
 
 	// Selection
-	const scopeId = $derived(
-		SelectionScopeNames.COLLECTION_PREFIX + loadedData.uid
-	);
+	const scopeId = $derived(SelectionScopeNames.COLLECTION_PREFIX + data.uid);
 	const selectionScope = $derived(selectionManager.getScope<Image>(scopeId));
 	onDestroy(() => {
 		selectionManager.removeScope(scopeId);
@@ -178,7 +175,7 @@
 		searchValue.trim()
 			? sortCollectionImages(searchData, sort)
 			: sortCollectionImages(
-					loadedData.images?.items?.map((img) => img.image) ?? [],
+					data.images?.items?.map((img) => img.image) ?? [],
 					sort
 				)
 	);
@@ -207,7 +204,7 @@
 				selectionScope.select(asset);
 			}
 
-			ctxItems = createCollectionImageMenu(asset, loadedData);
+			ctxItems = createCollectionImageMenu(asset, data);
 
 			ctxAnchor = anchor as any;
 			ctxShowMenu = true;
@@ -238,7 +235,7 @@
 			.map((success) => success?.uid)
 			.filter((v) => v !== undefined);
 
-		const response = await addCollectionImages(loadedData.uid, {
+		const response = await addCollectionImages(data.uid, {
 			uids: uids
 		});
 
@@ -253,10 +250,10 @@
 		}
 	}
 
-	async function updateCollectionDetails(data?: CollectionUpdate) {
+	async function updateCollectionDetails(updateData?: CollectionUpdate) {
 		const response = await updateCollection(
-			loadedData.uid,
-			data ?? {
+			data.uid,
+			updateData ?? {
 				...localDataUpdates
 			}
 		);
@@ -271,15 +268,7 @@
 			return;
 		}
 
-		loadedData = {
-			...loadedData,
-			updated_at: response.data.updated_at,
-			description: response.data.description,
-			name: response.data.name,
-			private: response.data.private,
-			image_count: response.data.image_count,
-			created_by: response.data.created_by
-		};
+		await invalidateAll();
 
 		toastState.addToast({
 			type: "success",
@@ -289,7 +278,7 @@
 
 	async function handleDeleteCollection() {
 		const ok = confirm(
-			`Delete collection "${loadedData.name}"? This will remove the collection record. This action cannot be undone.`
+			`Delete collection "${data.name}"? This will remove the collection record. This action cannot be undone.`
 		);
 
 		if (!ok) {
@@ -297,11 +286,11 @@
 		}
 
 		try {
-			const res = await deleteCollection(loadedData.uid);
+			const res = await deleteCollection(data.uid);
 			if (res.status === 204) {
 				toastState.addToast({
 					type: "success",
-					message: `Deleted collection ${loadedData.name}`,
+					message: `Deleted collection ${data.name}`,
 					timeout: 3000
 				});
 				goto("/collections");
@@ -347,7 +336,7 @@
 			}
 
 			const token = signRes.data.uid;
-			const collectionNameClean = loadedData.name
+			const collectionNameClean = data.name
 				.replace(/[^a-z0-9]/gi, "_")
 				.toLowerCase();
 
@@ -377,7 +366,7 @@
 
 			toastState.addToast({
 				type: "success",
-				message: `Exporting ${loadedData.name}`,
+				message: `Exporting ${data.name}`,
 				timeout: 3000
 			});
 		} catch (err) {
@@ -398,7 +387,7 @@
 		}
 
 		const ok = confirm(
-			`Remove ${items.length} selected image(s) from collection "${loadedData.name}"?`
+			`Remove ${items.length} selected image(s) from collection "${data.name}"?`
 		);
 		if (!ok) {
 			return;
@@ -406,7 +395,7 @@
 
 		const uids = items.map((i: Image) => i.uid);
 		try {
-			const res = await deleteCollectionImages(loadedData.uid, { uids });
+			const res = await deleteCollectionImages(data.uid, { uids });
 			if (res.status === 200 && (res.data?.deleted ?? true)) {
 				toastState.addToast({
 					type: "success",
@@ -432,9 +421,9 @@
 	async function handleDuplicateCollection() {
 		try {
 			const res = await createCollection({
-				name: `Copy of ${loadedData.name}`,
-				description: loadedData.description ?? undefined,
-				private: loadedData.private ?? false
+				name: `Copy of ${data.name}`,
+				description: data.description ?? undefined,
+				private: data.private ?? false
 			});
 
 			if (res.status === 201) {
@@ -620,7 +609,7 @@
 	<ImageCard {asset} />
 {/snippet}
 
-{#snippet searchInputSnippet()}
+{#snippet toolbarSnippet()}
 	<!-- This looks like ass -->
 	<!-- <SearchInput
 		inputId="collection-search"
@@ -737,7 +726,7 @@
 		{pagination}
 		{noAssetsSnippet}
 		{selectionToolbarSnippet}
-		toolbarSnippet={searchInputSnippet}
+		{toolbarSnippet}
 		toolbarProps={{
 			style: "justify-content: space-between; gap: 0.5rem;"
 		}}
@@ -751,13 +740,25 @@
 						title={localDataUpdates.name}
 						bind:value={localDataUpdates.name}
 					/>
-					{#if localDataUpdates.name.trim() !== loadedData.name.trim()}
-						<div id="confirm-icons">
+					{#if localDataUpdates.name.trim() === ""}
+						<MaterialIcon
+							iconName="warning"
+							style="font-size: 0.9rem;"
+							title="Name cannot be empty"
+						/>
+					{:else}
+						<div
+							id="confirm-icons"
+							style:visibility={localDataUpdates.name.trim() ===
+							data.name.trim()
+								? "hidden"
+								: "visible"}
+						>
 							<IconButton
 								title="Cancel"
 								class="name-confirm-btn"
 								onclick={() => {
-									localDataUpdates.name = loadedData.name;
+									localDataUpdates.name = data.name;
 								}}
 								iconName="close"
 							/>
@@ -778,18 +779,18 @@
 					id="coll-details"
 					style="padding: 0% 0.5rem;"
 					title="Updated at: {DateTime.fromJSDate(
-						new Date(loadedData.updated_at)
+						new Date(data.updated_at)
 					).toFormat('dd.MM.yyyy HH:mm')}"
-					>{DateTime.fromJSDate(new Date(loadedData.created_at)).toFormat(
+					>{DateTime.fromJSDate(new Date(data.created_at)).toFormat(
 						"dd.MM.yyyy"
 					)}
 					•
 					{#if searchValue.trim()}
 						{searchData.length}
-						{searchData.length === 1 ? "image" : "images"} of {loadedData.image_count}
+						{searchData.length === 1 ? "image" : "images"} of {data.image_count}
 					{:else}
-						{loadedData.image_count}
-						{loadedData.image_count === 1 ? "image" : "images"}
+						{data.image_count}
+						{data.image_count === 1 ? "image" : "images"}
 					{/if}
 				</span>
 			</div>
@@ -846,7 +847,7 @@
 		padding: 0.5rem 2rem;
 		display: flex;
 		flex-direction: column;
-		width: 25%;
+		width: 30%;
 		overflow: hidden;
 		color: var(--imag-60);
 		font-family: var(--imag-code-font);

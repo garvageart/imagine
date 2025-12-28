@@ -1,9 +1,8 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "300": "<path d=\"M140-260v-45.39h215V-260zm0-197.31v-45.38h447.31v45.38zm0-197.3V-700h680v45.39z\" />",
-    "400": "<path d=\"M120-240v-60h240v60zm0-210v-60h480v60zm0-210v-60h720v60z\" />"
+    "400": "<path d=\"m650-415-42-42 134-105-262-204-102 79-43-43 145-112 360 280zm86 86-43-43 97-75 50 37zm94 264L641-255 480-130 120-410l50-37 310 241 118-92-43-43-75 59-360-280 120-94L73-822l43-43 757 757zM493-572\" />"
 };
-    let { size = "1.5em", className = "", title = "IconSort", viewBox = "0 0 24 24", weight = "400" } = $props();
+    let { size = "1.5em", className = "", title = "IconLayersClear", viewBox = "0 0 24 24", weight = "400" } = $props();
     const inner = $derived(variants[String(weight)] || variants["400"] || Object.values(variants)[0]);
 </script>
 

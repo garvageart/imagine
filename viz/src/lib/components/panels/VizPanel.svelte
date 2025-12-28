@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { DEFAULT_THEME } from "$lib/constants";
 	import { testLayout } from "$lib/layouts/test";
-	import { Splitpanes as Panel, type ITree } from "$lib/third-party/svelte-splitpanes";
-	import { layoutState, layoutTree } from "$lib/third-party/svelte-splitpanes/state.svelte";
+	import {
+		Splitpanes as Panel,
+		type ITree
+	} from "$lib/third-party/svelte-splitpanes";
+	import {
+		layoutState,
+		layoutTree
+	} from "$lib/third-party/svelte-splitpanes/state.svelte";
 	import { VizLocalStorage } from "$lib/utils/misc";
 	import { onMount } from "svelte";
 	import SubPanel from "./SubPanel.svelte";
@@ -129,28 +135,92 @@
 		treeLayout.set(layoutTreeSave);
 	});
 
-	function handleResize(event: CustomEvent<VizSubPanelData[]>) {
+	function handleRootResize(event: CustomEvent<VizSubPanelData[]>) {
 		debugEvent(event);
-		layoutState.tree = event.detail;
+		// Update sizes of root panels while preserving the existing objects and their state (views)
+		const newPanels = event.detail;
+		if (!Array.isArray(newPanels)) {
+			return;
+		}
+
+		layoutState.tree = layoutState.tree.map((existingPanel) => {
+			const newPanel = newPanels.find(
+				(p) => p.paneKeyId === existingPanel.paneKeyId
+			);
+			if (newPanel) {
+				existingPanel.size = newPanel.size;
+			}
+			return existingPanel;
+		});
+	}
+
+	function handleInnerResize(
+		event: CustomEvent<Content[]>,
+		parentPanelIndex: number
+	) {
+		debugEvent(event);
+		// Update sizes of content in the specific parent panel
+		const newContents = event.detail;
+		if (!Array.isArray(newContents)) {
+			return;
+		}
+
+		const parentPanel = layoutState.tree[parentPanelIndex];
+		if (
+			!parentPanel ||
+			!parentPanel.childs ||
+			!Array.isArray(parentPanel.childs.content)
+		) {
+			return;
+		}
+
+		parentPanel.childs.content = parentPanel.childs.content.map(
+			(existingContent) => {
+				const newContent = newContents.find(
+					(c) => c.paneKeyId === existingContent.paneKeyId
+				);
+				if (newContent) {
+					existingContent.size = newContent.size;
+				}
+				return existingContent;
+			}
+		);
 	}
 </script>
 
-<Panel {id} {theme} keyId={generateKeyId(16)} style="max-height: 100%;" pushOtherPanes={false} on:resized={handleResize}>
+<Panel
+	{id}
+	{theme}
+	keyId={generateKeyId(16)}
+	style="max-height: 100%;"
+	pushOtherPanes={false}
+	on:resized={handleRootResize}
+>
 	<!--
 TODO: Rewrite the ENTIRE layout code and create a new framework that isn't this hodgepodge of reworked code
 	-->
 	{#each internalLayoutState as panel, i}
 		{#key panel.childs.content.length}
 			<!-- empty array for views to supress typescript errors about required views -->
-			<SubPanel {...panel.childs.internalSubPanelContainer} class="viz-internal-subpanel" header={false} maxSize={100} views={[]}>
-				<Panel {...panel.childs.internalPanelContainer} class="viz-internal-panel" on:resized={handleResize}>
+			<SubPanel
+				{...panel.childs.internalSubPanelContainer}
+				class="viz-internal-subpanel"
+				header={false}
+				maxSize={100}
+				views={[]}
+			>
+				<Panel
+					{...panel.childs.internalPanelContainer}
+					class="viz-internal-panel"
+					on:resized={(e) => handleInnerResize(e, i)}
+				>
 					<!-- TODO: Document and explain what the hell is going on -->
 					<!-- ---------------------------------------------------- -->
 					<!-- DO NOT MOVE THIS {#key}: THIS ONLY RE-RENDERS ANY CHILD SUBPANELS THAT HAVE NEW VIEWS -->
 					<!-- MOVING THIS ANYWHERE ELSE FURTHER UP THE LAYOUT HIERACHY, USING ANY OTHER VALUE, RE-RENDERS EVERYTHING WHICH IS UNNCESSARILY EXPENSIVE OR IT DOESN'T RENDER THE TABS/HEADER OF SOME SUBPANELS AT ALL -->
 					<!-- ONLY, AND ONLY CHANGE THIS IF YOU CAN PROVE IT IS BETTER TO DO SO THAN THIS, THIS TOOK ME AGES AND DROVE ME CRAZY FOR 2 DAYS STRAIGHT -->
 					{#each panel.childs.content as subPanel}
-						{#key subPanel.views}
+						{#key subPanel.paneKeyId}
 							<SubPanel {...subPanel} id={subPanel.id ?? ""} />
 						{/key}
 					{/each}
@@ -159,4 +229,3 @@ TODO: Rewrite the ENTIRE layout code and create a new framework that isn't this 
 		{/key}
 	{/each}
 </Panel>
-
