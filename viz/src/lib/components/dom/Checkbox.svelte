@@ -19,7 +19,7 @@
 		...props
 	}: Props & SvelteHTMLElements["div"] = $props();
 
-	const uniqueId = id || `checkbox-${generateRandomString(6)}`;
+	const uniqueId = $derived(id || `checkbox-${generateRandomString(6)}`);
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (disabled) {

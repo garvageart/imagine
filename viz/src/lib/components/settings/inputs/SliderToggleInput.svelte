@@ -11,7 +11,7 @@
 
 	let { label, value = $bindable("off"), description = "", disabled = false, onchange }: Props = $props();
 
-	const toggleId = `toggle-${label.replace(/\s+/g, '-').toLowerCase()}`;
+	const toggleId = $derived(`toggle-${label.replace(/\s+/g, '-').toLowerCase()}`);
 
 	let initialRun = true;
 	$effect(() => {

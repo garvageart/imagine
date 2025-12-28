@@ -400,11 +400,11 @@
 		transition: background-color 0.1s ease;
 
 		&:hover {
-			background-color: var(--imag-90);
+			background-color: var(--imag-95);
 		}
 
 		&:active {
-			background-color: var(--imag-80);
+			background-color: var(--imag-90);
 		}
 	}
 

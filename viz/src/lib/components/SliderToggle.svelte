@@ -14,7 +14,7 @@
 
 	let checked = $state(true);
 	const uniqueID = generateRandomString(6);
-	const switchId = id || `switch-${uniqueID}`;
+	const switchId = $derived(id || `switch-${uniqueID}`);
 
 	$effect(() => {
 		checked = value === "on" ? true : false;
