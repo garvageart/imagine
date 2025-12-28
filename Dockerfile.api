@@ -58,13 +58,18 @@ WORKDIR /src
 COPY --from=packages /usr /usr
 COPY --from=packages /etc/ssl/certs /etc/ssl/certs
 
+# workspace definition and module files first for caching
+COPY go.work go.work.sum ./
 COPY go.mod go.sum ./
+COPY cmd/api/go.mod cmd/api/go.sum ./cmd/api/
+
 ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=${GOPROXY}
 RUN --mount=type=cache,id=go-mods,target=/go/pkg/mod \
     --mount=type=cache,id=go-build,target=/root/.cache/go-build \
     go env -w GOPROXY=${GOPROXY} && \
     go mod download
+
 COPY . .
 
 ENV CGO_ENABLED=1

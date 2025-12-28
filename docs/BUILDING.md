@@ -1,214 +1,149 @@
-# Building and running Imagine (developer guide)
+# Infrastructure & Building Guide
 
-This document explains how to build and run the Imagine project locally (development or production-like) using Docker Compose, how to enable BuildKit for faster Go builds, how the Postgres initialization scripts behave, and common caveats and troubleshooting steps.
+This guide covers how to build, run, and develop **Imagine**.
 
-**Location:** `docs/BUILDING.md`
+**Preferred Method**: Docker Compose (simplest, consistent environment).
+**Manual Method**: For specialized development or environments where Docker is not available.
 
---
+---
 
-## Overview
+## 1. Quick Start (Docker)
 
-- The project uses Docker Compose to run three main services: `api` (Go backend), `viz` (Svelte frontend), and `postgres` (database).
-- Docker builds are optimized with multi-stage Dockerfiles. The Go builder caches modules and build artifacts using BuildKit cache mounts.
-- The Postgres container uses `docker-entrypoint-initdb.d` scripts (see `./docker/initdb`) to create the DB and user on first initialization.
+This is the recommended way to run the application. It handles the database, redis, and all dependencies automatically.
 
-## Prerequisites
+### Prerequisites
+- **Docker Engine** & **Docker Compose**
+- **Git**
 
-- Docker (Engine) and Docker Compose installed on your host.
-- On Ubuntu: systemd-managed Docker (recommended).
-- For fast builds: Docker BuildKit enabled (see below).
-- Git, curl, and a shell (bash / PowerShell).
+### Usage
 
-## Key files and locations
-
-- `docker-compose.yml` — orchestrates services and mounts `./docker/initdb` into Postgres for initialization.
-- `Dockerfile.api` — multi-stage Dockerfile for the Go API (builder + packages + runtime).
-- `Dockerfile` (in `viz/`) — frontend Dockerfile.
-- `docker/initdb/01-create-superuser.sh` — init script used by Postgres on first-run.
-- `.env` — environment variables used by `docker-compose` (make sure this is present in the project root).
-
-## .env (important variables)
-
-Ensure `.env` in the project root contains the correct values (example in `.env.example`):
-
-- `DB_HOST` — (optional) typically left as `postgres` for compose networking
-- `DB_USER` — the database role name (used to populate `POSTGRES_USER` for the container)
-- `DB_PASSWORD` — the DB password used by the container
-- `DB_NAME` — database name created/used by the app
-- `API_PORT` — host port mapped to the API container (default `7770`)
-
-If you change `DB_USER` or `DB_PASSWORD` and you already have an initialized Postgres volume, you must either update the DB role inside Postgres OR reinitialize the volume (see "Postgres volume and reinitialization" below).
-
-## Enable BuildKit (recommended)
-
-BuildKit provides `--mount=type=cache` which dramatically speeds Go builds by caching `GOMODCACHE` and `GOCACHE` across builds.
-
-### Enable BuildKit permanently on Ubuntu (daemon)
-
-Run these on your Ubuntu host (this merges into `/etc/docker/daemon.json` safely):
-
+1.  **Clone the repository**:
 ```bash
-sudo mkdir -p /etc/docker
-if [ -f /etc/docker/daemon.json ]; then
-  sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
-fi
-sudo python3 - <<'PY'
-import json,sys,os
-p='/etc/docker/daemon.json'
-data={}
-if os.path.exists(p):
-    try:
-        with open(p,'r') as f:
-            data = json.load(f)
-    except Exception as e:
-        print('Warning: existing daemon.json could not be parsed, overwriting. Error:', e, file=sys.stderr)
-features = data.get('features', {})
-features['buildkit'] = True
-data['features'] = features
-tmp='/tmp/daemon.json.tmp'
-with open(tmp,'w') as f:
-    json.dump(data, f, indent=2)
-os.replace(tmp, p)
-print('Wrote /etc/docker/daemon.json with BuildKit enabled')
-PY
-
-sudo systemctl daemon-reload
-sudo systemctl restart docker
+git clone https://github.com/garvageart/imagine.git
+cd imagine
 ```
 
-If you prefer not to edit the daemon, enable BuildKit per-build with:
-
+2.  **Environment Setup**:
+Copy the example configuration:
 ```bash
-DOCKER_BUILDKIT=1 docker compose build
+cp .env.example .env
 ```
+*Modify `.env` to change ports or database credentials.*
 
-### Verify BuildKit
-
+3.  **Start Services**:
 ```bash
-docker build --progress=plain -t buildkit-test -<<'EOF'
-FROM alpine:3.18
-RUN echo "buildkit test"
-EOF
-```
-
-Look for BuildKit progress output.
-
-## Build steps (recommended)
-
-1. Ensure your `.env` is present and correct at the project root.
-
-2. (Optional) Remove existing Postgres volume if you want a fresh DB (this deletes data):
-
-```bash
-docker-compose down
-# list volumes to find project-specific name, typically <folder>_postgres-data
-docker volume ls
-docker volume rm <volume-name>
-```
-
-3. Build the images and start services (BuildKit enabled):
-
-```bash
-# with BuildKit enabled (recommended)
-DOCKER_BUILDKIT=1 docker compose up --build -d
-
-# or, if you enabled BuildKit permanently, just
 docker compose up --build -d
 ```
+This brings up:
+- **`postgres`**: Database (Port 5432)
+- **`redis`**: Job Queue Broker (Port 6379)
+- **`api`**: Go Backend (Port 7770)
+- **`viz`**: SvelteKit Frontend (Port 7777 - *Note: The API also serves the frontend in production builds, but the dev container runs `pnpm dev` for hot-reloading.*)
 
-4. Watch logs to verify Postgres initializes and the API connects successfully:
+4.  **Access**:
+    - Frontend: `http://localhost:7777`
+    - API: `http://localhost:7770`
 
-```bash
-docker compose logs -f postgres api viz
+### Database Note
+The Docker setup uses `docker/initdb/01-create-superuser.sh` to automatically create the Postgres user and database defined in your `.env` file on the first run.
+
+---
+
+## 2. Manual Development (Non-Docker)
+
+**⚠️ Windows Users**: The project `Makefile` is written for Bash. Use **WSL2** (Windows Subsystem for Linux) or **Git Bash**
+
+### Prerequisites
+- **Go**: v1.25+ (Required for workspace support)
+- **Node.js**: v22+
+- **pnpm**: Latest
+- **PostgreSQL**: v14+
+- **Redis**: v7+
+- **libvips**: v8.17+
+  - **Windows**: See `docs/Install Libvips Windows.md`
+  - **macOS**: `brew install vips`
+  - **Linux**: `apt install libvips-dev`
+
+### Step 1: Infrastructure Setup
+
+Since you are not using Docker, you must set up the database and redis manually.
+
+1.  **Start Redis**: Ensure Redis is running on port `6379`.
+2.  **Start PostgreSQL**: Ensure Postgres is running.
+3.  **Create Database & User**:
+You need to manually create the role and database that the app expects. Connect to your local Postgres (`psql postgres`) and run:
+
+```sql
+-- Replace 'myuser' and 'mypassword' with values from your .env
+CREATE ROLE myuser WITH LOGIN SUPERUSER PASSWORD '<mypassword>';
+CREATE DATABASE imagine OWNER myuser;
 ```
 
-### Notes on `Dockerfile.api` caching
+> Note: The application will handle table creation (AutoMigrate) on startup.
 
-- `Dockerfile.api` uses BuildKit `--mount=type=cache` for the Go module cache (`/go/pkg/mod`) and the Go build cache (`/root/.cache/go-build`). That avoids re-downloading modules each build and speeds up `go build`.
-- If your host doesn't have BuildKit enabled (or if you build without it), the caches won't persist between builds and you'll see repeated module downloads.
-- To force cache invalidation (rare), change the `id` name used by `--mount=type=cache,id=...` or `docker builder prune`.
+### Step 2: Backend (API)
 
-## Postgres: init scripts and behavior
+1.  Ensure `.env` exists and points to your local DB/Redis.
+2.  Install dependencies:
+```bash
+go mod download
+```
+3.  Run the API:
+```bash
+# Run from the project root using the workspace
+go run ./cmd/api
+```
+The server should start on port `7770` (or as defined in `imagine.json` / `.env`).
 
-- Files in `./docker/initdb` are mounted into `/docker-entrypoint-initdb.d` inside the official Postgres image. Scripts in this directory are executed by the Postgres image during the first `initdb` run (only when the data directory is empty).
-- The provided script `01-create-superuser.sh`:
-  - Runs as the `postgres` superuser (the official entrypoint executes this script after the DB cluster is initialized but before it is handed off to the server process).
-  - Creates or alters the role named by `POSTGRES_USER` and ensures it has the configured password and `SUPERUSER` capability.
-  - Creates the database named by `POSTGRES_DB` if it doesn't already exist.
-- If the data volume already existed before the mount, scripts will NOT re-run — this is why reinitializing requires removing the volume.
+### Step 3: Frontend (Viz)
 
-## Postgres volume and reinitialization
+1.  Navigate to the frontend directory:
+```bash
+cd viz
+```
+2.  Install dependencies:
+```bash
+pnpm install
+```
+3.  Start the development server:
+```bash
+pnpm dev
+```
+Access at `http://localhost:7777`.
 
-If you change the `DB_USER` or `DB_PASSWORD` in `.env` after the DB was initialized, the container will continue using the previously created data and roles. Options:
+---
 
-- Preferred: connect to the running Postgres and create/alter the role so it matches the new env values (no data loss).
-  - Example:
-    ```bash
-    docker compose exec postgres psql -U postgres -c "ALTER ROLE \"${DB_USER}\" WITH PASSWORD '${DB_PASSWORD}';"
-    ```
-- If you don't need the data, reinitialize the database by deleting the volume. This forces init scripts to run again and create the DB/user from `.env`.
-  - Example:
-    ```bash
-    docker compose down
-    docker volume rm <project>_postgres-data
-    DOCKER_BUILDKIT=1 docker compose up --build -d
-    ```
+## 3. Manual Production Build
 
-## API service readiness and healthchecks
+In production, the Go backend can serve the compiled frontend assets, deploying as a single binary.
 
-- The compose file adds a `healthcheck` for Postgres (using `pg_isready`) and sets `restart: unless-stopped` on the `api` service. This helps the API eventually connect once Postgres has finished startup.
-- For additional robustness you can add a small start wrapper to `api` to wait for `pg_isready` before running the binary.
+1.  **Build Frontend**:
+```bash
+cd viz
+pnpm build
+```
+This generates the static site in `../build/viz`.
+
+2.  **Build Backend**:
+From the project root:
+```bash
+go build -o bin/api ./cmd/api
+```
+
+3.  **Run**:
+    Set the `IMAGINE_FRONTEND_BUILD_PATH` environment variable to point to the built assets.
+    
+```bash
+export IMAGINE_FRONTEND_BUILD_PATH="./build/viz"
+./bin/api
+```
+    
+Accessing `http://localhost:7770` (API port) will serve the frontend app for any non-API routes.
+
+---
 
 ## Troubleshooting
 
-- "connect: connection refused" on API start:
-  - Likely cause: API tried to connect before Postgres finished initializing. Check `docker compose logs postgres` and ensure Postgres is ready.
-  - Fix: wait or restart API (`docker compose restart api`) or enable restart policy (already configured).
-
-- "database already exists" error in init logs:
-  - Normal when the DB was created by an earlier step. The init script is guarded to create DB only if missing (script in `docker/initdb` uses conditional create).
-
-- Repeated Go module downloads on each build:
-  - Ensure BuildKit is enabled and use the recommended `DOCKER_BUILDKIT=1 docker compose build` or enable BuildKit in the daemon.
-  - Confirm the builder stage uses the cache mounts (see `Dockerfile.api`).
-
-- Permission/locale warnings from Postgres init on Alpine:
-  - Some packages in minimal images may lack `locale`. These are usually warnings and not fatal; they appear during `initdb` on Alpine-based images. The main requirement is that Postgres starts and becomes ready.
-
-## Developer tips
-
-- To speed iterative backend builds while developing locally you can use `docker compose build --progress=plain` to see BuildKit output and verify caches are used.
-- If you change `go.mod` / `go.sum`, Docker will re-run `go mod download` step in the builder stage; this is normal.
-- Consider running the API natively (outside Docker) during fast local development for quicker edit-run loops — use the Dockerized environment for integration testing.
-
-## CI recommendations
-
-- CI runners should enable BuildKit or set the `--mount=type=cache` paths to a shared cache directory supported by the CI.
-- Cache `~/.cache/go-build` and `$GOMODCACHE` between CI runs to reduce downloads.
-
-## Example commands summary
-
-```bash
-# Clean start (wipes Postgres data)
-docker compose down
-docker volume rm imagine_postgres-data   # confirm name with `docker volume ls`
-DOCKER_BUILDKIT=1 docker compose up --build -d
-
-docker compose logs -f postgres api viz
-
-# Rebuild just the api with BuildKit
-DOCKER_BUILDKIT=1 docker compose build api
-
-# Run compose and view all logs
-docker compose up --build
-``` 
-
-## Security notes & caveats
-
-- The init script that creates a SUPERUSER is convenient for local development, but granting `SUPERUSER` should be avoided in production. If you want least-privilege setup, modify the init script to create a non-superuser role and grant only the required privileges.
-- `POSTGRES_HOST_AUTH_METHOD=trust` may be used temporarily for password recovery, but it disables authentication — never enable in an untrusted environment.
-
----
-Last updated: 2025-11-19
-
--- README partially written by Co-Pilot
+- **`connect: connection refused`**: Check if Redis and Postgres are running.
+- **Go Version Errors**: Ensure you are using Go 1.25. The project uses a Go Workspace (`go.work`).
+- **"libvips not found"**: Ensure `pkg-config` can find libvips. On Windows, check your `PATH` and `PKG_CONFIG_PATH`.
