@@ -1,3 +1,14 @@
+<script module>
+	export function toggleSection(
+		section: keyof typeof uiState.expanded,
+		uiState: { expanded: Record<string, boolean> },
+		save: () => void
+	) {
+		uiState.expanded[section] = !uiState.expanded[section];
+		save();
+	}
+</script>
+
 <script lang="ts">
 	import { slide } from "svelte/transition";
 	import MaterialIcon from "../MaterialIcon.svelte";
@@ -5,6 +16,7 @@
 	import RangeInput from "./RangeInput.svelte";
 	import StarRating from "./StarRating.svelte";
 	import type { ImageFilters, ImageFacets } from "$lib/states/filter.svelte";
+	import LabelFacet from "./LabelFacet.svelte";
 
 	interface Props {
 		criteria: ImageFilters;
@@ -19,16 +31,14 @@
 		uiState = $bindable(),
 		save
 	}: Props = $props();
-
-	function toggleSection(section: keyof typeof uiState.expanded) {
-		uiState.expanded[section] = !uiState.expanded[section];
-		save();
-	}
 </script>
 
 <!-- Rating -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("rating")}>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("rating", uiState, save)}
+	>
 		<span>Rating</span>
 		<MaterialIcon
 			iconName={uiState.expanded.rating
@@ -53,9 +63,43 @@
 	{/if}
 </div>
 
+<!-- Labels -->
+<div class="filter-section">
+	<button
+		class="section-header"
+		onclick={() => toggleSection("labels", uiState, save)}
+	>
+		<span>Labels</span>
+		<MaterialIcon
+			iconName={uiState.expanded.labels
+				? "keyboard_arrow_up"
+				: "keyboard_arrow_down"}
+			class="arrow-icon"
+		/>
+	</button>
+	{#if uiState.expanded.labels}
+		<div class="section-content" transition:slide={{ duration: 200 }}>
+			<LabelFacet
+				{criteria}
+				{facets}
+				onChange={(label) => {
+					if (criteria.label === label) {
+						criteria.label = null;
+					} else {
+						criteria.label = label;
+					}
+				}}
+			/>
+		</div>
+	{/if}
+</div>
+
 <!-- Tags -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("tags")}>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("tags", uiState, save)}
+	>
 		<span>Keywords</span>
 		<MaterialIcon
 			iconName={uiState.expanded.tags
@@ -81,7 +125,10 @@
 
 <!-- Camera -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("camera")}>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("camera", uiState, save)}
+	>
 		<span>Camera</span>
 		<MaterialIcon
 			iconName={uiState.expanded.camera
@@ -107,7 +154,10 @@
 
 <!-- Lens -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("lens")}>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("lens", uiState, save)}
+	>
 		<span>Lens</span>
 		<MaterialIcon
 			iconName={uiState.expanded.lens
@@ -133,8 +183,11 @@
 
 <!-- Technical -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("tech")}>
-		<span>Technical (EXIF)</span>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("tech", uiState, save)}
+	>
+		<span>EXIF</span>
 		<MaterialIcon
 			iconName={uiState.expanded.tech
 				? "keyboard_arrow_up"
@@ -195,7 +248,10 @@
 
 <!-- Date -->
 <div class="filter-section">
-	<button class="section-header" onclick={() => toggleSection("date")}>
+	<button
+		class="section-header"
+		onclick={() => toggleSection("date", uiState, save)}
+	>
 		<span>Date Taken</span>
 		<MaterialIcon
 			iconName={uiState.expanded.date
