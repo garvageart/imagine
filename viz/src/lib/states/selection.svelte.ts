@@ -4,6 +4,7 @@ export enum SelectionScopeNames {
     DEFAULT = "default",
     PHOTOS_DEFAULT = "photos-default",
     PHOTOS_MAIN = "photos-main",
+    COLLECTIONS_MAIN = "collections-main",
     COLLECTION_PREFIX = "collection-",
     SEARCH_IMAGES = "search-images",
     SEARCH_COLLECTIONS = "search-collections"

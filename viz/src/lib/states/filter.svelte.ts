@@ -2,6 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import { type Image, type Collection } from "$lib/api";
 import { DateTime } from "luxon";
 import { initDB } from "$lib/db/client";
+import { getImageLabel } from "$lib/utils/images";
 
 export type Asset = Image | Collection;
 
@@ -25,12 +26,14 @@ export interface ImageFilters {
     tags: string[];
     camera: string[];
     lens: string[];
+    label: string | null;
 }
 
 export interface ImageFacets {
     cameras: Map<string, number>;
     lenses: Map<string, number>;
     tags: Map<string, number>;
+    labels: Map<string, number>;
     iso: { min: number; max: number; };
     fStop: { min: number; max: number; };
     shutterSpeed: { min: number; max: number; };
@@ -60,7 +63,8 @@ const DEFAULT_IMAGE_FILTERS: ImageFilters = {
     focalLength: {},
     tags: [],
     camera: [],
-    lens: []
+    lens: [],
+    label: null
 };
 
 const DEFAULT_IMAGE_UI_STATE = {
@@ -70,7 +74,8 @@ const DEFAULT_IMAGE_UI_STATE = {
         lens: false,
         tags: true,
         tech: false,
-        date: false
+        date: false,
+        labels: true
     }
 };
 
@@ -96,6 +101,7 @@ export class FilterScope<F, A extends Asset> {
                 cameras: new Map(),
                 lenses: new Map(),
                 tags: new Map(),
+                labels: new Map(),
                 iso: { min: 0, max: 0 },
                 fStop: { min: 0, max: 0 },
                 shutterSpeed: { min: 0, max: 0 },
@@ -169,6 +175,7 @@ export class FilterScope<F, A extends Asset> {
             const cameras = new Map<string, number>();
             const lenses = new Map<string, number>();
             const tags = new Map<string, number>();
+            const labels = new Map<string, number>();
 
             let minIso = Infinity, maxIso = -Infinity;
             let minF = Infinity, maxF = -Infinity;
@@ -194,6 +201,11 @@ export class FilterScope<F, A extends Asset> {
                         for (const tag of img.image_metadata.keywords) {
                             tags.set(tag, (tags.get(tag) || 0) + 1);
                         }
+                    }
+
+                    const label = getImageLabel(img);
+                    if (label) {
+                        labels.set(label, (labels.get(label) || 0) + 1);
                     }
 
                     const iso = this.parseISO(exif.iso);
@@ -226,6 +238,7 @@ export class FilterScope<F, A extends Asset> {
                 cameras,
                 lenses,
                 tags,
+                labels,
                 iso: { min: minIso === Infinity ? 0 : minIso, max: maxIso === -Infinity ? 12800 : maxIso },
                 fStop: { min: minF === Infinity ? 0 : minF, max: maxF === -Infinity ? 32 : maxF },
                 shutterSpeed: { min: minSS === Infinity ? 0 : minSS, max: maxSS === -Infinity ? 30 : maxSS },
@@ -248,7 +261,8 @@ export class FilterScope<F, A extends Asset> {
                 criteria.focalLength.min !== undefined || criteria.focalLength.max !== undefined ||
                 criteria.tags.length > 0 ||
                 criteria.camera.length > 0 ||
-                criteria.lens.length > 0;
+                criteria.lens.length > 0 ||
+                criteria.label !== null;
 
             if (!hasActiveFilters) {
                 return items;
@@ -362,6 +376,13 @@ export class FilterScope<F, A extends Asset> {
                         return false;
                     }
                 }
+
+                if (criteria.label !== null) {
+                    const label = getImageLabel(img);
+                    if (!label || label !== criteria.label) {
+                        return false;
+                    }
+                }
                 return true;
             }) as T[];
         } else if (this.isCollectionScope()) {
@@ -420,6 +441,8 @@ class FilterManager {
         return undefined;
     }
 
+    getScope(type: 'images'): FilterScope<ImageFilters, Image> | undefined;
+    getScope(type: 'collections'): FilterScope<CollectionFilters, Collection> | undefined;
     getScope(type: 'images' | 'collections'): FilterScope<ImageFilters, Image> | FilterScope<CollectionFilters, Collection> | undefined {
         return this.scopes.get(type);
     }

@@ -186,16 +186,14 @@ class ThemeState {
 
     value: ThemeOption = $state(this.getInitialTheme());
     preferredTheme: ThemeOption = $state(this.getInitialPreference());
-    systemPref: 'light' | 'dark' = $state('light');
+
+    private media = typeof window !== 'undefined' ? new MediaQuery('prefers-color-scheme: dark') : undefined;
+    systemPref = $derived((this.media?.current ?? false) ? 'dark' : 'light');
 
     resolved = $derived(this.value === 'system' ? this.systemPref : this.value);
     resolvedPreference = $derived(this.preferredTheme === 'system' ? this.systemPref : this.preferredTheme);
 
     constructor() {
-        if (typeof window !== 'undefined') {
-            const media = new MediaQuery('prefers-color-scheme: dark');
-            this.systemPref = media.current ? 'dark' : 'light';
-        }
     }
 
     private getInitialTheme(): ThemeOption {
