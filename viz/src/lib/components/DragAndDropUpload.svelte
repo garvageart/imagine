@@ -21,6 +21,9 @@
 	import { SelectionScope } from "$lib/states/selection.svelte";
 	import { UploadState } from "$lib/upload/asset.svelte";
 	import UploadManager from "$lib/upload/manager.svelte";
+	import { DragData } from "$lib/drag-drop/data";
+	import { VizMimeTypes } from "$lib/constants";
+	import { invalidateViz } from "$lib/views/views.svelte";
 
 	interface Props {
 		scopeId: string; // might be useful soon
@@ -34,6 +37,8 @@
 	// Drag and drop upload state
 	let isDragging = $state(false);
 	let dragCounter = $state(0);
+	let isInternalDrag = $state(false);
+	let internalDragActive = $state(false);
 
 	// Upload confirmation state
 	let showUploadConfirm = $state(false);
@@ -93,7 +98,7 @@
 			});
 
 			try {
-				await invalidateAll();
+				await invalidateViz();
 			} catch (err) {
 				console.error("Failed to fetch uploaded images:", err);
 			}
@@ -110,6 +115,7 @@
 		e.preventDefault();
 		isDragging = false;
 		dragCounter = 0;
+		isInternalDrag = false;
 
 		if (!e.dataTransfer) {
 			return;
@@ -118,7 +124,7 @@
 		try {
 			// Ignore internal image drops on the background - they must be dropped on the specific box
 			// checking types is enough, getData works too but let's just skip if we see the key
-			if (e.dataTransfer.types.includes("application/x-imagine-ids")) {
+			if (e.dataTransfer.types.includes(VizMimeTypes.IMAGE_UIDS)) {
 				return;
 			}
 
@@ -207,10 +213,28 @@
 		}
 	}
 
+	function handleDragStart(e: DragEvent) {
+		internalDragActive = true;
+	}
+
+	function handleDragEnd(e: DragEvent) {
+		internalDragActive = false;
+		isDragging = false;
+		dragCounter = 0;
+	}
+
 	function handleDragEnter(e: DragEvent) {
 		e.preventDefault();
 		dragCounter++;
 		if (dragCounter === 1) {
+			if (
+				internalDragActive ||
+				e.dataTransfer?.types.includes(VizMimeTypes.IMAGE_UIDS)
+			) {
+				isInternalDrag = true;
+			} else {
+				isInternalDrag = false;
+			}
 			isDragging = true;
 		}
 	}
@@ -220,6 +244,7 @@
 		dragCounter--;
 		if (dragCounter === 0) {
 			isDragging = false;
+			isInternalDrag = false;
 		}
 	}
 
@@ -285,7 +310,7 @@
 						message: `Added ${uids.length} images to collection **${collectionCreateData.name}**`,
 						timeout: 4000
 					});
-					await invalidateAll();
+					await invalidateViz();
 					goto(`/collections/${collectionUid}`);
 				} else {
 					toastState.addToast({
@@ -346,7 +371,7 @@
 					message: `Collection created with ${uids.length} image(s)`,
 					timeout: 4000
 				});
-				await invalidateAll();
+				await invalidateViz();
 				goto(`/collections/${collectionUid}`);
 			} else {
 				toastState.addToast({
@@ -375,16 +400,17 @@
 		e.stopPropagation();
 		isDragging = false;
 		dragCounter = 0;
+		isInternalDrag = false;
 
 		if (!e.dataTransfer) return;
 
 		try {
 			// Check for internal drag of images first
 			const dt = e.dataTransfer;
-			const json = dt.getData("application/x-imagine-ids");
-			if (json) {
+			const dragData = DragData.getData<string[]>(dt, VizMimeTypes.IMAGE_UIDS);
+			if (dragData) {
 				try {
-					const uids: string[] = JSON.parse(json);
+					const uids: string[] = dragData.payload;
 					if (uids.length === 0) {
 						toastState.addToast({
 							type: "info",
@@ -417,7 +443,7 @@
 							message: `Collection created with ${uids.length} image(s)`,
 							timeout: 4000
 						});
-						await invalidateAll();
+						await invalidateViz();
 						goto(`/collections/${collectionUid}`);
 						return;
 					} else {
@@ -519,7 +545,7 @@
 				});
 
 				try {
-					await invalidateAll();
+					await invalidateViz();
 				} catch (err) {
 					console.error("Failed to fetch uploaded images:", err);
 				}
@@ -592,6 +618,8 @@
 	ondragleave={handleDragLeave}
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
+	ondragstart={handleDragStart}
+	ondragend={handleDragEnd}
 />
 
 {#if showUploadConfirm && modal.show}
@@ -620,7 +648,7 @@
 	/>
 {/if}
 
-{#if isDragging}
+{#if isDragging && !isInternalDrag}
 	<div class="drop-overlay" transition:fade={{ duration: 150 }}>
 		<div class="drop-overlay-content">
 			<MaterialIcon
@@ -631,7 +659,6 @@
 			<p style="font-size: 1rem; opacity: 0.8;">Supports images and folders</p>
 
 			{#if showCollectionCreateBox}
-				<!-- Small Add to Collection drop box placed below the main content -->
 				<div
 					class="add-to-collection-box"
 					class:hover={addBoxHover}

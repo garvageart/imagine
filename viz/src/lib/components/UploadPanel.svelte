@@ -196,7 +196,7 @@
 		bottom: 2em;
 		left: 2em;
 		background-color: var(--imag-100);
-		z-index: 2;
+		z-index: 9999;
 		border: 1.5px solid var(--imag-60);
 		border-radius: 0.5em;
 		max-height: 60vh;
@@ -267,6 +267,7 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		font-family: var(--imag-code-font);
+		overflow-y: auto;
 	}
 
 	.panel-file-info {
