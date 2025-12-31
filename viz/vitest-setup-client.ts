@@ -1,10 +1,53 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import { writable } from 'svelte/store';
+
+// Move SvelteKit virtual module mocks to the top to ensure they are loaded first
+vi.mock('$app/navigation', () => ({
+	preloadData: vi.fn(() => Promise.resolve({ type: 'loaded', status: 200, data: {} })),
+	invalidateAll: vi.fn(() => Promise.resolve()),
+	goto: vi.fn(),
+}));
+
+vi.mock('$app/stores', async (importOriginal) => {
+	const original = (await importOriginal()) as any;
+	return {
+		...original,
+		page: writable({
+			url: new URL('http://localhost'),
+			params: {},
+			route: {
+				id: null
+			},
+			status: 200,
+			error: null,
+			data: {},
+			form: undefined
+		}),
+	};
+});
 
 // Note: When using the 'client' workspace (jsdom) most of these globals
-// already exist. We guard each polyfill so we do NOT overwrite jsdom's
+// already exist. We guard each polyfill so we DO NOT overwrite jsdom's
 // real implementations — we only provide fallbacks when running in
 // non-jsdom/node-based test projects.
+
+// localStorage / sessionStorage (in-memory) - Robust mock
+const localStorageMock = (function() {
+    let store: { [key: string]: string } = {};
+    return {
+        getItem: vi.fn((key: string) => store[key] || null),
+        setItem: vi.fn((key: string, value: string) => { store[key] = value.toString(); }),
+        removeItem: vi.fn((key: string) => { delete store[key]; }),
+        clear: vi.fn(() => { store = {}; }),
+        length: vi.fn(() => Object.keys(store).length),
+        key: vi.fn((i: number) => Object.keys(store)[i] || null),
+    };
+})();
+
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
+Object.defineProperty(globalThis, 'sessionStorage', { value: localStorageMock, writable: true });
+
 
 // matchMedia (jsdom doesn't implement fully in some versions)
 if (typeof globalThis.matchMedia === 'undefined') {
@@ -81,38 +124,6 @@ if (typeof globalThis.btoa === 'undefined') {
 		// fallback to identity if Buffer not present
 		return s;
 	};
-}
-
-// localStorage / sessionStorage (in-memory)
-function makeStorage() {
-	const map = new Map<string, string>();
-	return {
-		getItem(key: string) {
-			return map.has(key) ? map.get(key)! : null;
-		},
-		setItem(key: string, value: string) {
-			map.set(key, String(value));
-		},
-		removeItem(key: string) {
-			map.delete(key);
-		},
-		clear() {
-			map.clear();
-		},
-		key(i: number) {
-			return Array.from(map.keys())[i] ?? null;
-		},
-		get length() {
-			return map.size;
-		},
-	} as Storage;
-}
-
-if (typeof (globalThis as any).localStorage === 'undefined') {
-	(globalThis as any).localStorage = makeStorage();
-}
-if (typeof (globalThis as any).sessionStorage === 'undefined') {
-	(globalThis as any).sessionStorage = makeStorage();
 }
 
 // navigator.clipboard simple mock

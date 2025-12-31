@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { LabelColours } from "$lib/images/constants";
+	import { generateRandomString } from "$lib/utils/misc";
 
 	interface Props {
 		label: LabelColours | null;
@@ -31,6 +32,7 @@
 		{/each}
 	{:else if variant === "compact"}
 		<select
+			id="label-selector-{generateRandomString(6)}"
 			class="label-selector-select"
 			class:disable-select={!enableSelection}
 			style="background-color: {label ?? 'var(--imag-bg-color)'};"

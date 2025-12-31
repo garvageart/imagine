@@ -11,13 +11,7 @@
 	import { gatheringKey } from "./internal/GatheringRound.svelte";
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import { carefullCallbackSource } from "./internal/utils/functions";
-	import { arrayHasDuplicates, generateRandomString } from "$lib/utils/misc";
-	import type {
-		Content,
-		VizSubPanel
-	} from "$lib/components/panels/SubPanel.svelte";
-	import { getAllSubPanels } from "$lib/utils/layout";
-	import { layoutState } from "./state.svelte";
+	import { generateRandomString } from "$lib/utils/misc";
 
 	const {
 		ssrRegisterPaneSize,
@@ -29,17 +23,14 @@
 		keyId
 	} = getContext<SplitContext>(KEY);
 
-	// FOR VIZ ONLY
 	interface Props {
-		// PROPS
 		size?: number | null;
 		minSize?: number;
 		maxSize?: number;
 		snapSize?: number;
 		class?: string;
-		// PROPS
 		smoothExpand?: boolean;
-		id: string;
+		id?: string;
 		paneKeyId?: string;
 		children?: import("svelte").Snippet;
 	}
@@ -61,47 +52,6 @@
 	// svelte-ignore state_referenced_locally
 	let usedId = id;
 	let isActive = $state(false);
-
-	if (!usedId || usedId.trim() === "") {
-		throw new Error("Splitpanes: id is required");
-	}
-
-	let subPanels = getAllSubPanels();
-	let allPanes: Array<VizSubPanel | Content> = [...subPanels];
-
-	// I hate this so much
-	for (const panel of layoutState.tree) {
-		if (panel.childs?.internalSubPanelContainer) {
-			allPanes.push(
-				panel.childs.internalSubPanelContainer as unknown as VizSubPanel
-			);
-		}
-	}
-
-	const duplicateAnswer = arrayHasDuplicates(allPanes.map((pane) => pane.id));
-
-	// NBBBBBBB: MAKE SURE that elements/panes with the same ID don't happen, like ever
-	if (duplicateAnswer.hasDuplicates) {
-		console.error(
-			"The following panes have duplicate IDs. Please check the DOM",
-			duplicateAnswer.duplicates
-		);
-		if (duplicateAnswer.duplicates.includes(usedId)) {
-			throw new Error(`Pane element with id "${usedId}" already exists`);
-		}
-	}
-
-	let paneInfo: VizSubPanel | Content | undefined = allPanes.find(
-		(pane) => pane.id === usedId
-	);
-	if (paneInfo) {
-		usedKeyId = paneInfo.paneKeyId!;
-
-		size = paneInfo.size ?? size;
-		minSize = paneInfo.minSize ?? minSize;
-		maxSize = paneInfo.maxSize ?? maxSize;
-		snapSize = paneInfo.snapSize ?? snapSize;
-	}
 
 	// VARIABLES
 	const key = {};
@@ -234,17 +184,6 @@
 		bind:this={element}
 		onclick={(event) => {
 			carefullClientCallbacks?.("onPaneClick")(event);
-			const target = event.target as HTMLElement;
-
-			if (
-				target.classList.contains("viz-sub_panel-header") ||
-				!Array.from(element?.children as HTMLCollection).some((child) =>
-					child.contains(target)
-				)
-			) {
-				return;
-			}
-
 			isActive = true;
 		}}
 		{style}

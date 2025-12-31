@@ -72,9 +72,8 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
         this.menuItems = opts.menuItems;
 
         if (this.path) {
-            if (this.viewData) {
-                return;
-            }
+            // Preload data if path is available on construction
+            this.getComponentData();
         }
     }
 

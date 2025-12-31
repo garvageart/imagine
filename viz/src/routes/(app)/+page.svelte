@@ -1,5 +1,5 @@
 <script lang="ts">
-	import VizPanel from "$lib/components/panels/VizPanel.svelte";
+	import VizWorkspace from "$lib/components/workspace/VizWorkspace.svelte";
 	import { search } from "$lib/states/index.svelte";
 	import SearchPage from "./search/+page.svelte";
 
@@ -19,7 +19,7 @@
 		<SearchPage />
 	{:else}
 		<div class="viz-content-container" bind:this={vizContentContainer}>
-			<VizPanel id="viz-content" />
+			<VizWorkspace id="viz-content" />
 		</div>
 	{/if}
 </main>

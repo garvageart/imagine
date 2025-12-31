@@ -97,3 +97,21 @@
     z-index: 899;
     transition: all 0.2s ease-in-out;
 }
+
+.drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: color-mix(in srgb, var(--imag-primary) 20%, transparent);
+    border: 2px solid var(--imag-primary);
+    pointer-events: none;
+    z-index: 1000;
+    transition: all 0.15s ease;
+
+    &[data-position="left"] { width: 40%; }
+    &[data-position="right"] { left: 60%; width: 40%; }
+    &[data-position="top"] { height: 40%; }
+    &[data-position="bottom"] { top: 60%; height: 40%; }
+}

@@ -63,3 +63,7 @@ viz/node_modules/
 /.cache/go-build/
 /.pnpm-store/
 /docs/internal
+/viz/playwright-report
+/viz/test-results
+/viz/e2e/.auth
+/viz/e2e-*.png

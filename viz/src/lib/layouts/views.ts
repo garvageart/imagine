@@ -19,6 +19,7 @@ export const views: VizView[] = [
     new VizView({
         name: "What Day Is It?",
         component: DifferentContent
+        
     }),
     new VizView({
         name: "Timezone",

@@ -20,7 +20,7 @@
 	import VizViewContainer from "$lib/components/panels/VizViewContainer.svelte";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import { createCollectionMenu } from "$lib/context-menu/menus/collections";
-	import type { Content } from "$lib/layouts/subpanel.svelte";
+	import { TabGroup } from "$lib/layouts/model.svelte";
 	import { sortCollections } from "$lib/sort/sort";
 	import { filterManager } from "$lib/states/filter.svelte";
 	import { isLayoutPage, modal, sort } from "$lib/states/index.svelte";
@@ -83,7 +83,7 @@
 		}
 	});
 
-	const currentPanelContent = getContext<Content>("content");
+	const currentPanelContent = getContext<TabGroup>("content");
 
 	// Context menu state for right-click on collections
 	let ctxShowMenu = $state(false);

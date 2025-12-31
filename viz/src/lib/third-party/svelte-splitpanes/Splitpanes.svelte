@@ -33,9 +33,21 @@
 
 <!-- svelte-ignore state_referenced_locally -->
 <script lang="ts">
-	import { onMount, onDestroy, setContext, createEventDispatcher, tick } from "svelte";
+	import {
+		onMount,
+		onDestroy,
+		setContext,
+		createEventDispatcher,
+		tick
+	} from "svelte";
 	import { writable } from "svelte/store";
-	import type { IPane, IPaneSizingEvent, SplitContext, PaneInitFunction, ClientCallbacks } from "./index.js";
+	import type {
+		IPane,
+		IPaneSizingEvent,
+		SplitContext,
+		PaneInitFunction,
+		ClientCallbacks
+	} from "./index.js";
 	import GatheringRound from "./internal/GatheringRound.svelte";
 	import { browser } from "./internal/env.js";
 	import { getDimensionName } from "./internal/utils/sizing.js";
@@ -48,10 +60,7 @@
 	} from "./internal/utils/position.js";
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
-	import { VizLocalStorage } from "$lib/utils/misc";
-	import { allSplitpanes, layoutState, layoutTree } from "./state.svelte";
-	import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
-	import { generateKeyId, findSubPanel } from "$lib/utils/layout";
+	import { generateKeyId } from "$lib/utils/layout";
 
 	// TYPE DECLARATIONS ----------------
 
@@ -103,7 +112,7 @@
 		/**
 		 * Fires when splitpanes is ready.
 		 */
-		ready: CustomEvent<VizSubPanelData[]>;
+		ready: CustomEvent<IPaneSizingEvent[]>;
 
 		/**
 		 * Fires while resizing (on mousemove/touchmove).
@@ -117,7 +126,7 @@
 		 *
 		 * Returns the clicked pane object with its dimensions.
 		 */
-		resized: CustomEvent<VizSubPanelData[]>;
+		resized: CustomEvent<IPaneSizingEvent[]>;
 
 		/**
 		 * Fires when a pane is added.
@@ -160,16 +169,10 @@
 
 	// css class
 
-	// FOR VIZ ONLY ----------------
-	const storedLayout = new VizLocalStorage<VizSubPanelData[]>("layout").get();
-
 	interface Props {
 		// horiz or verti?
 		horizontal?: boolean;
 		/**
-		 * NOTE: The library default is true, but a Viz `SubPanel` size should only
-		 * be able to be changed by the user, not by other panes
-		 *
 		 * when true, moving a splitter can push other panes
 		 */
 		pushOtherPanes?: boolean;
@@ -203,11 +206,9 @@
 		children
 	}: Props = $props();
 
-	let splitpanesKeyId = storedLayout?.flat().find((sp) => sp.id === id)?.paneKeyId;
-	const usedKeyId = splitpanesKeyId?.trim() ?? keyId ?? generateKeyId(16);
+	const usedKeyId = keyId || generateKeyId(16);
 	if (!id || id.trim() === "") {
-		console.warn("Splitpanes: id is empty, using a generated key instead");
-		id = `viz-splitpanes-${usedKeyId}`;
+		id = `splitpanes-${usedKeyId}`;
 	}
 
 	// VARIABLES ----------------
@@ -277,7 +278,11 @@
 		const parentIsSplitpanes = isSplitpanes(parent);
 		const isSplitpanesElement = isSplitpanes(element);
 
-		return isSplitpanesElement && parentIsPane === false && parentIsSplitpanes === false;
+		return (
+			isSplitpanesElement &&
+			parentIsPane === false &&
+			parentIsSplitpanes === false
+		);
 	}
 
 	// used to complete rendering service side (SSR mode)
@@ -295,7 +300,9 @@
 		}
 
 		return {
-			undefinedPaneInitSize: browser ? 0 : (100 - ssrPaneDefinedSizeSum) / ssrPaneUndefinedSizeCount
+			undefinedPaneInitSize: browser
+				? 0
+				: (100 - ssrPaneDefinedSizeSum) / ssrPaneUndefinedSizeCount
 		};
 	};
 
@@ -428,24 +435,8 @@
 			id += `-${usedKeyId}`;
 		}
 
-		if (id.startsWith("viz-content")) {
-			// there needs to be a better way to do this lmao
-			layoutTree.class = clazz;
-			layoutTree.style = style;
-			layoutTree.theme = theme;
-			layoutTree.rtl = rtl;
-			layoutTree.element = container!;
-			layoutTree.childs = layoutState.tree;
-			layoutTree.keyId = usedKeyId;
-			layoutTree.id = id;
-			layoutTree.dblClickSplitter = dblClickSplitter;
-			layoutTree.pushOtherPanes = pushOtherPanes;
-			layoutTree.horizontal = horizontal;
-			layoutTree.firstSplitter = firstSplitter;
-		}
-
 		isReady = true;
-		dispatch("ready", calculateTree());
+		dispatch("ready", prepareResizeEvent());
 
 		setTimeout(() => {
 			isAfterInitialTimeoutZero = true;
@@ -462,7 +453,6 @@
 
 			// Prevent emitting console warnings on hot reloading.
 			isReady = false;
-			$allSplitpanes.delete(usedKeyId);
 		});
 	}
 
@@ -471,7 +461,10 @@
 		if (rtl === "auto") {
 			// the try catch is to support old browser, flag is preset to false
 			try {
-				return (containerComputedStyle ?? calcComputedStyle(container!)).direction === "rtl";
+				return (
+					(containerComputedStyle ?? calcComputedStyle(container!))
+						.direction === "rtl"
+				);
 			} catch (_err) {
 				// We want application to not crush, but don't care about the message
 			}
@@ -502,9 +495,14 @@
 	}
 
 	const isSplitterElement = (node: Node) =>
-		node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains("splitpanes__splitter");
+		node.nodeType === Node.ELEMENT_NODE &&
+		(node as HTMLElement).classList.contains("splitpanes__splitter");
 
-	function getOrientedDiff(drag: Position, elementSize: number, isRTL: boolean): number {
+	function getOrientedDiff(
+		drag: Position,
+		elementSize: number,
+		isRTL: boolean
+	): number {
 		let tdrag = drag[horizontal ? "top" : "left"];
 		if (isRTL && !horizontal) tdrag = elementSize - tdrag;
 
@@ -514,47 +512,8 @@
 	const getCurrentDimensionName = () => getDimensionName(horizontal);
 
 	function onMouseDown(event: TouchEvent | MouseEvent, splitterPane: IPane) {
-		// If the entire layout is locked, do not allow any splitter dragging
-		if (layoutTree.locked) {
-			return;
-		}
-
 		isMouseDown = true;
 		activeSplitter = splitterPane.index;
-
-		// Prevent dragging if either adjacent pane (left or right of the splitter)
-		// contains a locked subpanel. Use the pane.childs array which contains
-		// `data-viz-sp-id` ids for child subpanels.
-		const leftIdx = activeSplitter - 1;
-		const rightIdx = activeSplitter;
-		let adjacentLocked = false;
-		if (leftIdx >= 0) {
-			const leftChildIds = panes[leftIdx].childs ?? [];
-			for (const cid of leftChildIds) {
-				const found = findSubPanel("paneKeyId", cid as any);
-				if (found?.subPanel && (found.subPanel as any).locked) {
-					adjacentLocked = true;
-					break;
-				}
-			}
-		}
-		if (!adjacentLocked && rightIdx < panes.length) {
-			const rightChildIds = panes[rightIdx].childs ?? [];
-			for (const cid of rightChildIds) {
-				const found = findSubPanel("paneKeyId", cid as any);
-				if (found?.subPanel && (found.subPanel as any).locked) {
-					adjacentLocked = true;
-					break;
-				}
-			}
-		}
-
-		if (adjacentLocked) {
-			// cancel dragging
-			isMouseDown = false;
-			activeSplitter = -1;
-			return;
-		}
 
 		splitterPane.setSplitterActive(true);
 		const paneElement = splitterPane.element;
@@ -590,12 +549,23 @@
 
 			const globalMousePosition = getGlobalMousePosition(event);
 			const containerComputedStyle = calcComputedStyle(container!);
-			const containerRectWithoutBorder = elementRectWithoutBorder(container!, containerComputedStyle);
-			const containerSizeWithoutBorder: number = containerRectWithoutBorder[getCurrentDimensionName()];
+			const containerRectWithoutBorder = elementRectWithoutBorder(
+				container!,
+				containerComputedStyle
+			);
+			const containerSizeWithoutBorder: number =
+				containerRectWithoutBorder[getCurrentDimensionName()];
 			const _isRTL = isRTL(containerComputedStyle);
 
-			const currentMouseDrag = positionDiff(globalMousePosition, containerRectWithoutBorder);
-			const tdrag = getOrientedDiff(currentMouseDrag, containerSizeWithoutBorder, _isRTL);
+			const currentMouseDrag = positionDiff(
+				globalMousePosition,
+				containerRectWithoutBorder
+			);
+			const tdrag = getOrientedDiff(
+				currentMouseDrag,
+				containerSizeWithoutBorder,
+				_isRTL
+			);
 			calculatePanesSize(tdrag, containerSizeWithoutBorder);
 
 			dispatch("resize", prepareResizeEvent());
@@ -604,12 +574,14 @@
 
 	function onMouseUp() {
 		if (isDragging) {
-			dispatch("resized", calculateTree());
+			dispatch("resized", prepareResizeEvent());
 		}
 		isMouseDown = false;
 
 		const pane = panes[activeSplitter];
-		pane.setSplitterActive(false);
+		if (pane) {
+			pane.setSplitterActive(false);
+		}
 
 		// Keep dragging flag until click event is finished (click happens immediately after mouseup)
 		// in order to prevent emitting `splitter-click` event if splitter was dragged.
@@ -656,14 +628,23 @@
 				}
 			}
 
-			const maxExtendedSize = Math.min(Math.max(0, 100 - totalMinSizes), splitterPane.max());
+			const maxExtendedSize = Math.min(
+				Math.max(0, 100 - totalMinSizes),
+				splitterPane.max()
+			);
 
 			// Resets to default size if the splitter pane is already maximized
 			if (splitterPane.sz() >= maxExtendedSize) {
 				// Reset all panes to their default (given) size or equal share if not defined
-				const defaultTotal = panes.reduce((acc, p) => acc + (typeof p.givenSize === "number" ? p.givenSize : 0), 0);
-				const undefinedCount = panes.filter((p) => typeof p.givenSize !== "number").length;
-				const fallbackSize = undefinedCount > 0 ? (100 - defaultTotal) / undefinedCount : 0;
+				const defaultTotal = panes.reduce(
+					(acc, p) => acc + (typeof p.givenSize === "number" ? p.givenSize : 0),
+					0
+				);
+				const undefinedCount = panes.filter(
+					(p) => typeof p.givenSize !== "number"
+				).length;
+				const fallbackSize =
+					undefinedCount > 0 ? (100 - defaultTotal) / undefinedCount : 0;
 
 				for (let i = 0; i < panes.length; i++) {
 					const pane = panes[i];
@@ -674,7 +655,7 @@
 					}
 				}
 				dispatch("pane-reset", splitterPane);
-				dispatch("resized", calculateTree());
+				dispatch("resized", prepareResizeEvent());
 
 				isMouseDown = false;
 				return;
@@ -715,7 +696,8 @@
 				for (let i = splitterIndex - 1; i >= 0; i--) giveBest(panes[i]);
 
 				// go forward and give the most size as we can
-				for (let i = splitterIndex + 1; i < panes.length; i++) giveBest(panes[i]);
+				for (let i = splitterIndex + 1; i < panes.length; i++)
+					giveBest(panes[i]);
 
 				// at the end of the process, we must have that `leftSpare` is 0
 				if (leftSpare !== 0) {
@@ -726,29 +708,21 @@
 			}
 
 			dispatch("pane-maximize", splitterPane);
-			dispatch("resized", calculateTree());
+			dispatch("resized", prepareResizeEvent());
 		}
 		// onMouseUp might not be called on the second click, so update the mouse state.
 		// TODO: Should also check and unbind events, but better IMO to not bind&unbind on every click, so ignored for now.
 		isMouseDown = false;
 	}
 
-	function findPanesChildren() {
-		for (const pane of panes) {
-			const childrenElements = Array.from(pane.element.children).filter((el) => isSplitpanes(el) || isPane(el));
-			for (const child of childrenElements) {
-				pane.childs.push(child.attributes.getNamedItem("data-viz-sp-id")?.value as string);
-			}
-		}
-	}
-
-	const prepareResizeEvent = (): IPaneSizingEvent[] =>
-		panes.map((pane) => ({
+	function prepareResizeEvent(): IPaneSizingEvent[] {
+		return panes.map((pane) => ({
 			min: pane.min(),
 			max: pane.max(),
 			size: pane.sz(),
 			snap: pane.snap()
 		}));
+	}
 
 	// Note: Partially written by Co-Pilot
 	function normalizePaneSizes() {
@@ -783,78 +757,19 @@
 		}
 	}
 
-	function calculateTree() {
-		findPanesChildren();
-		const currentLayout = layoutState.tree;
-
-		function updatePanelSize(panel: VizSubPanelData) {
-			const pane = panes.find((p) => p.keyId === panel.paneKeyId);
-			let updatedPanel = { ...panel };
-
-			if (pane) {
-				updatedPanel.size = pane.sz();
-				updatedPanel.minSize = pane.min();
-				updatedPanel.maxSize = pane.max();
-			}
-
-			if (panel.childs && panel.childs.content && Array.isArray(panel.childs.content)) {
-				updatedPanel.childs = {
-					...panel.childs,
-					// @ts-ignore I'm lazy to fix and understand this but it's fine and it works
-					content: panel.childs.content.map(updatePanelSize)
-				};
-			}
-
-			if (panel.childs && panel.childs.internalPanelContainer) {
-				updatedPanel.childs = {
-					...updatedPanel.childs,
-					internalPanelContainer:
-						panel.childs.internalPanelContainer && "paneKeyId" in panel.childs.internalPanelContainer
-							? updatePanelSize(panel.childs.internalPanelContainer as VizSubPanelData)
-							: panel.childs.internalPanelContainer,
-					internalSubPanelContainer: updatedPanel.childs?.internalSubPanelContainer ?? ({} as any),
-					content: updatedPanel.childs?.content ?? []
-				};
-			}
-
-			if (panel.childs && panel.childs.internalSubPanelContainer) {
-				updatedPanel.childs = {
-					...updatedPanel.childs,
-					internalSubPanelContainer: updatePanelSize(panel.childs.internalSubPanelContainer as VizSubPanelData),
-					internalPanelContainer: updatedPanel.childs?.internalPanelContainer ?? ({} as any),
-					content: updatedPanel.childs?.content ?? []
-				};
-			}
-			return updatedPanel;
-		}
-
-		const updatedLayout = currentLayout.map(updatePanelSize);
-
-		return updatedLayout.map((panel) => {
-			const newPanel = new VizSubPanelData({
-				id: panel.id,
-				keyId: panel.paneKeyId,
-				size: panel.size,
-				minSize: panel.minSize,
-				maxSize: panel.maxSize,
-				class: panel.class,
-				content: panel.childs.content
-			});
-
-			newPanel.childs = panel.childs;
-			return newPanel;
-		});
-	}
-
 	/**
 	 * Returns the drag percentage of the splitter relative to the 2 parts it's inbetween, meaning the ratio between
 	 *  the size that all the panes before the splitter consumes (ignoring other splitters size) and the total size of the container.
 	 */
-	function getCurrentDragPercentage(tdrag: number, containerSizeWithoutBorder: number) {
+	function getCurrentDragPercentage(
+		tdrag: number,
+		containerSizeWithoutBorder: number
+	) {
 		// Here we want the splitter size **including the borders**.
 		// We need to use `Element.getBoundingClientRect()` and not `Element.clientWidth` and `Element.clientHeight`,
 		//  bacause the latter round the number of pixels to integer, and additionally, they don't include the borders.
-		const splitterSize = (node: Node) => getElementRect(node as HTMLElement)[getCurrentDimensionName()];
+		const splitterSize = (node: Node) =>
+			getElementRect(node as HTMLElement)[getCurrentDimensionName()];
 
 		const activeSplitterSize = splitterSize(activeSplitterElement);
 
@@ -877,7 +792,8 @@
 		}
 
 		const totalSplitterBefore = splittersTotalSizeBefore + activeSplitterDrag;
-		const totalSplitter = splittersTotalSizeBefore + activeSplitterSize + splittersTotalSizeAfter;
+		const totalSplitter =
+			splittersTotalSizeBefore + activeSplitterSize + splittersTotalSizeAfter;
 
 		// An explanation to the mathematical computation:
 		//
@@ -894,13 +810,20 @@
 		// And solving it yeild the answer:
 		// `x1 + ... + xn = (tdrag - totalSplitterBefore) / (containerSizeWithoutBorder - totalSplitter)`
 
-		return ((tdrag - totalSplitterBefore) / (containerSizeWithoutBorder - totalSplitter)) * 100;
+		return (
+			((tdrag - totalSplitterBefore) /
+				(containerSizeWithoutBorder - totalSplitter)) *
+			100
+		);
 	}
 
 	/**
 	 * Called when slitters are moving to adjust pane sizes
 	 */
-	function calculatePanesSize(tdrag: number, containerSizeWithoutBorder: number) {
+	function calculatePanesSize(
+		tdrag: number,
+		containerSizeWithoutBorder: number
+	) {
 		let paneBeforeIndex = activeSplitter - 1;
 		let paneBefore = panes[paneBeforeIndex];
 
@@ -919,37 +842,65 @@
 		const maxDrag = 100 - (pushOtherPanes ? 0 : sums.nextPanesSize);
 
 		// Calculate drag percentage
-		const mouseDragPercentage = Math.max(Math.min(getCurrentDragPercentage(tdrag, containerSizeWithoutBorder), maxDrag), minDrag);
+		const mouseDragPercentage = Math.max(
+			Math.min(
+				getCurrentDragPercentage(tdrag, containerSizeWithoutBorder),
+				maxDrag
+			),
+			minDrag
+		);
 
 		// Handle snap
-		const paneBeforeSnap = sums.prevPanesSize + paneBefore.min() + paneBefore.snap();
+		const paneBeforeSnap =
+			sums.prevPanesSize + paneBefore.min() + paneBefore.snap();
 
-		const paneAfterSnap = 100 - (sums.nextPanesSize + paneAfter.min() + paneAfter.snap());
+		const paneAfterSnap =
+			100 - (sums.nextPanesSize + paneAfter.min() + paneAfter.snap());
 
 		let dragPercentage = mouseDragPercentage;
 		let snapped = false;
 
 		if (mouseDragPercentage <= paneBeforeSnap) {
 			if (mouseDragPercentage > sums.prevPanesSize + paneBefore.min()) {
-				dragPercentage = Math.max(paneBefore.min() + sums.prevPanesSize, 100 - (paneAfter.max() + sums.nextPanesSize));
+				dragPercentage = Math.max(
+					paneBefore.min() + sums.prevPanesSize,
+					100 - (paneAfter.max() + sums.nextPanesSize)
+				);
 				snapped = true;
 			}
 		} else if (mouseDragPercentage >= paneAfterSnap) {
 			if (mouseDragPercentage < 100 - sums.nextPanesSize - paneAfter.min()) {
-				dragPercentage = Math.min(100 - (paneAfter.min() + sums.nextPanesSize), paneBefore.max() + sums.prevPanesSize);
+				dragPercentage = Math.min(
+					100 - (paneAfter.min() + sums.nextPanesSize),
+					paneBefore.max() + sums.prevPanesSize
+				);
 				snapped = true;
 			}
 		}
 
-		const paneBeforeMaxReached = paneBefore.max() < 100 && dragPercentage >= paneBefore.max() + sums.prevPanesSize;
-		const paneAfterMaxReached = paneAfter.max() < 100 && dragPercentage <= 100 - (paneAfter.max() + sums.nextPanesSize);
+		const paneBeforeMaxReached =
+			paneBefore.max() < 100 &&
+			dragPercentage >= paneBefore.max() + sums.prevPanesSize;
+		const paneAfterMaxReached =
+			paneAfter.max() < 100 &&
+			dragPercentage <= 100 - (paneAfter.max() + sums.nextPanesSize);
 		// Prevent dragging beyond pane max.
 		if (paneBeforeMaxReached || paneAfterMaxReached) {
 			if (paneBeforeMaxReached) {
 				paneBefore.setSz(paneBefore.max());
-				paneAfter.setSz(Math.max(100 - paneBefore.max() - sums.prevPanesSize - sums.nextPanesSize, 0));
+				paneAfter.setSz(
+					Math.max(
+						100 - paneBefore.max() - sums.prevPanesSize - sums.nextPanesSize,
+						0
+					)
+				);
 			} else {
-				paneBefore.setSz(Math.max(100 - paneAfter.max() - sums.prevPanesSize - sums.nextPanesSize, 0));
+				paneBefore.setSz(
+					Math.max(
+						100 - paneAfter.max() - sums.prevPanesSize - sums.nextPanesSize,
+						0
+					)
+				);
 				paneAfter.setSz(paneAfter.max());
 			}
 		} else {
@@ -970,13 +921,25 @@
 
 			if (typeof paneBeforeIndex === "number") {
 				paneBefore.setSz(
-					Math.min(Math.max(dragPercentage - sums.prevPanesSize - sums.prevReachedMinPanes, paneBefore.min()), paneBefore.max())
+					Math.min(
+						Math.max(
+							dragPercentage - sums.prevPanesSize - sums.prevReachedMinPanes,
+							paneBefore.min()
+						),
+						paneBefore.max()
+					)
 				);
 			}
 			if (typeof paneAfterIndex === "number") {
 				paneAfter.setSz(
 					Math.min(
-						Math.max(100 - dragPercentage - sums.nextPanesSize - sums.nextReachedMinPanes, paneAfter.min()),
+						Math.max(
+							100 -
+								dragPercentage -
+								sums.nextPanesSize -
+								sums.nextReachedMinPanes,
+							paneAfter.min()
+						),
 						paneAfter.max()
 					)
 				);
@@ -1004,24 +967,39 @@
 					sums.prevReachedMinPanes += pane.min();
 				});
 
-				panes[paneAfterIndex].setSz(100 - sums.prevReachedMinPanes - panes[0].min() - sums.prevPanesSize - sums.nextPanesSize);
+				panes[paneAfterIndex].setSz(
+					100 -
+						sums.prevReachedMinPanes -
+						panes[0].min() -
+						sums.prevPanesSize -
+						sums.nextPanesSize
+				);
 				return null;
 			} else {
 				// If pushing a n-2 or less pane, from splitter, then make sure all in between is at min size.
 				if (paneBeforeIndex < splitterIndex) {
-					forEachPartial(panes, paneBeforeIndex + 1, splitterIndex + 1, (pane: IPane) => {
-						pane.setSz(pane.min());
-						sums.prevReachedMinPanes += pane.min();
-					});
+					forEachPartial(
+						panes,
+						paneBeforeIndex + 1,
+						splitterIndex + 1,
+						(pane: IPane) => {
+							pane.setSz(pane.min());
+							sums.prevReachedMinPanes += pane.min();
+						}
+					);
 				}
 				sums.prevPanesSize = sumPrevPanesSize(paneBeforeIndex);
 			}
 		}
 		// Pushing Up.
 		// Pushing up beyond min size is reached: take the next expanded pane.
-		if (dragPercentage > 100 - sums.nextPanesSize - panes[paneAfterIndex].min()) {
+		if (
+			dragPercentage >
+			100 - sums.nextPanesSize - panes[paneAfterIndex].min()
+		) {
 			paneAfterIndex = findNextExpandedPane(splitterIndex)?.index;
-			if (paneBeforeIndex === undefined) console.log("Yep undefined paneAfterIndex");
+			if (paneBeforeIndex === undefined)
+				console.log("Yep undefined paneAfterIndex");
 			sums.nextReachedMinPanes = 0;
 
 			if (paneAfterIndex === undefined) {
@@ -1037,16 +1015,25 @@
 				});
 
 				panes[paneBeforeIndex].setSz(
-					100 - sums.prevPanesSize - sums.nextReachedMinPanes - panes[panesCount - 1].min() - sums.nextPanesSize
+					100 -
+						sums.prevPanesSize -
+						sums.nextReachedMinPanes -
+						panes[panesCount - 1].min() -
+						sums.nextPanesSize
 				);
 				return null;
 			} else {
 				// If pushing a n+2 or more pane, from splitter, then make sure all in between is at min size.
 				if (paneAfterIndex > splitterIndex + 1) {
-					forEachPartial(panes, splitterIndex + 1, paneAfterIndex, (pane: IPane) => {
-						pane.setSz(pane.min());
-						sums.nextReachedMinPanes += pane.min();
-					});
+					forEachPartial(
+						panes,
+						splitterIndex + 1,
+						paneAfterIndex,
+						(pane: IPane) => {
+							pane.setSz(pane.min());
+							sums.nextReachedMinPanes += pane.min();
+						}
+					);
 				}
 				sums.nextPanesSize = sumNextPanesSize(paneAfterIndex);
 			}
@@ -1055,12 +1042,16 @@
 	}
 
 	const getSizeOfPane = (pane: IPane) => pane.sz();
-	const sumPrevPanesSize = (splitterIndex: number) => sumPartial(panes, 0, splitterIndex, getSizeOfPane);
-	const sumNextPanesSize = (splitterIndex: number) => sumPartial(panes, splitterIndex + 1, panes.length, getSizeOfPane);
+	const sumPrevPanesSize = (splitterIndex: number) =>
+		sumPartial(panes, 0, splitterIndex, getSizeOfPane);
+	const sumNextPanesSize = (splitterIndex: number) =>
+		sumPartial(panes, splitterIndex + 1, panes.length, getSizeOfPane);
 
 	// Return the previous pane from siblings which has a size (width for vert or height for horz) of more than 0.
 	const findPrevExpandedPane = (splitterIndex: number): IPane | undefined =>
-		[...panes].reverse().find((p) => p.index < splitterIndex && p.sz() > p.min());
+		[...panes]
+			.reverse()
+			.find((p) => p.index < splitterIndex && p.sz() > p.min());
 
 	// Return the next pane from siblings which has a size (width for vert or height for horz) of more than 0.
 	const findNextExpandedPane = (splitterIndex: number): IPane | undefined =>
@@ -1085,7 +1076,7 @@
 		equalize();
 		normalizePaneSizes();
 
-		if (isReady) dispatch("resized", calculateTree());
+		if (isReady) dispatch("resized", prepareResizeEvent());
 	}
 
 	function equalize() {
@@ -1124,7 +1115,8 @@
 		}
 
 		const undefinedSizesCount = panesCount - definedSizesCount;
-		const undefinedSizesReadyCount = undefinedSizesCount - undefinedSizesNotReadyCount;
+		const undefinedSizesReadyCount =
+			undefinedSizesCount - undefinedSizesNotReadyCount;
 
 		// the proportion of the newly added panes
 		let undefinedSizesNotReadySz: number;
@@ -1133,7 +1125,8 @@
 			// if has undefined sizes panes that are ready:
 			undefinedSizesNotReadySz = undefinedSizesSum / undefinedSizesReadyCount;
 			if (undefinedSizesNotReadySz > 0.1 && leftToAllocate > 0.1) {
-				undefinedSizesSum += undefinedSizesNotReadyCount * undefinedSizesNotReadySz;
+				undefinedSizesSum +=
+					undefinedSizesNotReadyCount * undefinedSizesNotReadySz;
 				undefinedScaleFactor = leftToAllocate / undefinedSizesSum;
 			} else {
 				// when the size of the ready undefined panes shares are negligible, need to set the not ready
@@ -1156,7 +1149,10 @@
 				if (!(typeof pane.givenSize === "number")) {
 					// add the proportion of the newly added pane if has undefined size
 					const currentSz = pane.isReady ? pane.sz() : undefinedSizesNotReadySz;
-					const sz = Math.max(Math.min(currentSz * undefinedScaleFactor, pane.max()), pane.min());
+					const sz = Math.max(
+						Math.min(currentSz * undefinedScaleFactor, pane.max()),
+						pane.min()
+					);
 					pane.setSz(sz);
 				}
 				leftToAllocate -= pane.sz();
@@ -1164,21 +1160,36 @@
 
 			// since we multiply by scaling, there might be left space that is needed to be saturated
 			if (Math.abs(leftToAllocate) > 0.1) {
-				leftToAllocate = readjustSizes(leftToAllocate, ungrowable, unshrinkable);
+				leftToAllocate = readjustSizes(
+					leftToAllocate,
+					ungrowable,
+					unshrinkable
+				);
 			}
 		}
 
 		if (!isFinite(leftToAllocate)) {
-			console.warn("Splitpanes: Internal error, sizes might be NaN as a result.");
+			console.warn(
+				"Splitpanes: Internal error, sizes might be NaN as a result."
+			);
 		} else if (Math.abs(leftToAllocate) > 0.1) {
-			console.warn("Splitpanes: Could not resize panes correctly due to their constraints.", Math.abs(leftToAllocate));
+			console.warn(
+				"Splitpanes: Could not resize panes correctly due to their constraints.",
+				Math.abs(leftToAllocate)
+			);
 		}
 	}
 
 	// Second loop to adjust sizes now that we know more about the panes constraints.
-	function readjustSizes(leftToAllocate: number, ungrowable: Array<IPane>, unshrinkable: Array<IPane>): number {
+	function readjustSizes(
+		leftToAllocate: number,
+		ungrowable: Array<IPane>,
+		unshrinkable: Array<IPane>
+	): number {
 		const panesCount = panes.length;
-		const panesSizableCount = panesCount - (leftToAllocate > 0 ? ungrowable.length : unshrinkable.length);
+		const panesSizableCount =
+			panesCount -
+			(leftToAllocate > 0 ? ungrowable.length : unshrinkable.length);
 		if (panesSizableCount <= 0) {
 			return leftToAllocate;
 		}
@@ -1194,13 +1205,19 @@
 				const sz = pane.sz();
 				if (leftToAllocate > 0 && !ungrowable.includes(pane)) {
 					// Need to diff the size before and after to get the exact allocated space.
-					const newPaneSize = Math.max(Math.min(sz + equalSpaceToAllocate, pane.max()), pane.min());
+					const newPaneSize = Math.max(
+						Math.min(sz + equalSpaceToAllocate, pane.max()),
+						pane.min()
+					);
 					const allocated = newPaneSize - sz;
 					leftToAllocate -= allocated;
 					pane.setSz(newPaneSize);
 				} else if (!unshrinkable.includes(pane)) {
 					// Need to diff the size before and after to get the exact allocated space.
-					const newPaneSize = Math.max(Math.min(sz + equalSpaceToAllocate, pane.max()), pane.min());
+					const newPaneSize = Math.max(
+						Math.min(sz + equalSpaceToAllocate, pane.max()),
+						pane.min()
+					);
 					const allocated = newPaneSize - sz;
 					leftToAllocate -= allocated;
 					pane.setSz(newPaneSize);
@@ -1255,7 +1272,9 @@
 						pane.index = newPanes.length;
 						newPanes.push(pane);
 					} else {
-						console.warn("Splitpanes: Internal error - found a <Pane> elements which isn't tracked.");
+						console.warn(
+							"Splitpanes: Internal error - found a <Pane> elements which isn't tracked."
+						);
 					}
 				}
 			}

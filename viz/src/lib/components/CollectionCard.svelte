@@ -1,7 +1,10 @@
 <script lang="ts" module>
+	import { workspaceState } from "$lib/states/workspace.svelte";
+	import { TabGroup } from "$lib/layouts/model.svelte";
+
 	export function openCollection(
 		collection: Collection,
-		currentContent: Content
+		currentGroup: TabGroup | null
 	) {
 		const collectionPath = `/collections/${collection.uid}`;
 		if (page.url.pathname !== "/") {
@@ -9,73 +12,22 @@
 			return;
 		}
 
-		const currentParentIdx = findPanelIndex(
-			layoutState.tree,
-			getSubPanelParent(layoutState.tree, currentContent.paneKeyId)!
-		);
-		if (currentParentIdx === -1) {
-			console.warn("Can't find panel in layout, navigating to collection page");
-			goto(collectionPath, { state: { from: page.url.pathname } });
-			return;
-		}
-
-		const currentParent = layoutState.tree[currentParentIdx];
-		const childIndex = currentParent.childs.content.findIndex(
-			(subPanel) => subPanel.paneKeyId === currentContent.paneKeyId
-		);
-
-		if (childIndex === -1) {
-			console.warn(
-				`Can't find child inside panel ${currentParent.paneKeyId}, navigating to collection page`
-			);
+		const workspace = workspaceState.workspace;
+		if (!workspace) {
+			console.warn("Workspace not initialized, navigating to collection page");
 			goto(collectionPath, { state: { from: page.url.pathname } });
 			return;
 		}
 
 		// Check if a view with this collection path already exists
-		let existingView: VizView | undefined;
-		let existingContent: Content | undefined;
-		let existingParentPanel: VizSubPanelData | undefined;
+		const existingView = workspace.findViewWithPath(collectionPath);
+		const existingGroup = workspace.findGroupWithPath(collectionPath);
 
-		console.debug(
-			`[openCollection] Searching for view with path: "${collectionPath}"`
-		);
-		for (let i = 0; i < layoutState.tree.length; i++) {
-			const panel = layoutState.tree[i];
-			// Ensure we have content to iterate over
-			if (!panel.childs?.content) continue;
-			for (const content of panel.childs.content) {
-				for (const v of content.views) {
-					console.debug(
-						`[openCollection] Checking view id=${v.id} path="${v.path}" name="${v.name}"`
-					);
-					// Match by exact path
-					if (v.path === collectionPath) {
-						console.debug(`[openCollection] Found match: ${v.id}`);
-						existingView = v;
-						existingContent = content;
-						existingParentPanel = panel;
-						break;
-					}
-				}
-				if (existingView) break;
-			}
-
-			if (existingView) {
-				break;
-			}
-		}
-
-		if (existingView && existingContent && existingParentPanel) {
+		if (existingView && existingGroup) {
 			console.debug(
 				`[openCollection] Activating existing view: ${existingView.id}`
 			);
-
-			// Deactivate all views in the content and activate the existing one
-			existingContent.views.forEach((v) => v.setActive(false));
-			existingView.setActive(true);
-			// IMPORTANT: Trigger layout update so the UI reflects the change
-			existingParentPanel.makeViewActive(existingView);
+			existingGroup.setActive(existingView.id);
 			return;
 		}
 
@@ -86,17 +38,28 @@
 			path: collectionPath
 		});
 
-		addViewToContent(view, currentParentIdx, childIndex);
-
-		// Find the parent subpanel and make the new view active
-		const parentSubPanel = layoutState.tree[currentParentIdx];
-		const targetContent = parentSubPanel.childs.content[childIndex];
-
-		if (parentSubPanel) {
-			// Deactivate all views in the content and activate the new one
-			targetContent.views.forEach((v: VizView) => v.setActive(false));
-			view.setActive(true);
-			parentSubPanel.makeViewActive(view);
+		// Add to current group if provided, otherwise add to root or first group found
+		if (currentGroup) {
+			currentGroup.addTab(view);
+		} else {
+			// Fallback: find first TabGroup in the tree
+			const findFirstGroup = (node: any): TabGroup | null => {
+				if (node instanceof TabGroup) return node;
+				if (node.children) {
+					for (const child of node.children) {
+						const found = findFirstGroup(child);
+						if (found) return found;
+					}
+				}
+				return null;
+			};
+			const firstGroup = findFirstGroup(workspace.root);
+			if (firstGroup) {
+				firstGroup.addTab(view);
+			} else {
+				console.warn("No TabGroup found to add view to");
+				goto(collectionPath, { state: { from: page.url.pathname } });
+			}
 		}
 	}
 </script>
@@ -104,12 +67,8 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
-	import { addViewToContent } from "$lib/utils/layout";
 	import VizView from "$lib/views/views.svelte";
 	import CollectionPage from "../../routes/(app)/collections/[uid]/+page.svelte";
-	import VizSubPanelData, { Content } from "$lib/layouts/subpanel.svelte";
-	import { layoutState } from "$lib/third-party/svelte-splitpanes/state.svelte";
-	import { findPanelIndex, getSubPanelParent } from "$lib/views/utils";
 	import type { SvelteHTMLElements } from "svelte/elements";
 	import { getFullImagePath, getImage, type Collection } from "$lib/api";
 

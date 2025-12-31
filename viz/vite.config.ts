@@ -58,24 +58,31 @@ export default defineConfig({
 		reportCompressedSize: false
 	},
 	test: {
+		globals: true, // This enables global APIs like 'expect', 'vi'
+		environment: 'jsdom', // Default to jsdom for client-side tests
+		setupFiles: ['./vitest-setup-client.ts'], // Apply this to all client tests
+		// Common include/exclude patterns for all test projects
+		include: [
+			'src/tests/**/*.spec.ts',
+			'src/**/*.spec.{js,ts}',
+			'src/**/*.test.{js,ts}',
+			'src/**/*.svelte.spec.{js,ts}',
+			'src/**/*.svelte.test.{js,ts}'
+		],
+		exclude: [
+			'src/lib/server/**',
+			'src/lib/third-party/**',
+			'src/lib/third-party/**/tests/**',
+			'e2e/**', // Exclude Playwright E2E tests
+		],
 		projects: [
 			{
-				extends: './vite.config.ts',
+				extends: './vite.config.ts', // Extend the base config
 				plugins: [svelteTesting()],
 				test: {
 					name: 'client',
-					environment: 'jsdom',
 					clearMocks: true,
-					// include common test filename patterns and the project's `src/tests` folder
-					include: [
-						'src/tests/**/*.spec.ts',
-						'src/**/*.spec.{js,ts}',
-						'src/**/*.test.{js,ts}',
-						'src/**/*.svelte.spec.{js,ts}',
-						'src/**/*.svelte.test.{js,ts}'
-					],
-					exclude: ['src/lib/server/**', 'src/lib/third-party/**', 'src/lib/third-party/**/tests/**'],
-					setupFiles: ['./vitest-setup-client.ts']
+					// No need to redefine include/exclude or setupFiles here if they are in the top-level
 				}
 			},
 			{
@@ -92,7 +99,8 @@ export default defineConfig({
 					exclude: [
 						'src/tests/**',
 						'src/**/*.svelte.spec.{js,ts}',
-						'src/lib/third-party/**/tests/**'
+						'src/lib/third-party/**/tests/**',
+						'e2e/**',
 					]
 				}
 			}

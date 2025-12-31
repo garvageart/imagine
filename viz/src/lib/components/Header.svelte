@@ -31,13 +31,10 @@
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import type { MenuItem } from "$lib/context-menu/types";
 	import { views } from "$lib/layouts/views";
-	import { findSubPanel, getAllSubPanels } from "$lib/utils/layout";
-	import {
-		layoutState,
-		layoutTree
-	} from "$lib/third-party/svelte-splitpanes/state.svelte";
-	import { duplicateView } from "$lib/layouts/panel-operations";
+	import { workspaceState } from "$lib/states/workspace.svelte";
+	import { TabGroup } from "$lib/layouts/model.svelte";
 	import { untrack } from "svelte";
+	import VizView from "$lib/views/views.svelte";
 
 	let { ...props }: SvelteHTMLElements["header"] = $props();
 
@@ -108,14 +105,14 @@
 
 	const activeViewNames = $derived.by(() => {
 		const names = new Set<string>();
-		const subPanels = getAllSubPanels();
+		const workspace = workspaceState.workspace;
+		if (!workspace) return names;
 
-		for (const sub of subPanels) {
-			if (sub.views) {
-				for (const view of sub.views) {
-					if (view && view.name) {
-						names.add(view.name);
-					}
+		const groups = workspace.getAllTabGroups();
+		for (const group of groups) {
+			for (const view of group.views) {
+				if (view && view.name) {
+					names.add(view.name);
 				}
 			}
 		}
@@ -161,21 +158,22 @@
 		e.stopPropagation();
 		const dynamicRouteRegex = /\[.*\].*$/;
 		ctxAnchor = { x: e.clientX, y: e.clientY };
+
+		const workspace = workspaceState.workspace;
+		if (!workspace) return;
+
 		ctxItems = views
 			.filter((view) => !view.path || !dynamicRouteRegex.test(view.path))
 			.map((view) => ({
 				id: view.name,
 				label: view.name,
 				action: () => {
-					let activeId = layoutTree.activeContentId;
+					let targetGroup = workspace.activeGroup;
 
-					// Fallback to the first available content group if no panel is active
-					if (!activeId) {
-						const allSubPanels = getAllSubPanels();
-						if (allSubPanels.length > 0) {
-							activeId = allSubPanels[0].paneKeyId;
-							layoutTree.activeContentId = activeId;
-						} else {
+					// Fallback to the first available group if no panel is focused
+					if (!targetGroup) {
+						targetGroup = workspace.getAllTabGroups()[0];
+						if (!targetGroup) {
 							toastState.addToast({
 								title: "No Panels Available",
 								type: "error",
@@ -183,32 +181,19 @@
 							});
 							return;
 						}
+						workspace.setActiveGroup(targetGroup.id);
 					}
 
-					const result = findSubPanel("paneKeyId", activeId as any);
-					if (result && result.subPanel) {
-						const { parentIndex, childIndex } = result;
+					const existingView = targetGroup.views.find(
+						(v) => v.name === view.name
+					);
 
-						const targetContent =
-							layoutState.tree[parentIndex].childs.content[childIndex];
-						const existingView = targetContent.views.find(
-							(v) => v.name === view.name
-						);
-
-						targetContent.views.forEach((v) => (v.isActive = false));
-
-						if (existingView) {
-							existingView.isActive = true;
-						} else {
-							const newView = duplicateView(view);
-							newView.parent = activeId;
-							newView.isActive = true;
-							targetContent.views.push(newView);
-						}
-
-						layoutState.tree[parentIndex].views = layoutState.tree[
-							parentIndex
-						].childs.content.flatMap((c) => c.views);
+					if (existingView) {
+						targetGroup.setActive(existingView.id);
+					} else {
+						// Create a new view instance (duplicate template)
+						const newView = VizView.fromJSON(view.toJSON(), view.component);
+						targetGroup.addTab(newView);
 					}
 				},
 				disabled: activeViewNames.has(view.name)
