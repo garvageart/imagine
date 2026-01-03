@@ -831,7 +831,7 @@
 	}
 
 	#coll-metadata {
-		padding: 0.5rem 2rem;
+		padding: 0.5rem 1rem;
 		display: flex;
 		flex-direction: column;
 		width: 30%;
