@@ -1,12 +1,14 @@
 import { goto } from "$app/navigation";
-import { type Collection, createCollection, deleteCollection } from "$lib/api";
+import { type Collection, createCollection, deleteCollection, updateCollection } from "$lib/api";
 import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 import { copyToClipboard } from "$lib/utils/misc";
+import { invalidateViz } from "$lib/views/views.svelte";
 import type { MenuItem } from "../types";
 
 interface CollectionMenuOptions {
     onCollectionDuplicated?: (collection: Collection) => void;
     onCollectionDeleted?: (collection: Collection) => void;
+    onCollectionUpdated?: (collection: Collection) => void;
     editCollection?: (collection: Collection) => void;
 }
 
@@ -24,6 +26,30 @@ export function createCollectionMenu(collection: Collection, opts: CollectionMen
             icon: "edit",
             action: () => {
                 opts.editCollection?.(collection);
+            }
+        },
+        {
+            id: `favourite-${collection.uid}`,
+            label: collection.favourited ? "Unfavourite" : "Favourite",
+            icon: "favorite",
+            action: async () => {
+                const res = await updateCollection(collection.uid, {
+                    favourited: collection.favourited ? false : true
+                });
+
+                if (res.status === 200) {
+                    toastState.addToast({
+                        type: "success",
+                        message: `Collection ${collection.favourited ? "un" : ""}favourited`
+                    });
+                    opts.onCollectionUpdated?.(res.data);
+                    await invalidateViz({ delay: 200 });
+                } else {
+                    toastState.addToast({
+                        type: "error",
+                        message: res.data.error ?? `Failed to ${collection.favourited ? "un" : ""}favourite`
+                    });
+                }
             }
         },
         {

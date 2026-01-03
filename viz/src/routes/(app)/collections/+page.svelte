@@ -113,6 +113,11 @@
 					type: "success"
 				});
 			},
+			onCollectionUpdated: (updatedCol) => {
+				listOfCollectionsData = listOfCollectionsData.map((c) =>
+					c.uid === updatedCol.uid ? updatedCol : c
+				);
+			},
 			onCollectionDeleted: (deletedCol) => {
 				listOfCollectionsData = listOfCollectionsData.filter(
 					(c) => c.uid !== deletedCol.uid

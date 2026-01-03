@@ -281,7 +281,7 @@
 				timeout: 3000
 			});
 
-			await invalidateViz();
+			await invalidateViz({ delay: 200 });
 		}
 	}
 
@@ -303,7 +303,7 @@
 			return;
 		}
 
-		await invalidateViz();
+		await invalidateViz({ delay: 200 });
 
 		toastState.addToast({
 			title: response.data.name,
@@ -372,7 +372,7 @@
 				});
 				// Clear selection and refresh data
 				selectionScope.clear();
-				await invalidateViz();
+				await invalidateViz({ delay: 200 });
 			} else {
 				const errMsg = (res as any).data?.error ?? "Failed to remove images";
 				toastState.addToast({ type: "error", message: errMsg });
@@ -407,7 +407,7 @@
 							message: "Collection duplicated with images",
 							type: "success"
 						});
-						await invalidateViz();
+						await invalidateViz({ delay: 200 });
 						goto(`/collections/${newCollectionUid}`);
 					} else {
 						toastState.addToast({
@@ -421,7 +421,7 @@
 						message: "Collection duplicated (no images to copy)",
 						type: "success"
 					});
-					await invalidateViz();
+					await invalidateViz({ delay: 200 });
 					goto(`/collections/${newCollectionUid}`);
 				}
 			} else {

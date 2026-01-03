@@ -1,5 +1,5 @@
 import { invalidateAll } from "$app/navigation";
-import { deleteCollectionImages, deleteImagesBulk, getFullImagePath, updateCollection, type CollectionDetailResponse, type Image } from "$lib/api";
+import { deleteCollectionImages, deleteImagesBulk, getFullImagePath, updateCollection, updateImage, type CollectionDetailResponse, type Image } from "$lib/api";
 import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 import { copyToClipboard } from "$lib/utils/misc";
 import type { MaterialSymbol } from "material-symbols";
@@ -31,6 +31,30 @@ export function createCollectionImageMenu(asset: Image, collection: CollectionDe
             }
         },
         {
+            id: "act-favourite",
+            label: asset.favourited ? "Unfavourite" : "Favourite",
+            icon: "favorite",
+            action: async () => {
+                const res = await updateImage(asset.uid, {
+                    favourited: asset.favourited ? false : true
+                });
+
+                if (res.status === 200) {
+                    toastState.addToast({
+                        type: "success",
+                        message: `Image ${asset.favourited ? "un" : ""}favourited`
+                    });
+                    asset = res.data;
+                    await invalidateViz({ delay: 200 });
+                } else {
+                    toastState.addToast({
+                        type: "error",
+                        message: res.data.error ?? `Failed to ${asset.favourited ? "un" : ""}favourite`
+                    });
+                }
+            }
+        },
+        {
             id: `collection-thumbnail-${asset.uid}`,
             label: "Make Collection Thumbnail",
             icon: "gallery_thumbnail",
@@ -45,7 +69,7 @@ export function createCollectionImageMenu(asset: Image, collection: CollectionDe
                             type: "success",
                             message: `Collection thumbnail updated: **${res.data.thumbnail!.name}**`
                         });
-                        await invalidateViz();
+                        await invalidateViz({ delay: 200 });
                     } else {
                         toastState.addToast({
                             type: "error",
@@ -82,7 +106,7 @@ export function createCollectionImageMenu(asset: Image, collection: CollectionDe
                             type: "success",
                             message: `Removed from collection`
                         });
-                        await invalidateViz();
+                        await invalidateViz({ delay: 200 });
                     } else {
                         toastState.addToast({
                             type: "error",
@@ -145,6 +169,7 @@ export function createCollectionImageMenu(asset: Image, collection: CollectionDe
 
 export function createImageMenu(images: Image[], selectionScope: SelectionScope<Image>) {
     let items = Array.from(selectionScope.selected);
+    let firstItem = items[0];
     let actionMenuItems: MenuItem[] = [
         {
             id: "act-download",
@@ -182,7 +207,7 @@ export function createImageMenu(images: Image[], selectionScope: SelectionScope<
             icon: "link",
             action: () => {
                 if (items.length === 1) {
-                    const url = getFullImagePath(items[0].image_paths?.original);
+                    const url = getFullImagePath(firstItem.image_paths?.original);
                     copyToClipboard(url);
                     toastState.addToast({
                         type: "success",
@@ -194,6 +219,30 @@ export function createImageMenu(images: Image[], selectionScope: SelectionScope<
                         type: "warning",
                         message: "Can only copy link for a single image",
                         timeout: 3000
+                    });
+                }
+            }
+        },
+        {
+            id: "act-favourite",
+            label: items[0].favourited ? "Unfavourite" : "Favourite",
+            icon: "favorite",
+            action: async () => {
+                const res = await updateImage(firstItem.uid, {
+                    favourited: firstItem.favourited ? false : true
+                });
+
+                if (res.status === 200) {
+                    toastState.addToast({
+                        type: "success",
+                        message: `Image ${firstItem.favourited ? "un" : ""}favourited`
+                    });
+                    firstItem = res.data;
+                    await invalidateViz({ delay: 200 });
+                } else {
+                    toastState.addToast({
+                        type: "error",
+                        message: res.data.error ?? `Failed to ${firstItem.favourited ? "un" : ""}favourite`
                     });
                 }
             }

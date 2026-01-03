@@ -98,7 +98,7 @@
 			});
 
 			try {
-				await invalidateViz();
+				await invalidateViz({ delay: 200 });
 			} catch (err) {
 				console.error("Failed to fetch uploaded images:", err);
 			}
@@ -310,7 +310,7 @@
 						message: `Added ${uids.length} images to collection **${collectionCreateData.name}**`,
 						timeout: 4000
 					});
-					await invalidateViz();
+					await invalidateViz({ delay: 200 });
 					goto(`/collections/${collectionUid}`);
 				} else {
 					toastState.addToast({
@@ -371,7 +371,7 @@
 					message: `Collection created with ${uids.length} image(s)`,
 					timeout: 4000
 				});
-				await invalidateViz();
+				await invalidateViz({ delay: 200 });
 				goto(`/collections/${collectionUid}`);
 			} else {
 				toastState.addToast({
@@ -443,7 +443,7 @@
 							message: `Collection created with ${uids.length} image(s)`,
 							timeout: 4000
 						});
-						await invalidateViz();
+						await invalidateViz({ delay: 200 });
 						goto(`/collections/${collectionUid}`);
 						return;
 					} else {
@@ -545,7 +545,7 @@
 				});
 
 				try {
-					await invalidateViz();
+					await invalidateViz({ delay: 200 });
 				} catch (err) {
 					console.error("Failed to fetch uploaded images:", err);
 				}

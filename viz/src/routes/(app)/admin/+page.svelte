@@ -69,7 +69,7 @@
 	$effect(() => {
 		const interval = setInterval(
 			() => {
-				invalidateViz().then(() => {
+				invalidateViz({ delay: 200 }).then(() => {
 					lastUpdated = new Date();
 				});
 			},

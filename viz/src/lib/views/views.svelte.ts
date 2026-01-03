@@ -2,6 +2,7 @@ import type { Component } from "svelte";
 import { preloadData, invalidateAll } from "$app/navigation";
 import { debugMode } from "$lib/states/index.svelte";
 import type { MenuItem } from "$lib/context-menu/types";
+import { sleep } from "$lib/utils/misc";
 
 // usually this would be bad but the app is client only
 // and doesn't share state with anyone i guess??
@@ -12,15 +13,18 @@ let idCount = 1;
  * Incrementing this will cause all active VizView instances to re-evaluate
  * their derivedViewData, effectively triggering a refresh of their content.
  */
-let invalidationVersion = $state(0);
+export const invalidationState = $state({ version: 0 });
 
 /**
  * Triggers a global invalidation of all VizView instances and SvelteKit load functions.
  * Use this instead of `invalidateAll()` when you want to ensure background panels
  * also refresh their data (e.g., after uploading images or modifying collections).
  */
-export async function invalidateViz() {
-    invalidationVersion += 1;
+export async function invalidateViz(opts?: { delay?: number }) {
+    if (opts?.delay) {
+        await sleep(opts.delay);
+    }
+    invalidationState.version += 1;
     return await invalidateAll();
 }
 
@@ -62,7 +66,18 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
         this.component = opts.component;
         this.path = opts.path;
         this.opticalCenterFix = opts.opticalCenterFix ?? 0.5;
-        this.id = opts.id !== undefined ? opts.id : idCount++;
+        
+        if (opts.id !== undefined) {
+            this.id = opts.id;
+            // Update the global counter to ensure subsequent auto-generated IDs
+            // do not collide with IDs from hydrated/serialized views.
+            if (this.id >= idCount) {
+                idCount = this.id + 1;
+            }
+        } else {
+            this.id = idCount++;
+        }
+        
         this.isActive = opts.isActive ?? false;
         this.locked = opts.locked ?? false;
         this.menuItems = opts.menuItems;
@@ -89,18 +104,22 @@ class VizView<C extends Component<any, any, any> = Component<any, any, any>> {
     }
 
     async getComponentData(): Promise<void | { type: "loaded"; status: number; data: any; }> {
+        // Register dependency on invalidationVersion first so even views without path
+        // will re-evaluate derivedViewData (and thus re-render) when invalidation happens.
+        const version = invalidationState.version;
+
         if (!this.path) {
             return;
         }
-
-        // Register dependency on invalidationVersion
-        const _ = invalidationVersion;
 
         if (debugMode) {
             console.log(`Loading data ${this.path}`);
         }
 
-        const result = await preloadData(this.path);
+        const sep = this.path.includes('?') ? '&' : '?';
+        const urlWithCacheBust = `${this.path}${sep}invalidation=${version}`;
+
+        const result = await preloadData(urlWithCacheBust);
         if (result.type === 'loaded' && result.status === 200) {
             this.viewData = result as any;
             return result;
