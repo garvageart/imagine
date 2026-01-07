@@ -33,6 +33,13 @@
 						variant="compact"
 						enableSelection={false}
 					/>
+					{#if activeItem.favourited}
+						<MaterialIcon
+							iconName="favorite"
+							style="font-size: 0.8rem;"
+							fill={true}
+						/>
+					{/if}
 				</span>
 			</div>
 		{:else if selectionCount > 0}
@@ -62,7 +69,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		padding: 1rem;
+		padding: 0.5rem;
 		color: var(--imag-text-color);
 		position: relative;
 		box-sizing: border-box;
@@ -109,7 +116,7 @@
 			align-items: center;
 			gap: 0.5rem;
 			font-size: 0.75rem;
-			color: var(--imag-60);
+			color: var(--imag-40);
 		}
 	}
 

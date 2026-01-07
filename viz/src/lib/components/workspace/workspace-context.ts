@@ -8,6 +8,7 @@ export type TabHandlers = {
 	closeOtherTabs: (v: VizView) => void;
 	closeTabsToRight: (v: VizView) => void;
 	closeAllTabs: () => void;
+	closePanel: () => void;
 	toggleTabLock: (v: VizView) => void;
 	splitRight: (v: VizView) => void;
 	splitDown: (v: VizView) => void;
@@ -101,11 +102,20 @@ export function buildLayoutContextMenu(): MenuItem[] {
 	];
 }
 
-export function buildPanelContextMenu(group: TabGroup): MenuItem[] {
+export function buildPanelContextMenu(group: TabGroup, handlers?: TabHandlers): MenuItem[] {
 	const allLocked = group.views.length > 0 && group.views.every((v) => v.locked);
 	const nextLockedState = !allLocked;
+	const isMaximized = workspaceState.workspace?.maximizedGroupId === group.id;
 
-	return [
+	const items: MenuItem[] = [
+		{
+			id: `maximize-panel-${group.id}`,
+			label: isMaximized ? "Restore Panel" : "Maximize Panel",
+			action: () => {
+				workspaceState.workspace?.toggleMaximize(group.id);
+			},
+			icon: isMaximized ? "close_fullscreen" : "open_in_full"
+		},
 		{
 			id: `lock-panel-${group.id}`,
 			label: group.locked ? "Unlock Panel" : "Lock Panel (Prevent Splits)",
@@ -125,4 +135,17 @@ export function buildPanelContextMenu(group: TabGroup): MenuItem[] {
 			icon: allLocked ? "checklist" : "checklist_rtl"
 		}
 	];
+
+	if (handlers?.closePanel) {
+		items.push({ id: "sep-panel-close", label: "", separator: true });
+		items.push({
+			id: `close-panel-${group.id}`,
+			label: "Close Panel",
+			action: () => handlers.closePanel(),
+			icon: "cancel_presentation",
+			danger: true
+		});
+	}
+
+	return items;
 }

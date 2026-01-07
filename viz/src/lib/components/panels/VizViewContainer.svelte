@@ -16,6 +16,7 @@
 		hasMore?: boolean;
 		paginate?: () => void;
 		randomLatency?: boolean;
+		focusScrollElement?: HTMLElement | null;
 	}
 
 	let {
@@ -27,8 +28,19 @@
 		data = $bindable(),
 		paginate,
 		randomLatency = $bindable(false),
+		focusScrollElement,
 		...props
 	}: SvelteHTMLElements["div"] & Props = $props();
+
+	$effect(() => {
+		if (focusScrollElement) {
+			focusScrollElement.scrollIntoView({
+				behavior: "instant",
+				block: "nearest",
+				inline: "center"
+			});
+		}
+	});
 
 	let viewContainer: HTMLElement | undefined = $state();
 	let isLoading = $state(true);
@@ -55,7 +67,7 @@
 	});
 
 	// Scroll handling
-	let scrollThreshold = window.innerHeight / 2; // in pixels. idk maybe this setting somewhere else? customisable?
+	let scrollThreshold = window.innerHeight * 2.5; // in pixels. idk maybe this setting somewhere else? customisable?
 	let isLoadMore = $state(false);
 
 	function loadMore() {

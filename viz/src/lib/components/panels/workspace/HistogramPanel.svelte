@@ -133,17 +133,28 @@
 	}
 
 	function resizeCanvas() {
-		if (!canvasEl) {
+		if (!canvasEl || !histogramEl) {
 			return;
 		}
 
 		const dpr =
 			typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-		const canvasH = window.getComputedStyle(canvasEl).height.replace("px", "");
-		const canvasW = window.getComputedStyle(canvasEl).width.replace("px", "");
 
-		const w = Math.max(1, Math.floor(parseInt(canvasW)));
-		const h = Math.max(1, Math.floor(parseInt(canvasH)));
+		// Use the container's width to determine the canvas size accounting for padding
+		const containerStyle = window.getComputedStyle(histogramEl);
+		const paddingX =
+			parseFloat(containerStyle.paddingLeft) +
+			parseFloat(containerStyle.paddingRight);
+		const availableWidth = histogramEl.clientWidth - paddingX;
+
+		const ASPECT_RATIO = 3 / 2;
+		const w = Math.floor(availableWidth);
+		const h = Math.floor(w / ASPECT_RATIO);
+
+		canvasEl.style.width = `${w}px`;
+		canvasEl.style.height = `${h}px`;
+
+		// actual drawing buffer size
 		canvasEl.width = Math.floor(w * dpr);
 		canvasEl.height = Math.floor(h * dpr);
 
@@ -444,6 +455,7 @@
 	});
 
 	function resetCanvas() {
+		selectedChannel = "all";
 		resizeCanvas();
 		clearCanvas();
 		scheduleRender();
@@ -544,6 +556,8 @@
 		background-color: var(--imag-100);
 		font-size: 0.75rem;
 		gap: 0.5rem;
+		overflow-y: auto;
+		overflow-x: hidden;
 
 		canvas {
 			display: block;
@@ -564,7 +578,7 @@
 	.stats {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.5rem 1rem;
+		gap: 0.2rem 1rem;
 		width: 100%;
 		font-family: var(--imag-code-font);
 	}
@@ -577,6 +591,7 @@
 	}
 
 	.stat-row .stat-val {
-		text-align: right;
+		text-align: left;
+		text-wrap-mode: nowrap;
 	}
 </style>

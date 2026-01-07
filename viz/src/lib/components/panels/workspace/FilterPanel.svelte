@@ -51,7 +51,7 @@
 		height: 100%;
 		overflow-y: scroll;
 		overflow-x: hidden;
-		padding: 1rem;
+		padding: 0.5rem;
 		color: var(--imag-text-color);
 		position: relative;
 	}

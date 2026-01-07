@@ -16,6 +16,9 @@
 		type TabHandlers
 	} from "./workspace-context";
 	import type VizView from "$lib/views/views.svelte";
+	import { goto } from "$app/navigation";
+	import { DragData } from "$lib/drag-drop/data";
+	import tippy, { type Instance } from "tippy.js";
 
 	interface Props {
 		group: TabGroup;
@@ -190,18 +193,28 @@
 	);
 
 	const menuHandlers: TabHandlers = {
-		closeTab: (v) => group.removeTab(v.id),
+		closeTab: (v) => {
+			group.removeTab(v.id);
+			workspaceState.workspace?.cleanupNode(group);
+		},
 		closeOtherTabs: (v) => {
 			group.views = group.views.filter(
 				(view) => view.id === v.id || view.locked
 			);
+			workspaceState.workspace?.cleanupNode(group);
 		},
 		closeTabsToRight: (v) => {
 			const index = group.views.findIndex((view) => view.id === v.id);
 			group.views = group.views.filter((view, i) => i <= index || view.locked);
+			workspaceState.workspace?.cleanupNode(group);
 		},
 		closeAllTabs: () => {
 			group.views = group.views.filter((v) => v.locked);
+			workspaceState.workspace?.cleanupNode(group);
+		},
+		closePanel: () => {
+			group.views = [];
+			workspaceState.workspace?.cleanupNode(group);
 		},
 		toggleTabLock: (v) => {
 			v.locked = !v.locked;
@@ -229,9 +242,81 @@
 		headerCtxMenu.anchor = { x: event.clientX, y: event.clientY };
 		headerCtxMenu.items = [
 			...buildLayoutContextMenu(),
-			...buildPanelContextMenu(group)
+			...buildPanelContextMenu(group, menuHandlers)
 		];
 		headerCtxMenu.show = true;
+	}
+
+	// Tab Drag and Drop
+	let dragTooltip: Instance | null = $state(null);
+
+	function handleTabDragOver(e: DragEvent, view: VizView) {
+		if (!e.dataTransfer) {
+			return;
+		}
+
+		// Check if the view has a handler for any of the dragged types
+		for (const type of e.dataTransfer.types) {
+			const tabActions = view.getTabDropHandler(type);
+			if (tabActions) {
+				e.preventDefault();
+				e.stopPropagation();
+				e.dataTransfer.dropEffect = "copy";
+
+				const target = e.currentTarget as HTMLElement;
+				target.classList.add("drop-target-active");
+
+				if (!dragTooltip) {
+					dragTooltip = tippy(target, {
+						content: tabActions.label,
+						trigger: "manual",
+						theme: "viz-theme",
+						followCursor: "initial",
+						animation: "shift-away",
+						offset: [0, 0],
+						delay: [200, 0],
+						arrow: false
+					});
+					dragTooltip.show();
+				}
+				return;
+			}
+		}
+	}
+
+	function handleTabDragLeave(event: DragEvent) {
+		const target = event.currentTarget as HTMLElement;
+		target.classList.remove("drop-target-active");
+
+		if (dragTooltip) {
+			dragTooltip.destroy();
+			dragTooltip = null;
+		}
+	}
+
+	async function handleTabDrop(e: DragEvent, view: VizView) {
+		if (!e.dataTransfer) {
+			return;
+		}
+
+		const target = e.currentTarget as HTMLElement;
+		target.classList.remove("drop-target-active");
+
+		handleTabDragLeave(e);
+
+		for (const type of e.dataTransfer.types) {
+			const handler = view.getTabDropHandler(type);
+			if (handler) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const data = DragData.getData(e.dataTransfer, type);
+				if (data) {
+					await handler.dropHandler(data.payload, view);
+				}
+				return;
+			}
+		}
 	}
 </script>
 
@@ -271,9 +356,24 @@
 					role="tab"
 					aria-selected={group.activeViewId === view.id}
 					tabindex={group.activeViewId === view.id ? 0 : -1}
-					onclick={() => group.setActive(view.id)}
+					onclick={() => {
+						// TODO: make this configurable in user settings
+						// first make it active and end it
+						if (group.activeViewId !== view.id) {
+							group.setActive(view.id);
+							return;
+						}
+
+						// if the user clicks again and there's a path, go to it
+						if (view.path && view.openPathFromTab) {
+							goto(view.path);
+						}
+					}}
 					oncontextmenu={(e) => triggerTabContextMenu(e, view)}
 					use:tabOps.draggable={{ viewId: view.id, sourceGroupId: group.id }}
+					ondragover={(e) => handleTabDragOver(e, view)}
+					ondragleave={handleTabDragLeave}
+					ondrop={(e) => handleTabDrop(e, view)}
 				>
 					<MaterialIcon
 						style={`transform: translateY(${view.opticalCenterFix}px);`}
@@ -334,7 +434,7 @@
 		{#if activeView}
 			{#if activeView.viewData}
 				{#if Comp}
-					<Comp data={activeView.viewData.data} view={activeView} />
+					<Comp data={activeView.viewData?.data} view={activeView} />
 				{/if}
 			{:else}
 				{#await activeView.derivedViewData}
@@ -344,7 +444,7 @@
 				{:then loadedData}
 					{#if Comp}
 						{#if loadedData}
-							<Comp data={loadedData.data} view={activeView} />
+							<Comp data={loadedData?.data} view={activeView} />
 						{:else}
 							<Comp view={activeView} />
 						{/if}
@@ -452,6 +552,7 @@
 		border: none;
 		background: transparent;
 		color: inherit;
+		transition: background-color 0.15s ease;
 
 		&:hover {
 			background-color: var(--imag-90);
@@ -459,6 +560,17 @@
 
 		&.active {
 			box-shadow: 0 -2px 0 0 var(--imag-primary) inset;
+		}
+
+		&:global(.drop-target-active) {
+			background-color: color-mix(
+				in srgb,
+				var(--imag-primary) 30%,
+				transparent
+			) !important;
+			outline: 1.5px solid var(--imag-primary);
+			outline-offset: -1.5px;
+			z-index: 10;
 		}
 	}
 

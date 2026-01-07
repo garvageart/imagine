@@ -9,6 +9,9 @@
 	import { debugMode } from "$lib/states/index.svelte";
 	import { workspaceState } from "$lib/states/workspace.svelte";
 	import { createDefaultLayout } from "./layouts/registry";
+	import { dev } from "$app/environment";
+	import { views } from "$lib/layouts/views";
+	import hotkeys from "hotkeys-js";
 
 	interface Props {
 		id: string;
@@ -21,9 +24,10 @@
 
 	onMount(() => {
 		const stored = storage.get();
+		workspaceState.workspace = new Workspace(undefined, views);
 		if (stored) {
 			try {
-				workspaceState.workspace = Workspace.fromJSON(stored);
+				workspaceState.workspace.load(stored);
 				if (debugMode) {
 					console.log("[Workspace] Hydrated from storage");
 				}
@@ -38,6 +42,15 @@
 		initialized = true;
 	});
 
+	if (dev) {
+		$effect(() => {
+			console.log(
+				"[Workspace] Workspace state:",
+				workspaceState.workspace?.toJSON()
+			);
+		});
+	}
+
 	$effect(() => {
 		if (initialized && workspaceState.workspace) {
 			const serialized = workspaceState.workspace.toJSON();
@@ -46,6 +59,23 @@
 				console.log("[Workspace] Layout saved");
 			}
 		}
+	});
+
+	$effect(() => {
+		if (!initialized) return;
+
+		hotkeys("`", (event, handler) => {
+			// Prevent default behavior (e.g. typing ` in an input, if filter logic fails)
+			event.preventDefault();
+			const ws = workspaceState.workspace;
+			if (ws && ws.activeGroupId) {
+				ws.toggleMaximize(ws.activeGroupId);
+			}
+		});
+
+		return () => {
+			hotkeys.unbind("`");
+		};
 	});
 </script>
 

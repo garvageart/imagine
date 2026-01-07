@@ -727,7 +727,7 @@
 	// Note: Partially written by Co-Pilot
 	function normalizePaneSizes() {
 		// Remove panes with size 0 or that are not visible
-		panes = panes.filter((pane) => pane.sz() > 0);
+		// panes = panes.filter((pane) => pane.sz() > 0);
 
 		// Reindex panes
 		for (let i = 0; i < panes.length; i++) {
