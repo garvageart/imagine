@@ -99,6 +99,10 @@ WORKDIR /app
 COPY --from=packages /usr /usr
 COPY --from=packages /etc/ssl/certs /etc/ssl/certs
 
+# Create a non-root user
+RUN groupadd -r imagine && useradd -r -g imagine imagine && \
+    mkdir -p /app/var && chown -R imagine:imagine /app
+
 # Copy backend binary
 COPY --from=backend-builder /app/build/api/imagine /app/imagine
 
@@ -112,6 +116,8 @@ COPY version.txt /app/version.txt
 # Configure to serve frontend
 ENV ENV=production
 ENV IMAGINE_FRONTEND_BUILD_PATH=/app/frontend
+
+USER imagine
 
 EXPOSE 7770
 CMD ["/app/imagine"]
