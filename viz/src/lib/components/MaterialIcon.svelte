@@ -200,25 +200,30 @@
 	}: IconProps & SvelteHTMLElements["span"] = $props();
 </script>
 
-{#if GeneratedComponent}
-	<GeneratedComponent {...props} className={props.class || ""} {weight} />
-{:else}
-	<span
-		{...props}
-		class={(props.class ? props.class + " " : "") +
-			"material-symbols-" +
-			iconStyle.toLowerCase()}
-		style={props.style +
-			`; font-variation-settings: ${`'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' ${grade}, 'opsz' ${opticalSize}`};`}
-		>{iconName}
-	</span>
-{/if}
+<span class="viz-material-icon">
+	{#if GeneratedComponent}
+		<GeneratedComponent {...props} className={props.class || ""} {weight} />
+	{:else}
+		<span
+			{...props}
+			class={(props.class ? props.class + " " : "") +
+				"material-symbols-" +
+				iconStyle.toLowerCase()}
+			style={props.style +
+				`; font-variation-settings: ${`'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' ${grade}, 'opsz' ${opticalSize}`};`}
+			>{iconName}
+		</span>
+	{/if}
+</span>
 
 <style lang="scss">
+	.viz-material-icon {
+		padding: 0.1em;
+	}
+
 	.material-symbols-sharp,
 	.material-symbols-outlined,
 	.material-symbols-rounded {
-		padding: 0.1em;
 		display: inline-block;
 		vertical-align: middle;
 		line-height: 1;

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { LabelColours } from "$lib/images/constants";
-	import { generateRandomString } from "$lib/utils/misc";
 
 	interface Props {
 		label: LabelColours | null;
@@ -10,45 +9,109 @@
 	}
 
 	let {
-		label,
+		label = $bindable(),
 		onSelect,
 		variant = "expanded",
 		enableSelection = true
 	}: Props = $props();
+
+	let isOpen = $state(false);
+	let dropdownContainer = $state<HTMLElement>();
+
+	const nullNoneLabelStyle = $derived(
+		`background-color: transparent;${enableSelection === false ? " border: none;" : ""}`
+	);
+
+	function handleSelect(newLabel: LabelColours | null) {
+		if (!enableSelection) {
+			return;
+		}
+		label = newLabel;
+		onSelect?.(newLabel);
+	}
+
+	function handleClickOutside(event: MouseEvent) {
+		if (
+			isOpen &&
+			dropdownContainer &&
+			!dropdownContainer.contains(event.target as Node)
+		) {
+			isOpen = false;
+		}
+	}
 </script>
+
+<svelte:window onclick={handleClickOutside} />
 
 <div class="label-selector-container">
 	{#if variant === "expanded"}
-		{#each Object.entries(LabelColours) as [name, colour]}
+		{#each Object.entries(LabelColours).filter(([_, colour]) => colour !== LabelColours.None) as [name, colour]}
 			<button
 				class="label-selector"
 				title={name}
 				style="background-color: {colour};"
 				class:selected={label === colour}
 				disabled={!enableSelection}
-				onclick={() => onSelect?.(colour as LabelColours)}
+				onclick={() => {
+					if (label === colour) {
+						handleSelect(LabelColours.None);
+					} else {
+						handleSelect(colour as LabelColours);
+					}
+				}}
+				type="button"
 			>
 			</button>
 		{/each}
 	{:else if variant === "compact"}
-		<select
-			id="label-selector-{generateRandomString(6)}"
-			class="label-selector-select"
-			class:disable-select={!enableSelection}
-			style="background-color: {label ?? 'var(--imag-bg-color)'};"
-			bind:value={label}
-			disabled={!enableSelection}
-			onchange={(e) => onSelect?.(e.currentTarget.value as LabelColours | null)}
-		>
-			{#each Object.entries(LabelColours) as [name, colour]}
-				<option title={name} value={colour} style="background-color: {colour};"
-				></option>
-			{/each}
-		</select>
+		<div class="relative" bind:this={dropdownContainer}>
+			<button
+				class="label-selector-trigger"
+				class:disable-select={!enableSelection}
+				style={!label || label === LabelColours.None
+					? nullNoneLabelStyle
+					: `background-color: ${label};`}
+				onclick={() => {
+					if (enableSelection) {
+						isOpen = !isOpen;
+					}
+				}}
+				disabled={!enableSelection}
+				title="Select label"
+				type="button"
+			>
+			</button>
+			{#if isOpen}
+				<div class="label-dropdown">
+					{#each Object.entries(LabelColours).filter(([_, colour]) => colour !== LabelColours.None) as [name, colour]}
+						<button
+							class="label-selector"
+							title={name}
+							style="background-color: {colour};"
+							class:selected={label === colour}
+							onclick={() => {
+								if (label === colour) {
+									handleSelect(LabelColours.None);
+								} else {
+									handleSelect(colour as LabelColours);
+								}
+								isOpen = false;
+							}}
+							type="button"
+						>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>
 
 <style lang="scss">
+	.relative {
+		position: relative;
+	}
+
 	.label-selector-container {
 		display: flex;
 		gap: 0.5em;
@@ -65,51 +128,54 @@
 		color: var(--imag-text-color);
 		cursor: pointer;
 		font-size: 0.9em;
+		padding: 0;
+
+		&:disabled {
+			opacity: 1;
+		}
 
 		&.selected {
-			background-color: var(--imag-primary);
-			border: 2px solid var(--imag-primary);
+			outline: 1.5px solid var(--imag-primary);
+			outline-offset: 0.5px;
 		}
 	}
 
 	.disable-select {
 		cursor: not-allowed;
 		pointer-events: none;
-		appearance: none;
-		-webkit-appearance: none;
-		-moz-appearance: none;
-		background-image: none;
 	}
 
-	.label-selector-select {
+	.label-selector-trigger {
 		height: 0.75rem;
 		width: 0.75rem;
 		outline: none;
 		border: 1px solid var(--imag-60);
 		background-color: var(--imag-bg-color);
-		color: var(--imag-text-color);
-		font-family: inherit;
 		cursor: pointer;
-		font-size: 1em;
+		padding: 0;
 
-		&:focus {
+		&:disabled {
+			opacity: 1;
+		}
+
+		&:focus-visible {
 			outline: 1.5px solid var(--imag-primary);
 			border-color: var(--imag-primary);
 		}
+	}
 
-		option {
-			padding: 0.5em;
-
-			&::selection {
-				border-color: var(--imag-primary);
-				background-color: inherit;
-				color: inherit;
-			}
-
-			&:hover {
-				border-color: var(--imag-primary);
-				background-color: inherit;
-			}
-		}
+	.label-dropdown {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		z-index: 1000;
+		background-color: var(--imag-bg-color);
+		border: 1px solid var(--imag-60);
+		padding: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+		width: max-content;
+		box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+		border-radius: 0.25rem;
 	}
 </style>

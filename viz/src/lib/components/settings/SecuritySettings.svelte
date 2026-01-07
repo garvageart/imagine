@@ -15,7 +15,6 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import CreatedApiKeyModal from "$lib/components/modals/CreatedApiKeyModal.svelte";
 	import ModalContainer from "$lib/components/modals/ModalContainer.svelte";
-	import ModalLightbox from "$lib/components/modals/ModalLightbox.svelte";
 	import { modal } from "$lib/states/index.svelte";
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import { DateTime } from "luxon";
@@ -159,7 +158,10 @@
 				apiKeys = apiKeys.filter((k) => k.uid !== uid);
 				toastState.addToast({ message: "API Key deleted", type: "success" });
 			} else {
-				toastState.addToast({ message: "Failed to delete key", type: "error" });
+				toastState.addToast({
+					message: res.data.error || "Failed to delete key",
+					type: "error"
+				});
 			}
 		} catch (e) {
 			toastState.addToast({ message: "Failed to delete key", type: "error" });
@@ -306,12 +308,10 @@
 </script>
 
 {#if showCreateKeyModal && modal.show}
-	<ModalContainer>
-		<CreatedApiKeyModal
-			onClose={handleCreateKeyModalClose}
-			onSuccess={handleKeyCreated}
-		/>
-	</ModalContainer>
+	<CreatedApiKeyModal
+		onClose={handleCreateKeyModalClose}
+		onSuccess={handleKeyCreated}
+	/>
 {/if}
 
 {#if showEditSessionModal && modal.show}

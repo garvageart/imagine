@@ -25,7 +25,7 @@
 	};
 
 	const menuItems: MenuItem[] = [
-		{ id: "home", label: "Home", action: () => goto("/") },
+		{ id: "workspace", label: "Workspace", action: () => goto("/") },
 		{ id: "divider-1", label: "", separator: true },
 		{ id: "photos", label: "Photos", action: () => goto("/photos") },
 		// { id: "search", label: "Search", action: () => goto("/search") },

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dev } from "$app/environment";
 	import { page } from "$app/state";
-	import { CLIENT_IS_PRODUCTION } from "$lib/constants";
+	import { CLIENT_IS_PRODUCTION, DYNAMIC_ROUTE_REGEX } from "$lib/constants";
 	import { performSearch } from "$lib/search/execute";
 	import {
 		debugState,
@@ -32,8 +32,6 @@
 	import type { MenuItem } from "$lib/context-menu/types";
 	import { views } from "$lib/layouts/views";
 	import { workspaceState } from "$lib/states/workspace.svelte";
-	import { TabGroup } from "$lib/layouts/model.svelte";
-	import { untrack } from "svelte";
 	import VizView from "$lib/views/views.svelte";
 
 	let { ...props }: SvelteHTMLElements["header"] = $props();
@@ -156,14 +154,14 @@
 	function handleViewMenu(e: MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
-		const dynamicRouteRegex = /\[.*\].*$/;
 		ctxAnchor = { x: e.clientX, y: e.clientY };
 
 		const workspace = workspaceState.workspace;
 		if (!workspace) return;
 
 		ctxItems = views
-			.filter((view) => !view.path || !dynamicRouteRegex.test(view.path))
+			.filter((view) => !view.path || !DYNAMIC_ROUTE_REGEX.test(view.path))
+			.sort((a, b) => a.name.localeCompare(b.name))
 			.map((view) => ({
 				id: view.name,
 				label: view.name,
@@ -248,20 +246,27 @@
 				style="font-size: 1.2em; margin-left: 0.15em;"
 			/>
 		</button>
+		<div class="menu-seperator"></div>
 		{#if isLayoutPage()}
-			<div class="menu-seperator"></div>
 			<IconButton
 				class="header-button"
-				iconName="grid_view"
+				iconName="list_alt"
 				title="Views"
 				onclick={handleViewMenu}
+			/>
+		{:else}
+			<IconButton
+				class="header-button"
+				iconName="desktop_windows"
+				title="Go to Workspace"
+				onclick={() => goto("/")}
 			/>
 		{/if}
 		<AppMenu bind:isOpen={openAppMenu} bind:anchor={appMenuButton} />
 		<div class="menu-seperator"></div>
 		<div class="icon-group-container">
 			<a class="page-nav-btn" href="/photos" title="Go to Photos">
-				<IconButton class="header-button" iconName="gallery_thumbnail" />
+				<IconButton class="header-button" iconName="browse" />
 			</a>
 			<a class="page-nav-btn" href="/collections" title="Go to Collections">
 				<IconButton class="header-button" iconName="photo_library" />
@@ -339,7 +344,7 @@
 				<figure
 					style="height: 100%; display: flex; align-items: center; justify-content: center;"
 				>
-					<span style="font-weight: 700; font-size: 0.8em;"
+					<span style="font-weight: 800; font-size: 0.9em;"
 						>{user.data ? user.data.username[0] : "?"}</span
 					>
 				</figure>
@@ -361,7 +366,7 @@
 	header {
 		background-color: var(--imag-bg-color);
 		max-height: 2em;
-		padding: 0.1em 0.8em;
+		padding: 0.15em 0.8em;
 		display: flex;
 		align-items: center;
 		border-bottom: 1px solid var(--imag-60);

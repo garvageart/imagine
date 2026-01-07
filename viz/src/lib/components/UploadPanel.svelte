@@ -14,6 +14,7 @@
 	let listEl: HTMLDivElement | null = $state(null);
 
 	let prevCompletedCount = $state(0);
+	let prevFilesCount = $state(0);
 
 	const isUserNearBottom = (el: HTMLDivElement) => {
 		const threshold = 150; // px
@@ -65,25 +66,23 @@
 				f.state === UploadState.DUPLICATE
 		).length;
 
-		if (completed > prevCompletedCount && isUserNearBottom(listEl)) {
+		const filesCount = upload.files.length;
+
+		// Scroll whenever files are added or completed, regardless of current position
+		if (completed > prevCompletedCount || filesCount > prevFilesCount) {
 			try {
-				const rows = Array.from(
-					listEl.querySelectorAll(".panel-file-info")
-				) as HTMLElement[];
-				if (rows.length) {
-					const lastRow = rows[rows.length - 1];
-					const behavior = prefersReducedMotion() ? "auto" : "smooth";
-					lastRow.scrollIntoView({
-						behavior: behavior as ScrollBehavior,
-						block: "nearest"
-					});
-				}
+				const behavior = prefersReducedMotion() ? "auto" : "smooth";
+				listEl.scrollTo({
+					top: listEl.scrollHeight,
+					behavior: behavior as ScrollBehavior
+				});
 			} catch (e) {
 				// silently ignore DOM issues
 			}
 		}
 
 		prevCompletedCount = completed;
+		prevFilesCount = filesCount;
 	});
 </script>
 
@@ -268,6 +267,8 @@
 		justify-content: flex-start;
 		font-family: var(--imag-code-font);
 		overflow-y: auto;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.panel-file-info {

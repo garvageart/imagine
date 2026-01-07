@@ -14,7 +14,7 @@
 	import MaterialIcon from "../MaterialIcon.svelte";
 	import ChecklistFacet from "./ChecklistFacet.svelte";
 	import RangeInput from "./RangeInput.svelte";
-	import StarRating from "./StarRating.svelte";
+	import StarRating from "../StarRating.svelte";
 	import type { ImageFilters, ImageFacets } from "$lib/states/filter.svelte";
 	import LabelFacet from "./LabelFacet.svelte";
 

@@ -124,7 +124,7 @@
 		try {
 			// Ignore internal image drops on the background - they must be dropped on the specific box
 			// checking types is enough, getData works too but let's just skip if we see the key
-			if (e.dataTransfer.types.includes(VizMimeTypes.IMAGE_UIDS)) {
+			if (e.dataTransfer && DragData.isType(e.dataTransfer, VizMimeTypes.IMAGE_UIDS)) {
 				return;
 			}
 
@@ -229,7 +229,7 @@
 		if (dragCounter === 1) {
 			if (
 				internalDragActive ||
-				e.dataTransfer?.types.includes(VizMimeTypes.IMAGE_UIDS)
+				(e.dataTransfer && DragData.isType(e.dataTransfer, VizMimeTypes.IMAGE_UIDS))
 			) {
 				isInternalDrag = true;
 			} else {

@@ -147,18 +147,19 @@
 {#if showToolbars}
 	{#if selectionScope?.selected && selectionScope.selected.size > 0}
 		<AssetToolbar class="selection-toolbar" {...selectionToolbarProps}>
-			<IconButton
-				iconName="close"
-				id="coll-clear-selection"
-				class="toolbar-button"
-				title="Clear selection"
-				aria-label="Clear selection"
-				style="margin-right: 1em;"
-				onclick={() => selectionScope.selected.clear()}
-			/>
-			<span style="font-weight: 600;"
-				>{selectionScope.selected.size} selected</span
-			>
+			<div class="selection-info">
+				<IconButton
+					iconName="close"
+					class="toolbar-button"
+					title="Clear selection"
+					aria-label="Clear selection"
+					style="margin-right: 1em;"
+					onclick={() => selectionScope.clear()}
+				/>
+				<span style="font-weight: 600;"
+					>{selectionScope.selected.size} selected</span
+				>
+			</div>
 			{@render selectionToolbarSnippet?.()}
 		</AssetToolbar>
 	{:else}
@@ -233,6 +234,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+
+	.selection-info {
+		display: flex;
+		align-items: center;
 	}
 
 	:global(.toolbar-button) {
