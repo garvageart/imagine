@@ -1,5 +1,7 @@
 # Imagine
 
+<a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=0F1726&style=for-the-badge&label=License&logoColor=000000&labelColor=eee" alt="License: AGPLv3"></a>
+
 **Imagine** is a self-hosted image management and processing platform designed for photographers and media teams. It provides a modern API-driven backend (Go) and a web interface (SvelteKit) for organizing, searching, and sharing image collection
 
 ![Home Page Screenshot](./docs/images/home_page_screenshot.png)
