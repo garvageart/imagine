@@ -87,6 +87,23 @@ func (e *Engine) Apply(db *gorm.DB, criteria SearchCriteria) *gorm.DB {
 		}
 	}
 
+	// Favourited
+	if val, ok := criteria.Filters["favourited"]; ok {
+		switch val {
+		case "true":
+			query = query.Where("favourited = ?", true)
+		case "false":
+			query = query.Where("favourited = ? OR favourited IS NULL", false)
+		}
+	} else if val, ok := criteria.Filters["favorite"]; ok {
+		switch val {
+		case "true":
+			query = query.Where("favourited = ?", true)
+		case "false":
+			query = query.Where("favourited = ? OR favourited IS NULL", false)
+		}
+	}
+
 	// 5. Date Filters
 	if !criteria.DateRange.Min.IsZero() {
 		query = query.Where("taken_at >= ?", criteria.DateRange.Min)
@@ -124,6 +141,23 @@ func (e *Engine) ApplyCollections(db *gorm.DB, criteria SearchCriteria) *gorm.DB
 		}
 	}
 
+	// Favourited
+	if val, ok := criteria.Filters["favourited"]; ok {
+		switch val {
+		case "true":
+			query = query.Where("favourited = ?", true)
+		case "false":
+			query = query.Where("favourited = ? OR favourited IS NULL", false)
+		}
+	} else if val, ok := criteria.Filters["favorite"]; ok {
+		switch val {
+		case "true":
+			query = query.Where("favourited = ?", true)
+		case "false":
+			query = query.Where("favourited = ? OR favourited IS NULL", false)
+		}
+	}
+
 	return query
 }
 
@@ -141,9 +175,10 @@ func parseOperator(input string) (string, string) {
 	op := matches[1]
 	val := matches[2]
 
-	if op == "" {
-		op = "="
+	switch op {
+	case "<", ">", "<=", ">=", "=":
+		return op, val
+	default:
+		return "=", val
 	}
-
-	return op, val
 }

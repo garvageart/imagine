@@ -1,46 +1,48 @@
 package search
 
 import (
+	"strings"
 	"testing"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 func TestParseOperator(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expectedOp string
+		name        string
+		input       string
+		expectedOp  string
 		expectedVal string
 	}{
 		{
-			name: "Equals operator",
-			input: "5",
-			expectedOp: "=",
+			name:        "Equals operator",
+			input:       "5",
+			expectedOp:  "=",
 			expectedVal: "5",
 		},
 		{
-			name: "Greater than or equals operator",
-			input: ">=4",
-			expectedOp: ">=",
+			name:        "Greater than or equals operator",
+			input:       ">=4",
+			expectedOp:  ">=",
 			expectedVal: "4",
 		},
-				{
-			name: "Less than operator",
-			input: "<3",
-			expectedOp: "<",
+		{
+			name:        "Less than operator",
+			input:       "<3",
+			expectedOp:  "<",
 			expectedVal: "3",
 		},
 		{
-			name: "No operator, just value",
-			input: "hello",
-			expectedOp: "=",
+			name:        "No operator, just value",
+			input:       "hello",
+			expectedOp:  "=",
 			expectedVal: "hello",
 		},
 		{
-			name: "Empty string",
-			input: "",
-			expectedOp: "=",
+			name:        "Empty string",
+			input:       "",
+			expectedOp:  "=",
 			expectedVal: "",
 		},
 	}
@@ -58,77 +60,175 @@ func TestParseOperator(t *testing.T) {
 	}
 }
 
-// Mock DB for testing Apply and ApplyCollections
-type MockGormDB struct {
-	*gorm.DB
-	// You can add fields here to capture method calls or generated queries for assertions
-	RecordedQueries []string
-	RecordedArgs    [][]interface{}
-}
-
-func (m *MockGormDB) Model(value interface{}) *gorm.DB {
-	// Initialize a new DB instance with a non-nil Statement and Clauses map
-	// In a real scenario, you'd capture the model name or type for assertions
-	return &gorm.DB{
-		Statement: &gorm.Statement{
-			Model:   value,
-			Clauses: make(map[string]clause.Clause), // Use clause.Clause
-			TableExpr: &clause.Expr{ // Use a pointer to clause.Expr
-				SQL: "mock_table_name", // Placeholder
-			},
-		},
+// Helper to check if a substring exists in the generated SQL of the WHERE clause
+func hasWhereClause(db *gorm.DB, substr string) bool {
+	if db.Statement == nil {
+		return false
 	}
-}
+	c, ok := db.Statement.Clauses["WHERE"]
+	if !ok {
+		return false
+	}
 
-func (m *MockGormDB) Where(query interface{}, args ...interface{}) *gorm.DB {
-	// For testing, just return the current DB instance (or a new one to chain calls)
-	// You might want to store the query and args in MockGormDB for later assertions
-	return m.DB // Assuming m.DB is already initialized by Model
-}
+	// Reconstruct the SQL from the clause expression (basic approximation for testing)
+	// We can iterate over c.Expression.(clause.Where).Exprs
+	where, ok := c.Expression.(clause.Where)
+	if !ok {
+		return false
+	}
 
-func (m *MockGormDB) Joins(query string, args ...interface{}) *gorm.DB {
-	return m.DB // Assuming m.DB is already initialized by Model
+	for _, expr := range where.Exprs {
+		if sqlExpr, ok := expr.(clause.Expr); ok {
+			if strings.Contains(sqlExpr.SQL, substr) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func TestEngineApply(t *testing.T) {
 	engine := NewEngine()
-	// Initialize MockGormDB correctly for chained calls
-	mockDB := &MockGormDB{
-		DB: (&gorm.DB{
-			Statement: &gorm.Statement{
-				Clauses: make(map[string]clause.Clause), // Use clause.Clause
-			},
-		}),
-	}
 
-	criteria := SearchCriteria{
-		Text: []string{"test"},
-		Filters: map[string]string{
-			"rating": ">=4",
-			"owner": "john",
+	// Setup a dummy DB with a Statement so GORM methods don't panic
+	db := &gorm.DB{
+		Statement: &gorm.Statement{
+			Clauses: make(map[string]clause.Clause),
+			Table:   "images",
+			Vars:    make([]interface{}, 0),
+		},
+		Config: &gorm.Config{
+			DryRun: true,
 		},
 	}
-	_ = engine.Apply(mockDB.Model(nil), criteria)
-	// Add assertions here if we could inspect the mockDB's queries
+
+	tests := []struct {
+		name             string
+		criteria         SearchCriteria
+		wantWhereContain []string
+	}{
+		{
+			name: "Basic Filters",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"rating": ">=4",
+				},
+			},
+			wantWhereContain: []string{"(image_metadata->>'rating')::numeric >= ?"},
+		},
+		{
+			name: "Favourited True",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favourited": "true",
+				},
+			},
+			wantWhereContain: []string{"favourited = ?"},
+		},
+		{
+			name: "Favourited False",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favourited": "false",
+				},
+			},
+			wantWhereContain: []string{"favourited = ? OR favourited IS NULL"},
+		},
+		{
+			name: "Favorite Alias",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favorite": "true",
+				},
+			},
+			wantWhereContain: []string{"favourited = ?"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset clauses for each run
+			db.Statement.Clauses = make(map[string]clause.Clause)
+			resultDB := engine.Apply(db, tt.criteria)
+
+			for _, want := range tt.wantWhereContain {
+				if !hasWhereClause(resultDB, want) {
+					t.Errorf("Apply() expected WHERE clause containing %q, but not found", want)
+				}
+			}
+		})
+	}
 }
 
 func TestEngineApplyCollections(t *testing.T) {
 	engine := NewEngine()
-	// Initialize MockGormDB correctly for chained calls
-	mockDB := &MockGormDB{
-		DB: (&gorm.DB{
 
-			Statement: &gorm.Statement{
-				Clauses: make(map[string]clause.Clause), // Use clause.Clause
-			},
-		}),
-	}
-	criteria := SearchCriteria{
-		Text: []string{"collection"},
-		Filters: map[string]string{
-			"owner": "jane",
+	// Setup a dummy DB
+	db := &gorm.DB{
+		Statement: &gorm.Statement{
+			Clauses: make(map[string]clause.Clause),
+			Table:   "collections",
+			Vars:    make([]interface{}, 0),
+		},
+		Config: &gorm.Config{
+			DryRun: true,
 		},
 	}
-	_ = engine.ApplyCollections(mockDB.Model(nil), criteria)
-	// Add assertions here if we could inspect the mockDB's queries
+
+	tests := []struct {
+		name             string
+		criteria         SearchCriteria
+		wantWhereContain []string
+	}{
+		{
+			name: "Basic Filters",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"owner": "jane",
+				},
+			},
+			wantWhereContain: []string{"users.username = ?"},
+		},
+		{
+			name: "Favourited True",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favourited": "true",
+				},
+			},
+			wantWhereContain: []string{"favourited = ?"},
+		},
+		{
+			name: "Favourited False",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favourited": "false",
+				},
+			},
+			wantWhereContain: []string{"favourited = ? OR favourited IS NULL"},
+		},
+		{
+			name: "Favorite Alias",
+			criteria: SearchCriteria{
+				Filters: map[string]string{
+					"favorite": "true",
+				},
+			},
+			wantWhereContain: []string{"favourited = ?"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset clauses for each run
+			db.Statement.Clauses = make(map[string]clause.Clause)
+			resultDB := engine.ApplyCollections(db, tt.criteria)
+
+			for _, want := range tt.wantWhereContain {
+				if !hasWhereClause(resultDB, want) {
+					t.Errorf("ApplyCollections() expected WHERE clause containing %q, but not found", want)
+				}
+			}
+		})
+	}
 }

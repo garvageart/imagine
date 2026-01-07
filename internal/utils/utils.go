@@ -147,20 +147,53 @@ func IsValidEmail(email string) bool {
 }
 
 // EqualStringSlices compares two *[]string slices.
+
 func EqualStringSlices(a, b *[]string) bool {
+
 	if a == nil && b == nil {
+
 		return true
+
 	}
+
 	if a == nil || b == nil {
+
 		return false
+
 	}
+
 	if len(*a) != len(*b) {
+
 		return false
+
 	}
+
 	for i, v := range *a {
+
 		if v != (*b)[i] {
+
 			return false
+
 		}
+
 	}
+
 	return true
+
+}
+
+
+
+// Capitalize returns the string with the first letter capitalized.
+
+func Capitalize(s string) string {
+
+	if len(s) == 0 {
+
+		return s
+
+	}
+
+	return strings.ToUpper(s[:1]) + s[1:]
+
 }
