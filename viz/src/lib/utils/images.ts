@@ -1,8 +1,7 @@
 import { thumbHashToDataURL } from "thumbhash";
 import { DateTime, Duration } from "luxon";
-import { downloadImagesZipBlob, signDownload, type Collection, type CollectionDetailResponse, type Image } from "../api";
-import { LabelColours } from "$lib/images/constants";
-import type { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+import { downloadImagesZipBlob, signDownload, type CollectionDetailResponse, type Image } from "../api";
+import { flashModes, LabelColours } from "$lib/images/constants";
 
 /**
  * Converts a date in EXIF format to a format that
@@ -301,4 +300,16 @@ export function getImageLabel(image: Image) {
 
 export function getLabelColor(name: keyof typeof LabelColours) {
     return LabelColours[name] || "transparent";
+}
+
+export function getFlashMode(flash?: number) {
+    if (flash === undefined || flash === null) {
+        return null;
+    }
+
+    if (flash in flashModes) {
+        return flashModes[flash];
+    }
+
+    return (flash & 1) ? "Fired" : "Did not fire";
 }

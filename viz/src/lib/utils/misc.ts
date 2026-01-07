@@ -220,3 +220,12 @@ export function normalizeBase64(str: string) {
     }
     return normalized;
 };
+
+/**
+ * Creates a Viz-specific MIME type string.
+ * @param mimeType The specific MIME type suffix (e.g., "image.uids").
+ * @returns The full Viz MIME type string (e.g., "application/x-viz.image.uids").
+*/
+export function createVizMimeType(mimeType: string) {
+    return `application/x-viz.${mimeType}`;
+}

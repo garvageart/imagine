@@ -13,6 +13,7 @@
 	import hotkeys from "hotkeys-js";
 	import {
 		formatBytes,
+		getFlashMode,
 		getImageLabel,
 		getTakenAt,
 		getThumbhashURL
@@ -20,22 +21,26 @@
 	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import IconButton from "./IconButton.svelte";
 	import { downloadOriginalImageFile } from "$lib/utils/http";
-	import ZoomPan from "$lib/images/zoom/preview";
+	import { ZoomPanCrop } from "$lib/images/zoom/crop";
 	import { setRating } from "$lib/images/exif";
 	import InputText from "./dom/InputText.svelte";
 	import LabelSelector from "./LabelSelector.svelte";
 	import { LabelColours, type ImageLabel } from "$lib/images/constants";
+	import CropOverlay from "./CropOverlay.svelte";
+	import CropTools from "./CropTools.svelte";
 
 	interface Props {
 		lightboxImage: Image | undefined;
 		prevLightboxImage?: () => void;
 		nextLightboxImage?: () => void;
+		onImageUpdated?: (image: Image) => void;
 	}
 
 	let {
 		lightboxImage = $bindable(),
 		prevLightboxImage,
-		nextLightboxImage
+		nextLightboxImage,
+		onImageUpdated
 	}: Props = $props();
 
 	let show = $derived(lightboxImage !== undefined);
@@ -46,31 +51,258 @@
 		)
 	);
 
+	// Crop State
+	let isCropping = $state(false);
+	let cropAspectRatio = $state<number | null>(null);
+	let currentCrop = $state<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
+	let cropMenuPosition = $state<{ x: number; y: number } | null>(null);
+	// Store crop edits (original/natural coordinates) to restore them when re-entering crop mode
+	let cropEdits = $state<
+		Record<string, { x: number; y: number; width: number; height: number }>
+	>({});
+
+	let overriddenImages = $state<Record<string, string>>({});
+	let displayURL = $derived(
+		lightboxImage?.uid && overriddenImages[lightboxImage.uid] && !isCropping
+			? overriddenImages[lightboxImage.uid]
+			: imageToLoad
+	);
+
 	let direction = $state<"left" | "right">("right");
 	let showMetadata = $state(true);
 	let editNameMode = $state(false);
 
 	let imageEl: HTMLImageElement = $state()!;
+	let canvasEl: HTMLCanvasElement = $state()!;
 	let imageContainerEl: HTMLDivElement = $state()!;
-	let zoomer: ZoomPan | undefined;
+	let zoomTargetEl: HTMLDivElement = $state()!; // Wrapper for image + overlay
+	let zoomer = $state<ZoomPanCrop>();
 
+	// Transform State for CropOverlay (Scale only needed for UI inverse scaling)
+	let transformState = $state({
+		scale: 1
+	});
+
+	// Helper to get render dimensions
+	let imageDimensions = $state<{ width: number; height: number } | null>(null);
+
+	// Effect 1: Lifecycle - Initialize Zoomer when DOM elements are ready
 	$effect(() => {
-		if (imageContainerEl && imageEl) {
-			zoomer = new ZoomPan(imageContainerEl, imageEl);
+		if (imageContainerEl && zoomTargetEl) {
+			// Initialize ZoomPan on the wrapper
+			const newZoomer = new ZoomPanCrop(imageContainerEl, zoomTargetEl);
+
+			// Listen for transform changes
+			newZoomer.onTransformChange((t) => {
+				transformState = { scale: t.scale };
+			});
+
+			zoomer = newZoomer;
+
 			return () => {
-				zoomer?.destroy();
+				newZoomer.destroy();
 			};
 		}
 	});
 
+	// Effect 2: Restoration - Apply crop when in crop mode and everything is ready
+	$effect(() => {
+		if (isCropping && imageEl && imageEl.complete && zoomer) {
+			restoreCrop(zoomer);
+		}
+	});
+
 	function goToPrev() {
+		if (isCropping) return;
 		direction = "left";
 		prevLightboxImage?.();
 	}
 
 	function goToNext() {
+		if (isCropping) return;
 		direction = "right";
 		nextLightboxImage?.();
+	}
+
+	function restoreCrop(targetZoomer?: ZoomPanCrop) {
+		const z = targetZoomer || zoomer;
+		if (!z || !imageEl || !lightboxImage) return;
+
+		// Ensure we capture dimensions for overlay
+		if (imageEl.clientWidth > 0 && imageEl.clientHeight > 0) {
+			imageDimensions = {
+				width: imageEl.clientWidth,
+				height: imageEl.clientHeight
+			};
+		}
+
+		const saved = cropEdits[lightboxImage.uid];
+		let initialCrop = null;
+
+		// If we have a saved crop (in original coordinates), scale it to current render dimensions
+		if (saved && lightboxImage.width && lightboxImage.height) {
+			const scaleX = imageEl.clientWidth / lightboxImage.width;
+			const scaleY = imageEl.clientHeight / lightboxImage.height;
+
+			initialCrop = {
+				x: saved.x * scaleX,
+				y: saved.y * scaleY,
+				width: saved.width * scaleX,
+				height: saved.height * scaleY
+			};
+		} else if (saved && imageEl.naturalWidth > 0) {
+			// Fallback to naturalWidth if original dimensions missing (shouldn't happen often)
+			const scaleX = imageEl.clientWidth / imageEl.naturalWidth;
+			const scaleY = imageEl.clientHeight / imageEl.naturalHeight;
+
+			initialCrop = {
+				x: saved.x * scaleX,
+				y: saved.y * scaleY,
+				width: saved.width * scaleX,
+				height: saved.height * scaleY
+			};
+		}
+
+		z.initCrop(initialCrop);
+
+		z.onCropChange((c) => {
+			currentCrop = c;
+		});
+		currentCrop = z.getCrop();
+	}
+
+	function toggleCropMode() {
+		if (!imageEl) return;
+
+		if (!isCropping) {
+			// Enter crop mode
+			isCropping = true;
+			// Hide metadata panel to give space if it was open
+			// We don't toggle showMetadata state here to preserve user preference when exiting,
+			// but the template logic will hide it.
+
+			// Reset zoom to ensure user sees the whole image context for cropping
+			zoomer?.reset();
+
+			// Note: switching isCropping will trigger a re-render of the image wrapper (key block)
+			// So restoration happens in the effect/onload, not here immediately.
+		} else {
+			// Exit crop mode (cancel)
+			isCropping = false;
+			currentCrop = null;
+			cropMenuPosition = null;
+		}
+	}
+
+	function handleCropApply() {
+		if (!currentCrop || !imageEl || !lightboxImage) {
+			console.warn("Missing requirements for crop apply", {
+				currentCrop,
+				imageEl,
+				lightboxImage,
+				canvasEl
+			});
+			return;
+		}
+
+		// Calculate crop relative to the ORIGINAL image (for backend/storage)
+		// We use lightboxImage dimensions if available, otherwise fall back to rendered.
+		const originalWidth = lightboxImage.width || imageEl.naturalWidth;
+		const originalHeight = lightboxImage.height || imageEl.naturalHeight;
+
+		const scaleToOriginalX = originalWidth / imageEl.clientWidth;
+		const scaleToOriginalY = originalHeight / imageEl.clientHeight;
+
+		const originalCrop = {
+			x: Math.round(currentCrop.x * scaleToOriginalX),
+			y: Math.round(currentCrop.y * scaleToOriginalY),
+			width: Math.round(currentCrop.width * scaleToOriginalX),
+			height: Math.round(currentCrop.height * scaleToOriginalY)
+		};
+
+		console.log("Applying Crop (Original):", originalCrop);
+
+		// Save the crop to state so we can restore it later
+		cropEdits[lightboxImage.uid] = originalCrop;
+
+		// Calculate crop relative to the CURRENTLY LOADED image (preview) for client-side visual feedback
+		// imageEl.naturalWidth is the width of the loaded source (preview), NOT necessarily the original.
+		const scaleToPreviewX = imageEl.naturalWidth / imageEl.clientWidth;
+		const scaleToPreviewY = imageEl.naturalHeight / imageEl.clientHeight;
+
+		const previewCrop = {
+			x: Math.round(currentCrop.x * scaleToPreviewX),
+			y: Math.round(currentCrop.y * scaleToPreviewY),
+			width: Math.round(currentCrop.width * scaleToPreviewX),
+			height: Math.round(currentCrop.height * scaleToPreviewY)
+		};
+
+		// Client-side apply using previewCrop
+		let canvas = canvasEl;
+		if (!canvas) {
+			canvas = document.createElement("canvas");
+		}
+
+		canvas.width = previewCrop.width;
+		canvas.height = previewCrop.height;
+		const ctx = canvas.getContext("2d");
+		if (ctx) {
+			ctx.drawImage(
+				imageEl,
+				previewCrop.x,
+				previewCrop.y,
+				previewCrop.width,
+				previewCrop.height,
+				0,
+				0,
+				previewCrop.width,
+				previewCrop.height
+			);
+			const dataURL = canvas.toDataURL("image/jpeg", 0.9);
+			overriddenImages[lightboxImage.uid] = dataURL;
+		} else {
+			console.error("Failed to get 2D context");
+		}
+
+		toastState.addToast({
+			type: "success",
+			title: "Crop Applied (Client-side)",
+			message: `Image updated in view.`,
+			timeout: 4000
+		});
+
+		// Exit mode
+		isCropping = false;
+		currentCrop = null;
+		cropMenuPosition = null;
+		zoomer?.reset(); // Reset zoom to see the new image full frame
+	}
+
+	function handleCropReset() {
+		if (!zoomer || !lightboxImage) return;
+
+		// Clear saved crop state
+		delete cropEdits[lightboxImage.uid];
+
+		// Reset zoomer crop to full image
+		zoomer.initCrop();
+
+		// Update current crop state
+		currentCrop = zoomer.getCrop();
+	}
+
+	function handleContextMenu(e: MouseEvent) {
+		if (isCropping) {
+			e.preventDefault();
+			cropMenuPosition = { x: e.clientX, y: e.clientY };
+		} else {
+			e.preventDefault();
+		}
 	}
 
 	let thumbhashURL = $derived(
@@ -128,7 +360,7 @@
 	}
 
 	hotkeys("left,right", (e, handler) => {
-		if (!show) {
+		if (!show || isCropping) {
 			return;
 		}
 
@@ -137,6 +369,19 @@
 			goToPrev();
 		} else if (handler.key === "right") {
 			goToNext();
+		}
+	});
+
+	hotkeys("enter,esc", (e, handler) => {
+		if (!show || !isCropping) {
+			return;
+		}
+
+		e.preventDefault();
+		if (handler.key === "enter") {
+			handleCropApply();
+		} else if (handler.key === "esc") {
+			toggleCropMode();
 		}
 	});
 
@@ -181,6 +426,7 @@
 
 											if (res.status === 200) {
 												lightboxImage = res.data;
+												onImageUpdated?.(res.data);
 												toastState.addToast({
 													type: "success",
 													title: "Image name updated",
@@ -188,9 +434,11 @@
 													timeout: 2000
 												});
 											} else {
-												throw new Error(
-													`Failed to update image name: ${res.data.error}`
-												);
+												toastState.addToast({
+													type: "error",
+													title: "Failed to update image name",
+													message: `Failed to update image name: ${res.data.error}`
+												});
 											}
 										} catch (error) {
 											toastState.addToast({
@@ -307,6 +555,20 @@
 								</div>
 							</div>
 						</div>
+						<div class="card-row meta-row">
+							<MaterialIcon
+								iconName="flash_on"
+								fill={true}
+								style="color: #FFC107; fill: #FFC107;"
+								class="exif-material-icon"
+							/>
+							<div class="card-values">
+								<div class="value-sub">
+									Flash {getFlashMode(lightboxImage?.exif?.flash) ??
+										"—"}
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<div class="exif-card">
@@ -356,11 +618,13 @@
 						const entry = Object.entries(LabelColours).find(
 							([_, colour]) => colour === selectedLabel
 						);
-						const labelName = entry ? entry[0] : null;
+						const labelName = entry
+							? entry[0] === "None"
+								? null
+								: entry[0]
+							: null;
 						// If "None" is selected, send null to clear the label
-						const labelToSend = (labelName === "None" || !labelName
-							? null
-							: labelName) as ImageLabel | null;
+						const labelToSend = labelName as ImageLabel | null;
 
 						try {
 							const res = await updateImage(lightboxImage.uid, {
@@ -371,10 +635,13 @@
 
 							if (res.status === 200) {
 								lightboxImage = res.data;
+								onImageUpdated?.(res.data);
 							} else {
-								throw new Error(
-									`Failed to update image label: ${res.data.error}`
-								);
+								toastState.addToast({
+									type: "error",
+									title: "Failed to update image label",
+									message: `Failed to update image label: ${res.data.error}`
+								});
 							}
 						} catch (error) {
 							toastState.addToast({
@@ -429,7 +696,12 @@
 	bind:show
 	backgroundOpacity={0.95}
 	onclick={() => {
-		lightboxImage = undefined;
+		if (!isCropping) {
+			lightboxImage = undefined;
+		} else {
+			// Close crop menu if open and clicked outside
+			cropMenuPosition = null;
+		}
 	}}
 >
 	<div class="image-lightbox-container">
@@ -437,74 +709,117 @@
 			<IconButton
 				id="lightbox-icon-close"
 				class="lightbox-button-icon"
-				hoverColor="var(--imag-30-light)"
+				hoverColor="transparent"
 				title="Close"
 				iconName="close"
-				onclick={() => (lightboxImage = undefined)}
+				onclick={() => {
+					if (isCropping) {
+						isCropping = false;
+						cropMenuPosition = null;
+					} else {
+						lightboxImage = undefined;
+					}
+				}}
 			/>
-			<div class="image-icon-buttons">
-				<IconButton
-					class="lightbox-button-icon"
-					hoverColor="var(--imag-30-light)"
-					style={lightboxMaterialIconColour}
-					title="Download"
-					iconName="download"
-					onclick={() => {
-						downloadOriginalImageFile(lightboxImage!);
-					}}
-				/>
-				<IconButton
-					class="lightbox-button-icon"
-					hoverColor="var(--imag-30-light)"
-					style={lightboxMaterialIconColour}
-					title={`${showMetadata ? "Hide" : "Show"} Info`}
-					onclick={(e) => {
-						e.stopPropagation();
-						showMetadata = !showMetadata;
-					}}
-					iconName="info"
-				/>
-			</div>
-			{#key lightboxImage?.uid}
-				<div class="image-wrapper" bind:this={imageContainerEl}>
-					{#await loadImage(imageToLoad, currentImageEl!)}
-						{#if !thumbhashURL}
-							<div style="width: 3em; height: 3em">
-								<LoadingContainer />
-							</div>
-						{:else}
+			{#if !isCropping}
+				<div class="image-icon-buttons">
+					<IconButton
+						class="lightbox-button-icon"
+						hoverColor="transparent"
+						style={lightboxMaterialIconColour}
+						title="Crop"
+						iconName="crop"
+						onclick={toggleCropMode}
+					/>
+					<IconButton
+						class="lightbox-button-icon"
+						hoverColor="transparent"
+						style={lightboxMaterialIconColour}
+						title="Download"
+						iconName="download"
+						onclick={() => {
+							downloadOriginalImageFile(lightboxImage!);
+						}}
+					/>
+					<IconButton
+						class="lightbox-button-icon"
+						hoverColor="transparent"
+						style={lightboxMaterialIconColour}
+						title={`${showMetadata ? "Hide" : "Show"} Info`}
+						onclick={(e) => {
+							e.stopPropagation();
+							showMetadata = !showMetadata;
+						}}
+						iconName="info"
+					/>
+				</div>
+			{/if}
+			{#key displayURL}
+				<div
+					class="image-wrapper"
+					bind:this={imageContainerEl}
+					role="presentation"
+				>
+					<div
+						class="zoom-target"
+						class:is-crop={isCropping}
+						bind:this={zoomTargetEl}
+						oncontextmenu={handleContextMenu}
+						role="presentation"
+					>
+						{#await loadImage(displayURL, currentImageEl!)}
+							{#if !thumbhashURL}
+								<div style="width: 3em; height: 3em">
+									<LoadingContainer />
+								</div>
+							{:else}
+								<img
+									src={thumbhashURL}
+									in:fade
+									out:fade
+									class="lightbox-image lightbox-placeholder"
+									alt="Placeholder image for {lightboxImage!.name}"
+									aria-hidden="true"
+									style={`aspect-ratio: ${lightboxImage!.width} / ${lightboxImage!.height};`}
+								/>
+							{/if}
+						{:then url}
 							<img
-								src={thumbhashURL}
+								bind:this={imageEl}
+								src={url}
+								class="lightbox-image"
+								class:is-crop={isCropping}
+								alt={lightboxImage!.name}
+								title={lightboxImage!.name}
+								loading="eager"
+								crossorigin="use-credentials"
+								data-image-id={lightboxImage!.uid}
+								onload={() => {
+									if (isCropping) restoreCrop();
+								}}
+								ondragstart={(e) => e.preventDefault()}
+								oncontextmenu={handleContextMenu}
 								in:fade
 								out:fade
-								class="lightbox-image lightbox-placeholder"
-								alt="Placeholder image for {lightboxImage!.name}"
-								aria-hidden="true"
 							/>
-						{/if}
-					{:then url}
-						<img
-							bind:this={imageEl}
-							src={url}
-							class="lightbox-image"
-							alt={lightboxImage!.name}
-							title={lightboxImage!.name}
-							loading="eager"
-							crossorigin="use-credentials"
-							data-image-id={lightboxImage!.uid}
-							ondragstart={(e) => e.preventDefault()}
-							oncontextmenu={(e) => e.preventDefault()}
-							in:fade
-							out:fade
-						/>
-					{:catch error}
-						<p>Failed to load image</p>
-						<p>{error}</p>
-					{/await}
+							{#if isCropping && imageDimensions && currentCrop && zoomer}
+								<CropOverlay
+									width={imageDimensions.width}
+									height={imageDimensions.height}
+									crop={currentCrop}
+									{zoomer}
+									scale={transformState.scale}
+								/>
+							{/if}
+						{:catch error}
+							<p>Failed to load image</p>
+							<p>{error}</p>
+						{/await}
+					</div>
 				</div>
 			{/key}
 
-			{#if prevLightboxImage && nextLightboxImage}
+			{#if prevLightboxImage && nextLightboxImage && !isCropping}
 				<div class="lightbox-nav">
 					<button
 						class="lightbox-nav-btn prev lightbox-button-icon"
@@ -534,8 +849,39 @@
 					</button>
 				</div>
 			{/if}
+
+			{#if isCropping && cropMenuPosition}
+				<CropTools
+					x={cropMenuPosition.x}
+					y={cropMenuPosition.y}
+					onApply={handleCropApply}
+					onReset={handleCropReset}
+					onCancel={() => {
+						toggleCropMode();
+					}}
+					onAspectRatioChange={(ratio) => {
+						cropAspectRatio = ratio;
+						zoomer?.setAspectRatio(ratio);
+					}}
+				/>
+			{/if}
 		</div>
-		{#if showMetadata}
+		{#if isCropping}
+			<div class="crop-tools-sidebar">
+				<CropTools
+					variant="placed"
+					onApply={handleCropApply}
+					onReset={handleCropReset}
+					onCancel={() => {
+						toggleCropMode();
+					}}
+					onAspectRatioChange={(ratio) => {
+						cropAspectRatio = ratio;
+						zoomer?.setAspectRatio(ratio);
+					}}
+				/>
+			</div>
+		{:else if showMetadata}
 			{@render metadataEditor()}
 		{/if}
 	</div>
@@ -559,6 +905,19 @@
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
+	}
+
+	.crop-tools-sidebar {
+		background-color: var(--imag-bg-color);
+		padding: 1em;
+		border-radius: 0.5em;
+		height: 100%;
+		width: auto;
+		max-width: 20vw;
+		min-width: 20vw;
+		z-index: 100;
+		pointer-events: auto;
+		box-sizing: border-box;
 	}
 
 	:global(.image-icon-buttons) {
@@ -606,18 +965,37 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		// max-height: 95%;
 		height: 100%;
 		width: 100%;
 		overflow: hidden;
 		pointer-events: none;
 	}
 
-	.lightbox-image {
+	.zoom-target {
+		position: relative;
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
 		max-width: 100%;
 		max-height: 100%;
-		object-fit: contain;
+		min-width: 0;
+		min-height: 0;
 		pointer-events: auto;
+	}
+
+	.lightbox-image {
+		display: block;
+		max-width: 100vw;
+		max-height: 100vh;
+		width: auto;
+		height: auto;
+		pointer-events: auto;
+	}
+
+	// to give space for seeing cropping
+	.lightbox-image.is-crop {
+		max-width: 97vw;
+		max-height: 97vh;
 	}
 
 	.lightbox-placeholder {
