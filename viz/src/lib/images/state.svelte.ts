@@ -9,7 +9,11 @@ export class ImagePaginationState {
     hasMore = $state(false);
 
     constructor(data: ImagesListResponse) {
-        this.images = data.items.map((i) => i.image) ?? [];
+        if (!data) {
+            return;
+        }
+        
+        this.images = data.items?.map((i) => i.image) ?? [];
         this.pagination = {
             limit: data.limit ?? 100,
             page: data.page ?? 0
