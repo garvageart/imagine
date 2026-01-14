@@ -7,11 +7,11 @@
 		PaneInitFunction,
 		SplitContext
 	} from "./index.js";
-	import { browser } from "./internal/env.js";
 	import { gatheringKey } from "./internal/GatheringRound.svelte";
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import { carefullCallbackSource } from "./internal/utils/functions";
 	import { generateRandomString } from "$lib/utils/misc";
+	import { browser } from "$app/environment";
 
 	const {
 		ssrRegisterPaneSize,

@@ -49,7 +49,6 @@
 		ClientCallbacks
 	} from "./index.js";
 	import GatheringRound from "./internal/GatheringRound.svelte";
-	import { browser } from "./internal/env.js";
 	import { getDimensionName } from "./internal/utils/sizing.js";
 	import {
 		type Position,
@@ -61,6 +60,7 @@
 	import { forEachPartial, sumPartial } from "./internal/utils/array.js";
 	import { calcComputedStyle } from "./internal/utils/styling.js";
 	import { generateKeyId } from "$lib/utils/layout";
+	import { browser } from "$app/environment";
 
 	// TYPE DECLARATIONS ----------------
 
