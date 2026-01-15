@@ -2,9 +2,13 @@ FROM debian:bookworm-slim AS packages
 
 # Install build tools and required dependencies to build libvips from source.
 
-# note: this will need to be configurable in the future
-ENV VIPS_VERSION=8.16.1
+COPY .libvips-version .
+# Read version from file (stripping whitespace)
+RUN export VIPS_VERSION=$(cat .libvips-version | tr -d '[:space:]') && \
+    echo "Using libvips version: $VIPS_VERSION" && \
+    echo "VIPS_VERSION=$VIPS_VERSION" >> /etc/environment
 
+# Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential pkg-config git ca-certificates \
@@ -16,6 +20,7 @@ RUN apt-get update && \
 
 # Download, build and install libvips so headers/libs match the generated bindings
 RUN set -eux; \
+    VIPS_VERSION=$(cat .libvips-version | tr -d '[:space:]'); \
     apt-get update; \
     mkdir -p /tmp/build && cd /tmp/build; \
     curl -fsSL "https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.gz" -o vips.tar.gz; \

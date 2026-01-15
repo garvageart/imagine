@@ -72,8 +72,6 @@ func GetColourSpaceString(image *libvips.Image) string {
 		return "scRGB"
 	} else if image.Interpretation() == libvips.InterpretationHsv {
 		return "HSV"
-	} else if image.Interpretation() == libvips.InterpretationLast {
-		return "Last"
 	}
 
 	return "Unknown"

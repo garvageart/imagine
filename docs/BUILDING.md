@@ -59,10 +59,9 @@ The Docker setup uses `docker/initdb/01-create-superuser.sh` to automatically cr
 - **pnpm**: Latest
 - **PostgreSQL**: v14+
 - **Redis**: v7+
-- **libvips**: v8.17+
-  - **Windows**: See `docs/Install Libvips Windows.md`
-  - **macOS**: `brew install vips`
-  - **Linux**: `apt install libvips-dev`
+- **libvips**: v8.18+
+  - **All Platforms**: Run `bun scripts/js/setup-libvips.ts` (Recommended)
+  - **Manual**: See `docs/INSTALL_LIBVIPS.md`
 
 ### Step 1: Infrastructure Setup
 

@@ -1,12 +1,10 @@
 package imageops
 
 import (
-	"errors"
 	"fmt"
 	"imagine/internal/entities"
 	libvips "imagine/internal/imageops/vips"
-	"imagine/internal/images"
-	"imagine/internal/utils"
+	"imagine/internal/transform"
 	"net/url"
 	"strconv"
 )
@@ -17,21 +15,7 @@ type TransformResult struct {
 	Ext           string
 }
 
-type TransformParams struct {
-	Format   string
-	Width    int64
-	Height   int64
-	Quality  int64
-	Rotate   int
-	Flip     string
-	Kernel   string
-}
-
-func CreateTransformEtag(imgEnt entities.Image, params *TransformParams) *string {
-	return utils.StringPtr(fmt.Sprintf("%s-%dx%d-%s-%d-%d-%s-%s", imgEnt.ImageMetadata.Checksum, params.Width, params.Height, params.Format, params.Quality, params.Rotate, params.Flip, params.Kernel))
-}
-
-func ParseTransformParams(pathStr string) (*TransformParams, error) {
+func ParseTransformParams(pathStr string) (*transform.TransformParams, error) {
 	u, err := url.Parse(pathStr)
 	if err != nil {
 		return nil, err
@@ -39,7 +23,7 @@ func ParseTransformParams(pathStr string) (*TransformParams, error) {
 
 	q := u.Query()
 
-	params := &TransformParams{}
+	params := &transform.TransformParams{}
 	params.Format = q.Get("format")
 	params.Flip = q.Get("flip")
 	params.Kernel = q.Get("kernel")
@@ -83,24 +67,29 @@ func ParseTransformParams(pathStr string) (*TransformParams, error) {
 
 // GenerateTransform generates permanent cached transforms for thumbnail/preview paths if present.
 // These are the URLs stored in ImagePaths (e.g. /images/<uid>/file?format=webp&w=400&h=400&quality=85)
-func GenerateTransform(params *TransformParams, imgEnt entities.Image, originalData []byte) (result *TransformResult, err error) {
+func GenerateTransform(params *transform.TransformParams, imgEnt entities.Image, originalData []byte) (result *TransformResult, err error) {
 	ext := params.Format
 	if ext == "" {
+		if imgEnt.ImageMetadata == nil {
+			return nil, fmt.Errorf("missing image metadata to determine file type")
+		}
 		ext = imgEnt.ImageMetadata.FileType
 	}
 
 	// Build transform ETag key same as route
-	transformEtag := CreateTransformEtag(imgEnt, params)
-
-	// If cached already exists, skip
-	if _, ok, cerr := images.FindCachedTransform(imgEnt.Uid, *transformEtag, ext); cerr == nil && ok {
-		return nil, errors.New(images.CacheErrTransformExists)
-	}
+	transformEtag := transform.CreateTransformEtag(imgEnt, params)
 
 	// Perform transform using libvips similarly to the route
 	libvipsImg, err := libvips.NewImageFromBuffer(originalData, libvips.DefaultLoadOptions())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create libvips image for transform: %w", err)
+		// Fallback: Try explicit RAW load if generic load failed.
+		// This handles cases where vips_image_new_from_buffer doesn't auto-detect the RAW format (e.g. CR3/ARW on Windows)
+		// but the specific dcraw loader is available.
+		var rawErr error
+		libvipsImg, rawErr = libvips.NewDcrawloadBuffer(originalData, &libvips.DcrawloadBufferOptions{})
+		if rawErr != nil {
+			return nil, fmt.Errorf("failed to create libvips image for transform: %w (RAW fallback: %v)", err, rawErr)
+		}
 	}
 	defer libvipsImg.Close()
 
@@ -133,17 +122,18 @@ func GenerateTransform(params *TransformParams, imgEnt entities.Image, originalD
 
 	if params.Flip != "" {
 		var direction libvips.Direction
+		shouldFlip := true
 		switch params.Flip {
 		case "horizontal":
 			direction = libvips.DirectionHorizontal
 		case "vertical":
 			direction = libvips.DirectionVertical
-		case "last":
-			direction = libvips.DirectionLast
 		default:
-			direction = libvips.DirectionLast
+			shouldFlip = false
 		}
-		_ = libvipsImg.Flip(direction)
+		if shouldFlip {
+			_ = libvipsImg.Flip(direction)
+		}
 	}
 
 	if params.Width > 0 || params.Height > 0 {
