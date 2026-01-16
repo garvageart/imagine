@@ -7,23 +7,28 @@ We provide a cross-platform setup script to automate this process.
 ## Automated Installation (Recommended)
 
 **Prerequisites:**
-- **Node.js** (v18+) or **Bun** installed.
+- **Node.js** (v24+) or **Bun** installed.
+- **Windows:** [MSYS2](https://www.msys2.org/) must be installed.
 
 Run the setup script from the project root:
 
-**Using Bun:**
+**Windows (MSYS2 MinGW 64-bit Terminal):**
 ```bash
+# Ensure you are in the MSYS2 MinGW 64-bit terminal
 bun scripts/js/setup-libvips.ts
+# OR
+npx tsx scripts/js/setup-libvips.ts
 ```
 
-**Using Node:**
+**macOS / Linux (Standard Terminal):**
 ```bash
-# You may need to compile it or run with ts-node/tsx if not using Bun
+bun scripts/js/setup-libvips.ts
+# OR
 npx tsx scripts/js/setup-libvips.ts
 ```
 
 This script will:
-1.  **Windows:** Download the correct pre-compiled binaries (with RAW support), install them to `%LOCALAPPDATA%\Programs\vips`, and configure your user environment variables (`PATH`, `PKG_CONFIG_PATH`).
+1.  **Windows:** Use `pacman` within your MSYS2 environment to install `mingw-w64-x86_64-vips`. It will also configure your user environment variables (`PATH`, `PKG_CONFIG_PATH`) to point to the MSYS2 MinGW directory.
 2.  **macOS:** Install `vips` and `pkg-config` via Homebrew.
 3.  **Linux:** Attempt to install `libvips-dev` using your package manager (`apt`, `dnf`, `pacman`).
 
@@ -32,10 +37,11 @@ This script will:
 If you prefer to install manually:
 
 ### Windows
-1.  Download `vips-dev-w64-all-x.y.z.zip` (matching `.libvips-version`) from [libvips releases](https://github.com/libvips/build-win64-mxe/releases).
-2.  Extract to a permanent location (e.g., `C:\vips`).
-3.  Add `C:\vips\bin` to your `PATH`.
-4.  Set `PKG_CONFIG_PATH` to `C:\vips\lib\pkgconfig`.
+1.  Install [MSYS2](https://www.msys2.org/).
+2.  Open the **MSYS2 MinGW 64-bit** terminal.
+3.  Run: `pacman -Syu && pacman -S mingw-w64-x86_64-vips`
+4.  Add `C:\msys64\mingw64\bin` to your **User PATH**.
+5.  Set the `PKG_CONFIG_PATH` environment variable to `C:\msys64\mingw64\lib\pkgconfig`.
 
 ### macOS
 ```bash

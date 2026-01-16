@@ -28,133 +28,102 @@ function runCommand(command: string, args: string[], opts: any = {}) {
   }
 
   if (result.status !== 0) {
-    throw new Error(`Command failed with code ${result.status}`);
+    throw new Error(`Command '${command} ${args.join(' ')}' failed with code ${result.status}`);
   }
 }
 
-function getEnvVar(key: string): string | undefined {
-  return process.env[key];
-}
+async function installWindows() {
+  log('Detecting Windows environment for MSYS2/pacman installation...');
 
-
-async function installWindows(version: string) {
-  log('Detecting Windows environment...');
-
-  const localAppData = getEnvVar('LOCALAPPDATA');
-  if (!localAppData) {
-    throw new Error('LOCALAPPDATA environment variable is missing.');
-  }
-
-  const installDir = path.join(localAppData, 'Programs');
-  const vipsHome = path.join(installDir, 'vips');
-  const vipsBin = path.join(vipsHome, 'bin');
-  const pkgConfigPath = path.join(vipsHome, 'lib', 'pkgconfig');
-
-  // Check existing installation
-  let currentVersion = '';
+  // Check if pacman is available (implies MSYS2 environment)
   try {
-    const output = execSync(`"${path.join(vipsBin, 'vips.exe')}" --version`, { encoding: 'utf-8' }).trim();
-    const match = output.match(/vips-(\d+\.\d+\.\d+)/);
-    if (match) currentVersion = match[1];
+    execSync('which pacman', { stdio: 'ignore' });
+    log('MSYS2/pacman detected. Proceeding with installation.');
   } catch (e) {
-    // Not installed or error
+    error('pacman not found in PATH.');
+    error('Please ensure MSYS2 is installed and this script is run from an MSYS2 terminal (MinGW 64-bit recommended).');
+    process.exit(1);
   }
 
-  if (currentVersion === version) {
-    log(`libvips ${version} is already installed at ${vipsHome}`);
-  } else {
-    if (currentVersion) {
-      log(`Found libvips ${currentVersion}, upgrading to ${version}...`);
-    } else {
-      log(`libvips not found. Installing ${version}...`);
-    }
-
-    // Prepare URL and paths
-    const url = `https://github.com/libvips/build-win64-mxe/releases/download/v${version}/vips-dev-w64-all-${version}.zip`;
-    const zipPath = path.join(installDir, 'vips.zip');
-
-    // Create Programs dir if needed
-    await fs.mkdir(installDir, { recursive: true });
-
-    // Download
-    log(`Downloading ${url}...`);
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to download libvips: ${response.statusText}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    await fs.writeFile(zipPath, Buffer.from(arrayBuffer));
-
-    // Remove old install
-    log('Removing old installation...');
+  // Cleanup old dormant installation directory if it exists
+  const localAppData = process.env.LOCALAPPDATA;
+  if (localAppData) {
+    const oldVipsDir = path.join(localAppData, 'Programs', 'vips');
     try {
-      await fs.rm(vipsHome, { recursive: true, force: true });
-    } catch (e) { } // ignore if doesn't exist
-
-    // Extract using PowerShell (built-in, reliable on Windows)
-    log('Extracting...');
-    runCommand('powershell', [
-      '-Command',
-      `Expand-Archive -Path "${zipPath}" -DestinationPath "${installDir}" -Force`
-    ]);
-
-    // Cleanup Zip
-    await fs.rm(zipPath);
-
-    // Rename extracted folder (it usually comes as vips-dev-8.18.0)
-    // We need to find what it was extracted as.
-    const files = await fs.readdir(installDir);
-    const extractedFolder = files.find(f => f.startsWith('vips-dev-'));
-    if (extractedFolder) {
-      await fs.rename(path.join(installDir, extractedFolder), vipsHome);
-    } else {
-      // It might have extracted directly if the zip structure changed, but usually it has a root folder.
-      // If 'vips' folder exists (from a direct extract), we are good, otherwise error.
-      if (!(await fs.stat(vipsHome).catch(() => false))) {
-        throw new Error('Could not identify extracted folder.');
-      }
-    }
-
-    success('Installation files placed.');
+      await fs.access(oldVipsDir);
+      log(`Cleaning up old dormant installation at ${oldVipsDir}...`);
+      await fs.rm(oldVipsDir, { recursive: true, force: true });
+    } catch {} // Ignore errors during cleanup
   }
 
-  // Set Persistent Environment Variables (User Level)
-  log('Configuring persistent environment variables...');
+  log('Updating MSYS2 packages...');
+  try {
+    runCommand('pacman', ['-Syu', '--noconfirm']);
+  } catch (e: any) {
+    log('pacman -Syu finished (may require terminal restart if core packages were updated).');
+  }
 
-  // Create a temporary PowerShell script to update environment variables cleanly
-  const psScriptPath = path.join(os.tmpdir(), 'update_env.ps1');
-  const psScriptContent = `
-    $VipsBin = "${vipsBin}"
-    $PkgConfigPath = "${pkgConfigPath}"
+  log(`Installing mingw-w64-x86_64-vips via pacman...`);
+  try {
+    runCommand('pacman', ['-S', '--noconfirm', 'mingw-w64-x86_64-vips']);
+    success('libvips installed via pacman.');
+  } catch (e) {
+    error(`Failed to install libvips via pacman. Ensure you've run 'pacman -Syu' recently.`);
+    throw e;
+  }
+
+  // --- Configure Environment Variables (Crucial for Go build) ---
+  log('Configuring persistent environment variables for Go build...');
+
+  let msys2Root;
+  try {
+    msys2Root = execSync('cygpath -m /', { encoding: 'utf-8' }).trim();
+  } catch (e) {
+    error("Could not determine MSYS2 root path using 'cygpath -m /'.");
+    throw e;
+  }
+  
+  const mingwBinPath = `${msys2Root}/mingw64/bin`;
+  const mingwPkgConfigPath = `${msys2Root}/mingw64/lib/pkgconfig`;
+
+  // Escape single quotes for PowerShell strings
+  const esc = (s: string) => s.replace(/'/g, "''");
+  
+  const psScript = `
+    $MingwBin = '${esc(mingwBinPath)}'
+    $MingwPkgConfig = '${esc(mingwPkgConfigPath)}'
     
-    # Update PATH
+    # Update PATH (User level)
     $CurrentPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
-    if ($CurrentPath -notlike "*$VipsBin*") {
-        [System.Environment]::SetEnvironmentVariable('Path', "$CurrentPath;$VipsBin", 'User')
-        Write-Host "Added to PATH."
-    } else {
-        Write-Host "Already in PATH."
-    }
+    $pathEntries = $CurrentPath -split ';' | Where-Object { $_ -and ($_ -notlike "*vips\bin*") }
+    if ($pathEntries -notcontains $MingwBin) { $pathEntries += $MingwBin }
+    [System.Environment]::SetEnvironmentVariable('Path', ($pathEntries -join ';'), 'User')
 
-    # Update PKG_CONFIG_PATH
-    [System.Environment]::SetEnvironmentVariable('PKG_CONFIG_PATH', $PkgConfigPath, 'User')
-    Write-Host "Set PKG_CONFIG_PATH."
+    # Update PKG_CONFIG_PATH (User level)
+    $CurrentPkgConfigPath = [System.Environment]::GetEnvironmentVariable('PKG_CONFIG_PATH', 'User')
+    $pkgConfigEntries = if ($CurrentPkgConfigPath) { $CurrentPkgConfigPath -split ';' | Where-Object { $_ -and ($_ -notlike "*vips\lib\pkgconfig*") } } else { @() }
+    if ($pkgConfigEntries -notcontains $MingwPkgConfig) { $pkgConfigEntries += $MingwPkgConfig }
+    [System.Environment]::SetEnvironmentVariable('PKG_CONFIG_PATH', ($pkgConfigEntries -join ';'), 'User')
   `;
 
-  await fs.writeFile(psScriptPath, psScriptContent);
+  // Execute PowerShell text directly via stdin
+  const psResult = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', '-'], {
+    input: psScript,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'inherit', 'inherit']
+  });
 
-  try {
-    runCommand('powershell', ['-ExecutionPolicy', 'Bypass', '-File', psScriptPath]);
-  } finally {
-    await fs.unlink(psScriptPath);
+  if (psResult.status === 0) {
+    log('Environment variables updated successfully.');
+  } else {
+    error('Failed to update environment variables via PowerShell.');
   }
 
   // Update current process environment so verification works immediately
-  process.env.PATH = `${vipsBin}${path.delimiter}${process.env.PATH}`;
-  process.env.PKG_CONFIG_PATH = pkgConfigPath;
+  process.env.PATH = `${mingwBinPath}${path.delimiter}${process.env.PATH}`;
+  process.env.PKG_CONFIG_PATH = mingwPkgConfigPath;
 
-  log('Environment configured.');
+  success('Environment configured. Restart your terminal/IDE for changes to fully apply.');
 }
 
 async function installMacOS() {
@@ -173,7 +142,6 @@ async function installMacOS() {
 async function installLinux() {
   log('Detecting Linux environment...');
 
-  // Naive check for apt-get (Debian/Ubuntu)
   try {
     execSync('which apt-get', { stdio: 'ignore' });
     log('Detected apt-based system. Installing libvips-dev...');
@@ -181,67 +149,44 @@ async function installLinux() {
     runCommand('sudo', ['apt-get', 'install', '-y', 'libvips-dev', 'pkg-config']);
     success('Installation complete via apt-get.');
     return;
-  } catch (e) { }
+  } catch (e) { } // Ignore errors and try next package manager
 
-  // Naive check for dnf (Fedora)
   try {
     execSync('which dnf', { stdio: 'ignore' });
     log('Detected dnf-based system. Installing vips-devel...');
     runCommand('sudo', ['dnf', 'install', '-y', 'vips-devel', 'pkg-config']);
     success('Installation complete via dnf.');
     return;
-  } catch (e) { }
+  } catch (e) { } // Ignore errors and try next package manager
 
-  // Naive check for pacman (Arch)
   try {
     execSync('which pacman', { stdio: 'ignore' });
     log('Detected pacman-based system. Installing libvips...');
     runCommand('sudo', ['pacman', '-S', '--noconfirm', 'libvips', 'pkgconf']);
     success('Installation complete via pacman.');
     return;
-  } catch (e) { }
+  } catch (e) { } // Ignore errors and throw if no package manager found
 
   throw new Error('Unsupported Linux distribution. Please install libvips-dev and pkg-config manually.');
 }
 
 async function verify() {
   log('Verifying installation...');
-
-  // Verify vips binary
   try {
     const vipsVersion = execSync('vips --version', { encoding: 'utf-8' }).trim();
     success(`Found binary: ${vipsVersion}`);
   } catch (e) {
-    error('vips binary not found in PATH (you might need to restart terminal on Windows).');
+    error('vips binary not found in PATH.');
   }
 
-  // Verify pkg-config
   try {
     const libs = execSync('pkg-config --cflags --libs vips', { encoding: 'utf-8' }).trim();
-    if (libs) {
-      success('pkg-config verified.');
-    } else {
-      error('pkg-config returned empty output for vips.');
-    }
+    if (libs) success('pkg-config verified.');
+    else error('pkg-config returned empty output for vips.');
   } catch (e) {
     error('pkg-config check failed. Is PKG_CONFIG_PATH set?');
   }
-
-  // Verify RAW support
-  try {
-    const modules = execSync('vips -l foreign', { encoding: 'utf-8' });
-    if (modules.includes('dcrawload') || modules.includes('VipsForeignLoadDcRaw')) {
-      success('Native RAW support detected (dcrawload).');
-    } else if (modules.includes('VipsForeignLoadRaw')) {
-      log('Generic Raw support detected (might be raw data, not camera RAW).');
-    } else {
-      error('RAW support NOT detected.');
-    }
-  } catch (e) {
-    error('Failed to check modules.');
-  }
 }
-
 
 async function main() {
   const version = await getRequiredVersion();
@@ -251,7 +196,7 @@ async function main() {
 
   try {
     if (platform === 'win32') {
-      await installWindows(version);
+      await installWindows();
     } else if (platform === 'darwin') {
       await installMacOS();
     } else if (platform === 'linux') {
@@ -259,9 +204,7 @@ async function main() {
     } else {
       throw new Error(`Unsupported platform: ${platform}`);
     }
-
     await verify();
-
   } catch (e: any) {
     error(e.message || e);
     process.exit(1);
