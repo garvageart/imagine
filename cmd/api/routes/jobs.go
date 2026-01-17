@@ -20,12 +20,15 @@ import (
 	"imagine/internal/images"
 	"imagine/internal/jobs"
 	"imagine/internal/jobs/workers"
+	"imagine/internal/transform"
 )
 
 type ActiveBrief struct {
-	Id     string         `json:"id"`
-	Topic  string         `json:"topic"`
-	Status jobs.JobStatus `json:"status"`
+	Uid      string         `json:"uid"`
+	ImageUid *string        `json:"image_uid,omitempty"`
+	Topic    string         `json:"topic"`
+	Type     string         `json:"type"`
+	Status   jobs.JobStatus `json:"status"`
 }
 
 // handleImageProcessing processes image processing job requests
@@ -55,11 +58,13 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 			return
 		}
 
-		count := 1
+		c := 1
 		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "Thumbnail generation job enqueued", Count: &count})
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "Thumbnail generation job enqueued", Count: &c})
 		return
 	}
+
+	var targetUids []string
 
 	switch command {
 	case "missing":
@@ -89,49 +94,61 @@ func handleImageProcessing(db *gorm.DB, logger *slog.Logger, body dto.WorkerJobC
 			uniqueUids[uid] = struct{}{}
 		}
 
-		var finalUids []string
 		for uid := range uniqueUids {
-			finalUids = append(finalUids, uid)
+			targetUids = append(targetUids, uid)
 		}
 
-		count = int64(len(finalUids))
+		count = int64(len(targetUids))
 
-		if count == 0 {
-			zeroCount := 0
-			render.Status(req, http.StatusOK)
-			render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "No images to process", Count: &zeroCount})
+	case "all":
+		if err = db.Model(&entities.Image{}).Count(&count).Error; err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to count images"})
 			return
 		}
 
-		// Enqueue jobs in background
-		go func(targetUids []string) {
-			// Batch process targetUids
-			batchSize := 100
-			for i := 0; i < len(targetUids); i += batchSize {
-				end := min(i+batchSize, len(targetUids))
-				batchUids := targetUids[i:end]
-
-				var imgs []entities.Image
-				if err := db.Where("uid IN ?", batchUids).Find(&imgs).Error; err != nil {
-					logger.Error("failed to fetch images for batch processing", slog.Any("error", err))
-					continue
-				}
-
-				for _, img := range imgs {
-					job := &workers.ImageProcessJob{Image: img}
-					_, _ = jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
-				}
-			}
-			logger.Info("image processing jobs enqueued", "command", "missing", "count", count)
-		}(finalUids)
-
-		jobCount := int(count)
-		render.Status(req, http.StatusAccepted)
-		render.JSON(res, req, dto.WorkerJobEnqueueResponse{
-			Message: fmt.Sprintf("thumbnail generation jobs enqueued (%s)", command),
-			Count:   &jobCount,
-		})
+		if err = db.Model(&entities.Image{}).Pluck("uid", &targetUids).Error; err != nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Failed to fetch image UIDs"})
+			return
+		}
 	}
+
+	if count == 0 {
+		zeroCount := 0
+		render.Status(req, http.StatusOK)
+		render.JSON(res, req, dto.WorkerJobEnqueueResponse{Message: "No images to process", Count: &zeroCount})
+		return
+	}
+
+	// Enqueue jobs in background
+	go func(uids []string) {
+		// Batch process targetUids
+		batchSize := 100
+		for i := 0; i < len(uids); i += batchSize {
+			end := min(i+batchSize, len(uids))
+			batchUids := uids[i:end]
+
+			var imgs []entities.Image
+			if err := db.Where("uid IN ?", batchUids).Find(&imgs).Error; err != nil {
+				logger.Error("failed to fetch images for batch processing", slog.Any("error", err))
+				continue
+			}
+
+			for _, img := range imgs {
+				job := &workers.ImageProcessJob{Image: img}
+				_, _ = jobs.Enqueue(db, workers.TopicImageProcess, job, nil, &img.Uid)
+			}
+		}
+		logger.Info("image processing jobs enqueued", "command", command, "count", count)
+	}(targetUids)
+
+	jobCount := int(count)
+	render.Status(req, http.StatusAccepted)
+	render.JSON(res, req, dto.WorkerJobEnqueueResponse{
+		Message: fmt.Sprintf("thumbnail generation jobs enqueued (%s)", command),
+		Count:   &jobCount,
+	})
 }
 
 // handleXMPGeneration processes XMP sidecar file generation job requests
@@ -398,7 +415,7 @@ func checkMissingTransforms(img entities.Image, transformPath string, missingUid
 		return fmt.Errorf("failed to parse transform params for %s: %w", transformPath, err)
 	}
 
-	transformEtag := *imageops.CreateTransformEtag(img, params)
+	transformEtag := *transform.CreateTransformEtag(img, params)
 	ext := params.Format
 	if ext == "" {
 		ext = img.ImageMetadata.FileType // Fallback if format isn't specified in path
@@ -479,7 +496,18 @@ func JobsRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 		activeMap := jobs.GetAllJobs()
 		active := make([]ActiveBrief, 0, len(activeMap))
 		for id, j := range activeMap {
-			active = append(active, ActiveBrief{Id: id, Topic: j.Topic(), Status: j.GetStatus()})
+			imgUid := j.GetImageUid()
+			var imgUidPtr *string
+			if imgUid != "" {
+				imgUidPtr = &imgUid
+			}
+			active = append(active, ActiveBrief{
+				Uid:      id,
+				ImageUid: imgUidPtr,
+				Topic:    j.Topic(),
+				Type:     j.Topic(),
+				Status:   j.GetStatus(),
+			})
 		}
 
 		// counters

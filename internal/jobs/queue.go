@@ -116,10 +116,11 @@ func RegisterWorkers(workers ...*Worker) {
 
 				worker.Start()
 				job := &Job{
-					ctx:    msg.Context(),
-					ID:     msg.UUID,
-					topic:  topic,
-					status: JobStatusRunning,
+					ctx:      msg.Context(),
+					ID:       msg.UUID,
+					topic:    topic,
+					status:   JobStatusRunning,
+					ImageUid: msg.Metadata.Get("X-Image-Uid"),
 				}
 
 				if job.ID == "" {

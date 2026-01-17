@@ -44,12 +44,21 @@ func NewExifWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 			return fmt.Errorf("%s: %w", JobTypeExifProcess, err)
 		}
 
+		if job.Image.ImageMetadata == nil {
+			err = fmt.Errorf("job %s failed: image metadata is nil for image %s", JobTypeExifProcess, job.Image.Uid)
+			_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusFailed, utils.StringPtr("worker_error"), utils.StringPtr(jobs.Truncate(err.Error(), 1024)), nil, nil)
+			return nil // Return nil to avoid retry loop
+		}
+
 		if wsBroker != nil {
 			wsBroker.Broadcast("job-started", map[string]any{
-				"jobId":    msg.UUID,
-				"type":     JobTypeExifProcess,
-				"imageId":  job.Image.Uid,
-				"filename": job.Image.ImageMetadata.FileName,
+				"uid":       msg.UUID,
+				"jobId":     msg.UUID,
+				"type":      JobTypeExifProcess,
+				"topic":     JobTypeExifProcess,
+				"image_uid": job.Image.Uid,
+				"imageId":   job.Image.Uid,
+				"filename":  job.Image.ImageMetadata.FileName,
 			})
 		}
 
@@ -70,10 +79,13 @@ func NewExifWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 		if err != nil {
 			if wsBroker != nil {
 				wsBroker.Broadcast("job-failed", map[string]any{
-					"jobId":   msg.UUID,
-					"type":    JobTypeExifProcess,
-					"imageId": job.Image.Uid,
-					"error":   err.Error(),
+					"uid":       msg.UUID,
+					"jobId":     msg.UUID,
+					"type":      JobTypeExifProcess,
+					"topic":     JobTypeExifProcess,
+					"image_uid": job.Image.Uid,
+					"imageId":   job.Image.Uid,
+					"error":     err.Error(),
 				})
 			}
 			_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusFailed, utils.StringPtr("worker_error"), utils.StringPtr(jobs.Truncate(err.Error(), 1024)), nil, nil)
@@ -82,9 +94,12 @@ func NewExifWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 
 		if wsBroker != nil {
 			wsBroker.Broadcast("job-completed", map[string]any{
-				"jobId":   msg.UUID,
-				"type":    JobTypeExifProcess,
-				"imageId": job.Image.Uid,
+				"uid":       msg.UUID,
+				"jobId":     msg.UUID,
+				"type":      JobTypeExifProcess,
+				"topic":     JobTypeExifProcess,
+				"image_uid": job.Image.Uid,
+				"imageId":   job.Image.Uid,
 			})
 		}
 

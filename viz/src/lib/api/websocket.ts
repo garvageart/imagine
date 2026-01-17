@@ -1,5 +1,5 @@
 // WebSocket Events API helpers
-import { getWsStats as genGetWsStats, getEventHistory as genGetEventHistory, getEventsSince as genGetEventsSince, API_BASE_URL } from ".";
+import { API_BASE_URL } from ".";
 
 /**
  * WebSocket message structure from server
@@ -225,32 +225,4 @@ export function createWSConnection(
         onOpen,
         onClose: onClose ? (code, reason) => onClose(code, reason) : undefined
     });
-}
-
-/**
- * Get WebSocket connection statistics
- */
-export async function getWSStats() {
-    const res = await genGetWsStats();
-    // @ts-ignore - pass through union result
-    return res.data;
-}
-
-/**
- * Get event history
- * @param limit - Maximum number of events to retrieve (default: 50, max: 100)
- */
-export async function getEventHistory(limit: number = 50) {
-    const res = await genGetEventHistory({ limit });
-    // @ts-ignore
-    return res.data;
-}
-
-/**
- * Get events since a given cursor
- */
-export async function getEventsSince(cursor: number, limit: number = 200) {
-    const res = await genGetEventsSince({ cursor, limit });
-    // @ts-ignore
-    return res.data;
 }

@@ -64,6 +64,9 @@ func Enqueue(db *gorm.DB, topic string, payload any, cmd *JobCommand, imageUid *
 
 	msg := message.NewMessage(uid, payloadBytes)
 	msg.Metadata.Set("X-Worker-Job-Uid", uid)
+	if imageUid != nil {
+		msg.Metadata.Set("X-Image-Uid", *imageUid)
+	}
 
 	if err := Publish(topic, msg); err != nil {
 		_ = UpdateWorkerJobStatus(db, uid, WorkerJobStatusFailed, utils.StringPtr("publish_failed"), utils.StringPtr("failed to publish message"), nil, nil)

@@ -3,10 +3,11 @@ package jobs
 import "context"
 
 type Job struct {
-	ctx    context.Context
-	ID     string
-	topic  string
-	status JobStatus
+	ctx      context.Context
+	ID       string
+	topic    string
+	status   JobStatus
+	ImageUid string
 }
 
 func (j *Job) SetStatus(status JobStatus) {
@@ -35,4 +36,12 @@ func (j *Job) SetID(id string) {
 
 func (j *Job) GetID() string {
 	return j.ID
+}
+
+func (j *Job) SetImageUid(uid string) {
+	j.ImageUid = uid
+}
+
+func (j *Job) GetImageUid() string {
+	return j.ImageUid
 }

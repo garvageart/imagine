@@ -1,382 +1,10 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
-	import Button from "$lib/components/Button.svelte";
-	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import { createWSConnection, type WSClient } from "$lib/api/websocket";
-	import {
-		createJob,
-		getJobStats,
-		listAvailableWorkers,
-		getJobsSnapshot,
-		getEventsSince,
-		updateJobTypeConcurrency
-	} from "$lib/api";
-	import type { WorkerJob, WorkerInfo } from "$lib/api";
-	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
+	import { onMount } from "svelte";
+	import { fade } from "svelte/transition";
 	import AdminRouteShell from "$lib/components/admin/AdminRouteShell.svelte";
-
-	type UiJob = WorkerJob & {
-		filename?: string;
-		progress?: number;
-		step?: string;
-		startTime: Date;
-		endTime?: Date | string;
-		error?: string;
-	};
-
-	function getErrorMessage(e: unknown) {
-		if (e instanceof Error) return e.message;
-		try {
-			return String(e);
-		} catch {
-			return "Unknown error";
-		}
-	}
-
-	function getCountFromResData(data: unknown) {
-		if (!data || typeof data !== "object") return 0;
-		const d = data as Record<string, unknown>;
-		const c = d.count;
-		if (typeof c === "number") return c;
-		if (typeof c === "string") {
-			const n = Number(c);
-			return Number.isNaN(n) ? 0 : n;
-		}
-		return 0;
-	}
-
-	// Lightweight state using backend's new shapes (uids, image_uid, topic)
-	let connected = false;
-	let wsClient: WSClient | null = null;
-	let lastCursor = 0;
-
-	let stats = {
-		activeCount: 0,
-		completedCount: 0,
-		failedCount: 0,
-		totalProcessed: 0
-	};
-
-	let activeJobs: UiJob[] = [];
-	let completedJobs: UiJob[] = [];
-	let failedJobs: UiJob[] = [];
-
-	let runningByTopic: Record<string, number> = {};
-	let queuedByTopic: Record<string, number> = {};
-
-	let workers = {
-		loading: false,
-		types: [] as WorkerInfo[],
-		concurrency: {} as Record<string, number>
-	};
-
-	function showMessage(
-		message: string,
-		type: "success" | "error" | "info" = "info"
-	) {
-		toastState.addToast({ message, type });
-	}
-
-	function getTopicForJobType(jobType: string) {
-		const info = workers.types.find((t) => t.name === jobType);
-		if (
-			info &&
-			typeof info.display_name === "string" &&
-			info.display_name.length > 0
-		) {
-			return info.display_name;
-		}
-
-		return jobType;
-	}
-
-	function connectWS() {
-		if (wsClient) {
-			return;
-		}
-
-		wsClient = createWSConnection(
-			async (event: string, data: unknown) => {
-				const payload =
-					data && typeof data === "object"
-						? (data as Record<string, unknown>)
-						: {};
-				switch (event) {
-					case "connected":
-						connected = true;
-						if (payload.clientId) {
-							showMessage(`Connected (client ${payload.clientId})`, "success");
-						}
-
-						await bootstrapState();
-						break;
-					case "job-started": {
-						const uid =
-							typeof payload.uid === "string"
-								? payload.uid
-								: typeof payload.id === "string"
-									? payload.id
-									: undefined;
-						if (!uid) {
-							return;
-						}
-
-						const progress =
-							typeof payload.progress === "number" ? payload.progress : 0;
-						const newJob: UiJob = {
-							uid,
-							// prefer explicit type/topic when provided, fall back to the other
-							type:
-								typeof payload.type === "string"
-									? payload.type
-									: typeof payload.topic === "string"
-										? payload.topic
-										: "unknown",
-							topic:
-								typeof payload.topic === "string"
-									? payload.topic
-									: typeof payload.type === "string"
-										? payload.type
-										: "unknown",
-							status:
-								typeof payload.status === "string" ? payload.status : "running",
-							enqueued_at:
-								typeof payload.enqueued_at === "string"
-									? payload.enqueued_at
-									: new Date().toISOString(),
-							image_uid:
-								typeof payload.image_uid === "string"
-									? payload.image_uid
-									: undefined,
-							filename:
-								typeof payload.filename === "string"
-									? payload.filename
-									: undefined,
-							progress,
-							startTime: new Date()
-						};
-
-						activeJobs = [newJob, ...activeJobs].slice(0, 200);
-						stats.activeCount = activeJobs.length;
-
-						const topic = getTopicForJobType(
-							newJob.type || newJob.topic || "unknown"
-						);
-						runningByTopic[topic] = (runningByTopic[topic] || 0) + 1;
-						if ((queuedByTopic[topic] || 0) > 0) {
-							queuedByTopic[topic] = Math.max(0, queuedByTopic[topic] - 1);
-						}
-
-						break;
-					}
-					case "job-progress": {
-						const uid =
-							typeof payload.uid === "string" ? payload.uid : undefined;
-						const imageUid =
-							typeof payload.image_uid === "string"
-								? payload.image_uid
-								: undefined;
-						if (!uid && !imageUid) {
-							return;
-						}
-
-						const progress =
-							typeof payload.progress === "number"
-								? payload.progress
-								: undefined;
-						const step =
-							typeof payload.step === "string" ? payload.step : undefined;
-
-						// I hate everything about this
-						activeJobs = activeJobs.map((j) =>
-							(j.uid && uid && j.uid === uid) ||
-							(j.image_uid && imageUid && j.image_uid === imageUid)
-								? {
-										...j,
-										...(progress !== undefined ? { progress } : {}),
-										...(step ? { step } : {})
-									}
-								: j
-						);
-
-						break;
-					}
-					case "job-completed": {
-						const uid =
-							typeof payload.uid === "string" ? payload.uid : undefined;
-						const imageUid =
-							typeof payload.image_uid === "string"
-								? payload.image_uid
-								: undefined;
-
-						let removed: UiJob | null = null;
-						activeJobs = activeJobs.filter((j) => {
-							if (
-								(j.uid && uid && j.uid === uid) ||
-								(imageUid && j.image_uid === imageUid)
-							) {
-								removed = {
-									...j,
-									...(payload as Record<string, unknown>),
-									endTime: new Date()
-								} as UiJob;
-								return false;
-							}
-							return true;
-						});
-
-						if (!removed) {
-							removed = {
-								uid: uid ?? String(Math.random()).slice(2),
-								type:
-									typeof payload.type === "string"
-										? payload.type
-										: typeof payload.topic === "string"
-											? payload.topic
-											: "unknown",
-								topic:
-									typeof payload.topic === "string"
-										? payload.topic
-										: typeof payload.type === "string"
-											? payload.type
-											: "unknown",
-								status:
-									typeof payload.status === "string"
-										? payload.status
-										: "completed",
-								enqueued_at:
-									typeof payload.enqueued_at === "string"
-										? payload.enqueued_at
-										: new Date().toISOString(),
-								image_uid: imageUid ?? undefined,
-								endTime: new Date(),
-								startTime: new Date()
-							} as UiJob;
-						}
-
-						completedJobs = [removed, ...completedJobs].slice(0, 50);
-						stats.completedCount++;
-						stats.totalProcessed++;
-						stats.activeCount = activeJobs.length;
-
-						const topic = getTopicForJobType(
-							removed.type || removed.topic || "unknown"
-						);
-						runningByTopic[topic] = Math.max(
-							0,
-							(runningByTopic[topic] || 0) - 1
-						);
-						break;
-					}
-					case "job-failed": {
-						const uid =
-							typeof payload.uid === "string" ? payload.uid : undefined;
-						const imageUid =
-							typeof payload.image_uid === "string"
-								? payload.image_uid
-								: undefined;
-						let removed: UiJob | null = null;
-
-						// fuck this
-						activeJobs = activeJobs.filter((j) => {
-							if (
-								(j.uid && uid && j.uid === uid) ||
-								(imageUid && j.image_uid === imageUid)
-							) {
-								removed = {
-									...j,
-									...(payload as Record<string, unknown>),
-									endTime: new Date()
-								} as UiJob;
-								return false;
-							}
-							return true;
-						});
-
-						if (!removed) {
-							removed = {
-								uid: uid ?? String(Math.random()).slice(2),
-								type:
-									typeof payload.type === "string"
-										? payload.type
-										: typeof payload.topic === "string"
-											? payload.topic
-											: "unknown",
-								topic:
-									typeof payload.topic === "string"
-										? payload.topic
-										: typeof payload.type === "string"
-											? payload.type
-											: "unknown",
-								status:
-									typeof payload.status === "string"
-										? payload.status
-										: "failed",
-								enqueued_at:
-									typeof payload.enqueued_at === "string"
-										? payload.enqueued_at
-										: new Date().toISOString(),
-								image_uid: imageUid ?? undefined,
-								endTime: new Date(),
-								startTime: new Date()
-							} as UiJob;
-						}
-
-						failedJobs = [removed, ...failedJobs].slice(0, 50);
-						stats.failedCount++;
-						stats.activeCount = activeJobs.length;
-
-						const topic = getTopicForJobType(
-							removed.type || removed.topic || "unknown"
-						);
-						runningByTopic[topic] = Math.max(
-							0,
-							(runningByTopic[topic] || 0) - 1
-						);
-						break;
-					}
-				}
-			},
-			(err) => {
-				console.error("WebSocket error:", err);
-				connected = false;
-				showMessage("WebSocket connection error", "error");
-			},
-			() => (connected = true),
-			(code: number, reason: string) => {
-				connected = false;
-				// not a normal closure (1000), going away (1001) or (1005)
-				if (code !== 1000 && code !== 1001 && code !== 1005) {
-					showMessage(`WebSocket disconnected (${code}): ${reason}`, "error");
-				}
-			}
-		);
-	}
-
-	function disconnectWS() {
-		if (wsClient) {
-			wsClient.close();
-			wsClient = null;
-			connected = false;
-		}
-	}
-
-	let statsSyncInterval: ReturnType<typeof setInterval> | null = null;
-
-	onMount(() => {
-		connectWS();
-		void loadJobStats();
-		void fetchJobTypes();
-		statsSyncInterval = setInterval(() => void loadJobStats(), 10000);
-	});
-
-	onDestroy(() => {
-		disconnectWS();
-		if (statsSyncInterval) {
-			clearInterval(statsSyncInterval);
-			statsSyncInterval = null;
-		}
-	});
+	import IconButton from "$lib/components/IconButton.svelte";
+	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
+	import { jobsState } from "$lib/states/jobs.svelte";
 
 	function formatDuration(start: Date, end: Date) {
 		const ms = end.getTime() - start.getTime();
@@ -385,188 +13,9 @@
 		return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 	}
 
-	async function loadJobStats() {
-		try {
-			const res = await getJobStats();
-			if (res.status === 200) {
-				const d = res.data as Record<string, unknown> | undefined;
-				runningByTopic =
-					d && typeof d.running_by_topic === "object"
-						? (d.running_by_topic as Record<string, number>)
-						: {};
-				queuedByTopic =
-					d && typeof d.queued_by_topic === "object"
-						? (d.queued_by_topic as Record<string, number>)
-						: {};
-			}
-		} catch (e) {
-			console.warn("Failed to load job stats:", e);
-		}
-	}
-
-	async function fetchJobTypes() {
-		workers.loading = true;
-		try {
-			const res = await listAvailableWorkers();
-			if (res.status === 200) {
-				const d = res.data;
-				workers.types = Array.isArray(d.items) ? (d.items as WorkerInfo[]) : [];
-				workers.types.forEach((job) => {
-					if (!workers.concurrency[job.name]) {
-						workers.concurrency[job.name] = job.concurrency || 5;
-					}
-				});
-			} else {
-				showMessage("Failed to fetch job types", "error");
-			}
-		} catch (e) {
-			showMessage("Error fetching job types: " + getErrorMessage(e), "error");
-		} finally {
-			workers.loading = false;
-		}
-	}
-
-	async function rescanAll(jobId: string) {
-		try {
-			const res = await createJob({ type: jobId, command: "all" });
-			if (res.status === 202) {
-				toastState.addToast({
-					message: res.data.message || `Rescan all for ${jobId} started`,
-					type: "success"
-				});
-
-				const count = getCountFromResData(res.data);
-				if (count > 0) {
-					const topic = getTopicForJobType(jobId);
-					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
-				}
-			} else {
-				toastState.addToast({
-					message: `Failed to start rescan all for ${jobId}`,
-					type: "error"
-				});
-			}
-		} catch (e) {
-			toastState.addToast({
-				message: "Error starting rescan: " + getErrorMessage(e),
-				type: "error"
-			});
-		}
-	}
-
-	async function rescanMissing(jobId: string) {
-		try {
-			const res = await createJob({ type: jobId, command: "missing" });
-			if (res.status === 202) {
-				toastState.addToast({
-					message: res.data.message || `Rescan missing for ${jobId} started`,
-					type: "success"
-				});
-				const count = getCountFromResData(res.data);
-				if (count > 0) {
-					const topic = getTopicForJobType(jobId);
-					queuedByTopic[topic] = (queuedByTopic[topic] || 0) + count;
-				}
-			} else {
-				toastState.addToast({
-					message: `Failed to start rescan missing for ${jobId}`,
-					type: "error"
-				});
-			}
-		} catch (e) {
-			toastState.addToast({
-				message: "Error starting rescan: " + getErrorMessage(e),
-				type: "error"
-			});
-		}
-	}
-
-	async function setWorkerConcurrency(jobId: string, value: number) {
-		// Optimistically update UI, then persist to server
-		workers.concurrency[jobId] = value;
-		try {
-			const res = await updateJobTypeConcurrency(jobId, { concurrency: value });
-			if (res.status === 200) {
-				toastState.addToast({
-					message: `Concurrency for ${jobId} set to ${value}`,
-					type: "success"
-				});
-			} else {
-				// On failure, notify and refresh available job types to sync UI
-				toastState.addToast({
-					message: `Failed to update concurrency for ${jobId}`,
-					type: "error"
-				});
-				await fetchJobTypes();
-			}
-		} catch (e) {
-			toastState.addToast({
-				message: "Error updating concurrency: " + getErrorMessage(e),
-				type: "error"
-			});
-			await fetchJobTypes();
-		}
-	}
-
-	// Bootstrap using server snapshot
-	async function bootstrapState() {
-		const snap = await getJobsSnapshot();
-		if (snap.status === 200) {
-			const d = snap.data as Record<string, unknown> | undefined;
-			runningByTopic =
-				d && typeof d.running_by_topic === "object"
-					? (d.running_by_topic as Record<string, number>)
-					: {};
-			queuedByTopic =
-				d && typeof d.queued_by_topic === "object"
-					? (d.queued_by_topic as Record<string, number>)
-					: {};
-			// fucking hell
-			if (Array.isArray(d?.active)) {
-				activeJobs = (d!.active as unknown[]).map((a) => {
-					if (a && typeof a === "object") {
-						const obj = a as Record<string, unknown>;
-						return {
-							uid: obj.id ? String(obj.id) : String(Math.random()).slice(2),
-							type: typeof obj.topic === "string" ? obj.topic : "unknown",
-							topic:
-								typeof obj.topic === "string"
-									? obj.topic
-									: typeof obj.type === "string"
-										? obj.type
-										: "unknown",
-							status: typeof obj.status === "string" ? obj.status : "running",
-							enqueued_at:
-								typeof obj.enqueued_at === "string"
-									? obj.enqueued_at
-									: new Date().toISOString(),
-							startTime: new Date()
-						} as UiJob;
-					}
-					return {
-						uid: String(a),
-						type: String(a),
-						topic: String(a),
-						status: "running",
-						enqueued_at: new Date().toISOString(),
-						startTime: new Date()
-					} as UiJob;
-				});
-			} else {
-				activeJobs = [];
-			}
-			stats.activeCount = activeJobs.length;
-		}
-
-		// establish simple cursor
-		const since = await getEventsSince({ cursor: lastCursor, limit: 1 });
-		if (since.status === 200) {
-			const nc = Number(since.data.nextCursor) ?? 0;
-			if (nc && nc > lastCursor) {
-				lastCursor = nc;
-			}
-		}
-	}
+	onMount(() => {
+		void jobsState.init();
+	});
 </script>
 
 <svelte:head>
@@ -578,414 +27,419 @@
 	description="Monitor and manage background jobs"
 >
 	{#snippet actions()}
-		<div class="connection-status" class:connected>
+		<div class="connection-status" class:connected={jobsState.connected}>
 			<span class="status-dot"></span>
-			{connected ? "WebSocket Connected" : "WebSocket Disconnected"}
+			<span class="status-text">
+				{jobsState.connected ? "WebSocket Connected" : "WebSocket Disconnected"}
+			</span>
+
+			<div class="status-action">
+				{#if jobsState.connected}
+					<IconButton
+						iconName="link_off"
+						variant="small"
+						onclick={() => jobsState.disconnectWS()}
+						class="btn-header-action disconnect"
+					>
+						Go Offline
+					</IconButton>
+				{:else}
+					<IconButton
+						iconName="link"
+						variant="small"
+						onclick={() => jobsState.connectWS()}
+						class="btn-header-action connect"
+					>
+						Go Online
+					</IconButton>
+				{/if}
+			</div>
 		</div>
 	{/snippet}
 
-	<div class="jobs-grid">
-		<!-- Controls Section -->
-		<section class="content-section">
-			<div class="controls-grid">
-				{#if connected}
-					<Button onclick={disconnectWS} class="control-button">
-						<MaterialIcon class="material-icon-btn" iconName="link_off" />
-						Disconnect WebSocket
-					</Button>
+	<div class="jobs-dashboard">
+		<div class="side-column">
+			<!-- Job Types Management -->
+			<section class="dashboard-section workers-section">
+				<div class="section-header-compact">
+					<h3>Available Workers</h3>
+					<IconButton
+						iconName="refresh"
+						variant="small"
+						onclick={() => jobsState.fetchJobTypes()}
+						disabled={jobsState.workers.loading}
+					></IconButton>
+				</div>
+
+				{#if jobsState.workers.loading}
+					<div class="side-loading">
+						<div class="spinner-small"></div>
+						<span>Updating registry...</span>
+					</div>
 				{:else}
-					<Button onclick={connectWS} class="control-button">
-						<MaterialIcon class="material-icon-btn" iconName="link" />
-						Connect WebSocket
-					</Button>
+					<div class="job-types-list">
+						{#each jobsState.workers.types as job}
+							<div class="worker-card">
+								<div class="worker-header">
+									<div class="worker-id">
+										<span class="worker-name"
+											>{jobsState.getTopicForJobType(job.name)}</span
+										>
+										<span
+											class="worker-dot {(jobsState.runningByTopic[
+												jobsState.getTopicForJobType(job.name)
+											] || 0) > 0
+												? 'active'
+												: 'idle'}"
+										></span>
+									</div>
+									<div class="worker-stats">
+										<span class="stat-badge running" title="Active">
+											{jobsState.runningByTopic[
+												jobsState.getTopicForJobType(job.name)
+											] || 0}
+										</span>
+										<span class="stat-badge queued" title="Queued">
+											{jobsState.queuedByTopic[
+												jobsState.getTopicForJobType(job.name)
+											] || 0}
+										</span>
+									</div>
+								</div>
+
+								<div class="worker-actions">
+									<IconButton
+										iconName="refresh"
+										variant="small"
+										onclick={() => jobsState.rescanAll(job.name)}
+										title="Rescan All"
+									></IconButton>
+									<IconButton
+										iconName="search"
+										variant="small"
+										onclick={() => jobsState.rescanMissing(job.name)}
+										title="Rescan Missing"
+									></IconButton>
+								</div>
+
+								<div class="concurrency-row">
+									<span class="concurrency-label">Concurrency</span>
+									<div class="concurrency-input">
+										<button
+											class="step-btn"
+											onclick={() =>
+												jobsState.setWorkerConcurrency(
+													job.name,
+													Math.max(
+														1,
+														(jobsState.workers.concurrency[job.name] || 5) - 1
+													)
+												)}>-</button
+										>
+										<span class="step-value"
+											>{jobsState.workers.concurrency[job.name] || 5}</span
+										>
+										<button
+											class="step-btn"
+											onclick={() =>
+												jobsState.setWorkerConcurrency(
+													job.name,
+													Math.min(
+														50,
+														(jobsState.workers.concurrency[job.name] || 5) + 1
+													)
+												)}>+</button
+										>
+									</div>
+								</div>
+							</div>
+						{/each}
+					</div>
 				{/if}
-			</div>
-		</section>
-		<!-- Job Types Management -->
-		<section class="content-section">
-			<div class="section-header">
-				<h2>Job Types</h2>
-				<Button onclick={fetchJobTypes} disabled={workers.loading}>
-					<MaterialIcon class="material-icon-btn" iconName="refresh" />
-					Refresh
-				</Button>
-			</div>
-			{#if workers.loading}
-				<div class="loading">Loading job types...</div>
-			{:else if workers.types.length === 0}
-				<div class="empty-state">No job types available</div>
-			{:else}
-				<div class="job-types-grid">
-					{#each workers.types as job}
-						<div class="job-type-card">
-							<div class="job-type-header">
-								<div class="job-type-info">
-									<h3>{getTopicForJobType(job.name)}</h3>
-									<span
-										class="job-type-status status-{(runningByTopic[
-											getTopicForJobType(job.name)
-										] || 0) > 0
-											? 'running'
-											: 'idle'}"
-										>{(runningByTopic[getTopicForJobType(job.name)] || 0) > 0
-											? "running"
-											: "idle"}</span
-									>
-								</div>
-								<div class="job-type-stats">
-									<div class="stat-item-small">
-										<span class="stat-label-small">Active:</span>
-										<span class="stat-value-small"
-											>{runningByTopic[getTopicForJobType(job.name)] || 0}</span
-										>
-									</div>
-									<div class="stat-item-small">
-										<span class="stat-label-small">Waiting:</span>
-										<span class="stat-value-small"
-											>{queuedByTopic[getTopicForJobType(job.name)] || 0}</span
-										>
-									</div>
-								</div>
-							</div>
+			</section>
+		</div>
 
-							<div class="job-type-controls">
-								<div class="control-row-small">
-									<Button
-										class="btn-rescan"
-										onclick={() => rescanAll(job.name)}
-									>
-										<MaterialIcon
-											class="material-icon-btn"
-											iconName="refresh"
-										/>
-										<span>Rescan All</span>
-									</Button>
-									<Button
-										class="btn-missing"
-										onclick={() => rescanMissing(job.name)}
-									>
-										<MaterialIcon class="material-icon-btn" iconName="search" />
-										<span>Rescan Missing</span>
-									</Button>
-								</div>
-							</div>
-							<div class="concurrency-control-small">
-								<label for="concurrency-{job.name}">
-									<MaterialIcon class="material-icon-btn" iconName="tune" />
-									<span>Concurrency:</span>
-								</label>
-								<div class="number-input-wrapper">
-									<input
-										id="concurrency-{job.name}"
-										type="number"
-										min="1"
-										max="20"
-										value={workers.concurrency[job.name] || 5}
-										oninput={(e) =>
-											setWorkerConcurrency(
-												job.name,
-												parseInt((e.target as HTMLInputElement).value)
-											)}
-									/>
-									<div class="spinner-buttons">
-										<button
-											type="button"
-											class="spinner-btn spinner-up"
-											onclick={() => {
-												const currentVal = workers.concurrency[job.name] || 5;
-												if (currentVal < 20)
-													setWorkerConcurrency(job.name, currentVal + 1);
-											}}
-										>
-											<MaterialIcon
-												class="material-icon-btn"
-												iconName="keyboard_arrow_up"
-											/>
-										</button>
-										<button
-											type="button"
-											class="spinner-btn spinner-down"
-											onclick={() => {
-												const currentVal = workers.concurrency[job.name] || 5;
-												if (currentVal > 1)
-													setWorkerConcurrency(job.name, currentVal - 1);
-											}}
-										>
-											<MaterialIcon
-												class="material-icon-btn"
-												iconName="keyboard_arrow_down"
-											/>
-										</button>
-									</div>
-								</div>
-							</div>
+		<div class="main-column">
+			<!-- Statistics -->
+			<section class="dashboard-section stats-section">
+				<div class="stats-grid">
+					<div class="stat-card active" in:fade>
+						<div class="stat-icon">
+							<MaterialIcon iconName="pending" />
 						</div>
-					{/each}
+						<div class="stat-content">
+							<span class="stat-value">{jobsState.stats.activeCount}</span>
+							<span class="stat-label">Active Jobs</span>
+						</div>
+					</div>
+					<div class="stat-card completed" in:fade={{ delay: 100 }}>
+						<div class="stat-icon">
+							<MaterialIcon iconName="check_circle" />
+						</div>
+						<div class="stat-content">
+							<span class="stat-value">{jobsState.stats.completedCount}</span>
+							<span class="stat-label">Completed</span>
+						</div>
+					</div>
+					<div class="stat-card failed" in:fade={{ delay: 200 }}>
+						<div class="stat-icon">
+							<MaterialIcon iconName="error" />
+						</div>
+						<div class="stat-content">
+							<span class="stat-value">{jobsState.stats.failedCount}</span>
+							<span class="stat-label">Failed</span>
+						</div>
+					</div>
+					<div class="stat-card total" in:fade={{ delay: 300 }}>
+						<div class="stat-icon">
+							<MaterialIcon iconName="analytics" />
+						</div>
+						<div class="stat-content">
+							<span class="stat-value">{jobsState.stats.totalProcessed}</span>
+							<span class="stat-label">Total Processed</span>
+						</div>
+					</div>
 				</div>
-			{/if}
-		</section>
+			</section>
 
-		<!-- Statistics -->
-		<section class="content-section">
-			<div class="stats-grid">
-				<div class="stat-card active">
-					<MaterialIcon class="material-icon-btn" iconName="pending" />
-					<div class="stat-content">
-						<span class="stat-value">{stats.activeCount}</span>
-						<span class="stat-label">Active</span>
-					</div>
-				</div>
-				<div class="stat-card completed">
-					<MaterialIcon class="material-icon-btn" iconName="check_circle" />
-					<div class="stat-content">
-						<span class="stat-value">{stats.completedCount}</span>
-						<span class="stat-label">Completed</span>
-					</div>
-				</div>
-				<div class="stat-card failed">
-					<MaterialIcon class="material-icon-btn" iconName="error" />
-					<div class="stat-content">
-						<span class="stat-value">{stats.failedCount}</span>
-						<span class="stat-label">Failed</span>
-					</div>
-				</div>
-				<div class="stat-card total">
-					<MaterialIcon class="material-icon-btn" iconName="analytics" />
-					<div class="stat-content">
-						<span class="stat-value">{stats.totalProcessed}</span>
-						<span class="stat-label">Total Processed</span>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<!-- Active Jobs -->
-		{#if activeJobs.length > 0}
-			<section class="content-section">
+			<!-- Active Jobs -->
+			<section class="dashboard-section prominent">
 				<div class="section-header">
-					<h2>Active Jobs</h2>
-					<span class="badge">{activeJobs.length}</span>
+					<div class="header-title">
+						<MaterialIcon iconName="bolt" class="title-icon highlight" />
+						<h2>Realtime Processing</h2>
+					</div>
+					<span class="badge highlight">{jobsState.activeJobs.length}</span>
 				</div>
-				<div class="jobs-list">
-					{#each activeJobs as job}
+
+				<div class="jobs-list active-list">
+					{#each jobsState.activeJobs as job (job.uid)}
 						<div class="job-card active">
-							<div class="job-header">
+							<div class="job-card-main">
 								<div class="job-info">
-									<MaterialIcon class="material-icon-btn" iconName="image" />
-									<div>
-										<div class="job-title">
+									<div class="job-icon-wrapper">
+										<MaterialIcon iconName="image" />
+									</div>
+									<div class="job-details">
+										<div
+											class="job-title"
+											title={job.filename || job.image_uid || job.uid}
+										>
 											{job.filename || job.image_uid || job.uid}
 										</div>
 										<div class="job-meta">
-											{job.type || job.topic} • Started {job.startTime
-												? new Date(job.startTime).toLocaleTimeString()
-												: ""}
+											<span class="job-type-tag">{job.type || job.topic}</span>
+											<span class="separator">•</span>
+											<span class="job-time">
+												Started {job.startTime
+													? job.startTime.toLocaleTimeString()
+													: "just now"}
+											</span>
 										</div>
 									</div>
 								</div>
-								<div class="job-progress-value">{job.progress}%</div>
+								<div class="job-progress-section">
+									<div class="progress-info">
+										<span class="job-step">{job.step || "Initializing..."}</span
+										>
+										<span class="progress-value">{job.progress || 0}%</span>
+									</div>
+									<div class="progress-bar-container">
+										<div
+											class="progress-bar-fill"
+											style="width: {job.progress || 0}%"
+										>
+											<div class="progress-shimmer"></div>
+										</div>
+									</div>
+								</div>
 							</div>
-							<div class="progress-bar">
-								<div class="progress-fill" style="width: {job.progress}%"></div>
-							</div>
-							<div class="job-step">{job.step}</div>
 						</div>
 					{/each}
-				</div>
-			</section>
-		{/if}
 
-		<!-- Completed Jobs -->
-		{#if completedJobs.length > 0}
-			<section class="content-section">
-				<div class="section-header">
-					<h2>Completed Jobs</h2>
-					<span class="badge">{completedJobs.length}</span>
-				</div>
-				<div class="jobs-list">
-					{#each completedJobs.slice(0, 10) as job}
-						<div class="job-card completed">
-							<div class="job-header">
-								<div class="job-info">
-									<MaterialIcon
-										class="material-icon-btn"
-										iconName="check_circle"
-									/>
-									<div>
-										<div class="job-title">
-											{job.filename || job.image_uid || job.uid}
-										</div>
-										<div class="job-meta">
-											{job.type || job.topic} • {formatDuration(
-												new Date(job.startTime),
-												new Date(job.endTime ?? job.startTime)
-											)}
-										</div>
-									</div>
-								</div>
-								<span class="job-time"
-									>{job.endTime
-										? new Date(job.endTime).toLocaleTimeString()
-										: ""}</span
-								>
-							</div>
+					{#if jobsState.activeJobs.length === 0}
+						<div class="empty-state-placeholder">
+							<MaterialIcon iconName="magic_button" class="empty-icon" />
+							<p>No active jobs at the moment</p>
 						</div>
-					{/each}
+					{/if}
 				</div>
 			</section>
-		{/if}
 
-		<!-- Failed Jobs -->
-		{#if failedJobs.length > 0}
-			<section class="content-section">
-				<div class="section-header error">
-					<h2>Failed Jobs</h2>
-					<span class="badge error">{failedJobs.length}</span>
-				</div>
-				<div class="jobs-list">
-					{#each failedJobs.slice(0, 10) as job}
-						<div class="job-card failed">
-							<div class="job-header">
-								<div class="job-info">
-									<MaterialIcon class="material-icon-btn" iconName="error" />
-									<div>
-										<div class="job-title">
-											{job.filename || job.image_uid || job.uid}
-										</div>
-										<div class="job-meta error">
-											{job.error || job.error_msg}
-										</div>
-									</div>
-								</div>
-								<span class="job-time"
-									>{job.endTime
-										? new Date(job.endTime).toLocaleTimeString()
-										: ""}</span
-								>
-							</div>
+			<div class="history-grid">
+				<!-- Completed Jobs -->
+				<section class="dashboard-section history-section">
+					<div class="section-header">
+						<div class="header-title">
+							<MaterialIcon iconName="history" />
+							<h3>Recent Success</h3>
 						</div>
-					{/each}
-				</div>
-			</section>
-		{/if}
+					</div>
+					<div class="jobs-list mini-list">
+						{#each jobsState.completedJobs.slice(0, 8) as job (job.uid)}
+							<div class="mini-job-card success">
+								<MaterialIcon iconName="check_circle" class="status-icon" />
+								<div class="mini-job-info">
+									<span class="mini-job-title"
+										>{job.filename || job.image_uid || job.uid}</span
+									>
+									<span class="mini-job-meta">
+										{formatDuration(
+											new Date(job.startTime),
+											new Date(job.endTime ?? job.startTime)
+										)}
+									</span>
+								</div>
+							</div>
+						{/each}
+						{#if jobsState.completedJobs.length === 0}
+							<div class="mini-empty">No history yet</div>
+						{/if}
+					</div>
+				</section>
+
+				<!-- Failed Jobs -->
+				<section class="dashboard-section history-section">
+					<div class="section-header">
+						<div class="header-title">
+							<MaterialIcon iconName="running_with_errors" class="error-text" />
+							<h3>Recent Failures</h3>
+						</div>
+					</div>
+					<div class="jobs-list mini-list">
+						{#each jobsState.failedJobs.slice(0, 8) as job (job.uid)}
+							<div class="mini-job-card failure">
+								<MaterialIcon iconName="error" class="status-icon" />
+								<div class="mini-job-info">
+									<span class="mini-job-title"
+										>{job.filename || job.image_uid || job.uid}</span
+									>
+									<span class="mini-job-error" title={job.error}
+										>{job.error || "Unknown error"}</span
+									>
+								</div>
+							</div>
+						{/each}
+						{#if jobsState.failedJobs.length === 0}
+							<div class="mini-empty">System stable</div>
+						{/if}
+					</div>
+				</section>
+			</div>
+		</div>
 	</div>
 </AdminRouteShell>
 
 <style lang="scss">
-	/* Page header styles removed */
+	.jobs-dashboard {
+		display: grid;
+		grid-template-columns: 20rem 1fr;
+		gap: 1.5rem;
+		align-items: start;
 
-	.jobs-grid {
+		@media (max-width: 64rem) {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.main-column {
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
 	}
 
-	.connection-status {
+	.side-column {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--imag-80);
-		border-radius: 0.5rem;
-		background: var(--imag-90);
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--imag-40);
-		width: fit-content;
-
-		.status-dot {
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: var(--imag-60);
-		}
-
-		&.connected {
-			background: rgba(16, 185, 129, 0.1);
-			color: #10b981;
-
-			.status-dot {
-				background: #10b981;
-				animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-			}
-		}
+		flex-direction: column;
+		gap: 1.5rem;
+		position: sticky;
+		top: 1.5rem;
 	}
 
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
-	}
-
-	.content-section {
+	.dashboard-section {
 		background: var(--imag-100);
-		border-radius: 12px;
+		border-radius: 1rem;
 		padding: 1.5rem;
 		border: 1px solid var(--imag-90);
+		contain: layout;
+
+		&.stats-section {
+			min-height: 7rem;
+		}
+
+		&.prominent {
+			height: 35rem; // Fixed height to prevent layout shifts
+			display: flex;
+			flex-direction: column;
+		}
+
+		&.history-section {
+			height: 28rem; // Fixed height
+			display: flex;
+			flex-direction: column;
+		}
+
+		&.workers-section {
+			min-height: 20rem;
+		}
 	}
 
 	.section-header {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		margin-bottom: 1.25rem;
+		justify-content: space-between;
+		margin-bottom: 1.5rem;
+		flex-shrink: 0;
 
-		h2 {
-			margin: 0;
-			font-size: 1.25rem;
-			font-weight: 600;
+		.header-title {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+
+			h2 {
+				margin: 0;
+				font-size: 1.25rem;
+				font-weight: 700;
+				color: var(--imag-text-color);
+			}
+
+			:global(.title-icon) {
+				font-size: 1.5rem;
+			}
 		}
+	}
 
-		&.error h2 {
-			color: var(--imag-error-color);
+	.section-header-compact {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 1rem;
+
+		h3 {
+			margin: 0;
+			font-size: 1rem;
+			font-weight: 600;
+			color: var(--imag-text-color);
 		}
 	}
 
 	.badge {
-		padding: 0.25rem 0.625rem;
+		padding: 0.25rem 0.75rem;
 		background: var(--imag-80);
-		border-radius: 12px;
+		border-radius: 1.25rem;
 		font-size: 0.875rem;
-		font-weight: 600;
+		font-weight: 700;
 		color: var(--imag-text-color);
 
-		&.error {
-			background: #fee2e2;
-			color: #991b1b;
-		}
-	}
-
-	.controls-grid {
-		display: flex;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	:global(.control-button) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.875rem 1.25rem;
-		border-radius: 8px;
-		font-size: 0.95rem;
-		font-weight: 500;
-		background-color: var(--imag-80);
-		color: var(--imag-text-color);
-		transition: background-color 0.2s;
-
-		&:hover {
-			background-color: var(--imag-70);
+		&.highlight {
+			background: var(--imag-primary);
+			color: white;
 		}
 	}
 
 	.stats-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 		gap: 1rem;
 	}
 
@@ -993,66 +447,28 @@
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		padding: 1.25rem;
+		padding: 1rem;
 		background: var(--imag-90);
-		border-radius: 12px;
-		border: 2px solid var(--imag-80);
-		transition: border-color 0.2s;
+		border-radius: 0.75rem;
+		border: 1px solid var(--imag-80);
+		transition:
+			border-color 0.2s,
+			background-color 0.2s;
 
 		&:hover {
 			border-color: var(--imag-70);
+			background-color: var(--imag-80);
 		}
 
-		&.active {
-			border-color: #d97706;
-			background: rgba(217, 119, 6, 0.1);
-			color: #d97706;
-
-			.stat-value {
-				color: #d97706;
-			}
-
-			.stat-label {
-				color: #b45309;
-			}
-		}
-
-		&.completed {
-			border-color: #059669;
-			background: rgba(5, 150, 105, 0.1);
-			color: #059669;
-
-			.stat-value {
-				color: #059669;
-			}
-
-			.stat-label {
-				color: #047857;
-			}
-		}
-
-		&.failed {
-			border-color: #dc2626;
-			background: rgba(220, 38, 38, 0.1);
-			color: #dc2626;
-
-			.stat-value {
-				color: #dc2626;
-			}
-
-			.stat-label {
-				color: #b91c1c;
-			}
-		}
-
-		&.total {
-			.stat-value {
-				color: var(--imag-text-color);
-			}
-
-			.stat-label {
-				color: var(--imag-40);
-			}
+		.stat-icon {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 3rem;
+			height: 3rem;
+			border-radius: 0.75rem;
+			background: var(--imag-80);
+			color: var(--imag-text-color);
 		}
 
 		.stat-content {
@@ -1061,332 +477,542 @@
 		}
 
 		.stat-value {
-			font-size: 2rem;
-			font-weight: 700;
-			line-height: 1;
-			color: var(--imag-text-color);
+			font-size: 1.5rem;
+			font-weight: 800;
+			line-height: 1.2;
 		}
 
 		.stat-label {
-			font-size: 0.875rem;
+			font-size: 0.75rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
 			color: var(--imag-40);
-			margin-top: 0.25rem;
+		}
+
+		&.active {
+			background: linear-gradient(
+				135deg,
+				rgba(var(--imag-primary-rgb), 0.1) 0%,
+				transparent 100%
+			);
+			border: 1px solid rgba(var(--imag-primary-rgb), 0.2);
+
+			&:hover {
+				background: rgba(var(--imag-primary-rgb), 0.15);
+				border-color: var(--imag-primary);
+			}
+
+			.stat-icon {
+				background: var(--imag-primary);
+				color: white;
+			}
+			.stat-value {
+				color: var(--imag-primary);
+			}
+		}
+
+		&.completed {
+			&:hover {
+				background: rgba(16, 185, 129, 0.05);
+				border-color: #10b981;
+			}
+			.stat-icon {
+				background: #10b981;
+				color: white;
+			}
+			.stat-value {
+				color: #10b981;
+			}
+		}
+
+		&.failed {
+			&:hover {
+				background: rgba(220, 38, 38, 0.05);
+				border-color: var(--imag-error-color);
+			}
+			.stat-icon {
+				background: var(--imag-error-color);
+				color: white;
+			}
+			.stat-value {
+				color: var(--imag-error-color);
+			}
 		}
 	}
 
 	.jobs-list {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.75rem;
+		flex: 1;
+		overflow-y: auto;
+		padding-right: 0.5rem;
+		min-height: 0; // Crucial for flexbox children with overflow
 	}
 
 	.job-card {
-		padding: 1.25rem;
-		background: var(--imag-100);
-		border-radius: 12px;
-		border-left: 4px solid var(--imag-80);
+		background: var(--imag-90);
+		border-radius: 0.75rem;
+		overflow: hidden;
+		border: 1px solid var(--imag-80);
+		flex-shrink: 0;
 
 		&.active {
-			border-left-color: #fbbf24;
+			border-left: 0.25rem solid var(--imag-primary);
 		}
 
-		&.completed {
-			border-left-color: #10b981;
+		.job-card-main {
+			padding: 1.25rem;
 		}
-
-		&.failed {
-			border-left-color: #ef4444;
-		}
-	}
-
-	.job-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.75rem;
 	}
 
 	.job-info {
 		display: flex;
 		align-items: center;
-		gap: 0.875rem;
-	}
+		gap: 1rem;
+		margin-bottom: 1rem;
 
-	.job-title {
-		font-weight: 600;
-		font-size: 0.95rem;
-	}
+		.job-icon-wrapper {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 2.5rem;
+			height: 2.5rem;
+			background: var(--imag-80);
+			border-radius: 0.625rem;
+			color: var(--imag-primary);
+		}
 
-	.job-meta {
-		font-size: 0.825rem;
-		color: var(--imag-40);
-		margin-top: 0.25rem;
+		.job-details {
+			flex: 1;
+			min-width: 0;
 
-		&.error {
-			color: #991b1b;
+			.job-title {
+				font-weight: 700;
+				font-size: 1rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				color: var(--imag-text-color);
+			}
+
+			.job-meta {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				font-size: 0.75rem;
+				color: var(--imag-40);
+
+				.job-type-tag {
+					background: var(--imag-80);
+					padding: 0.125rem 0.5rem;
+					border-radius: 0.25rem;
+					font-weight: 600;
+					text-transform: uppercase;
+				}
+			}
 		}
 	}
 
-	.job-progress-value {
-		font-weight: 700;
-		font-size: 1.125rem;
-		color: var(--imag-primary);
+	.job-progress-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+
+		.progress-info {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			font-size: 0.875rem;
+
+			.job-step {
+				font-weight: 600;
+				color: var(--imag-text-color);
+			}
+
+			.progress-value {
+				font-weight: 800;
+				color: var(--imag-primary);
+			}
+		}
 	}
 
-	.progress-bar {
-		height: 8px;
-		background: var(--imag-90);
-		border-radius: 4px;
+	.progress-bar-container {
+		height: 0.625rem;
+		background: var(--imag-80);
+		border-radius: 0.3125rem;
 		overflow: hidden;
-		margin-bottom: 0.5rem;
+		position: relative;
 	}
 
-	.progress-fill {
+	.progress-bar-fill {
 		height: 100%;
+		background: var(--imag-primary);
+		border-radius: 0.3125rem;
+		transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.progress-shimmer {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background: linear-gradient(
 			90deg,
-			var(--imag-primary),
-			var(--imag-accent-color)
+			transparent 0%,
+			rgba(255, 255, 255, 0.2) 50%,
+			transparent 100%
 		);
-		transition: width 0.3s ease;
+		animation: shimmer 2s infinite linear;
 	}
 
-	.job-step {
-		font-size: 0.825rem;
-		color: var(--imag-40);
-	}
-
-	.job-time {
-		font-size: 0.825rem;
-		color: var(--imag-40);
-	}
-
-	.loading,
-	.empty-state {
-		text-align: center;
-		padding: 2rem;
-		color: var(--imag-40);
-	}
-
-	.job-types-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-		gap: 1rem;
-	}
-
-	.job-type-card {
-		background: var(--imag-100);
-		border-radius: 12px;
-		border: 2px solid var(--imag-80);
-		box-shadow: 0 1px 0 0 var(--imag-90) inset;
-		padding: 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.job-type-header {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.job-type-info {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-
-		h3 {
-			margin: 0;
-			font-size: 1.125rem;
-			font-weight: 600;
-			color: var(--imag-text-color);
+	@keyframes shimmer {
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(100%);
 		}
 	}
 
-	.job-type-stats {
-		display: flex;
-		gap: 1.5rem;
-	}
-
-	.stat-item-small {
-		display: flex;
-		gap: 0.5rem;
-		font-size: 0.875rem;
-
-		.stat-label-small {
-			color: var(--imag-40);
-			font-weight: 500;
-		}
-
-		.stat-value-small {
-			color: var(--imag-text-color);
-			font-weight: 600;
-		}
-	}
-
-	.job-type-controls {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.control-row-small {
+	.history-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 0.5rem;
+		gap: 1.5rem;
+		contain: layout;
 
-		:global(button) {
-			padding: 0.625rem 0.875rem;
-			font-size: 0.875rem;
-			border-radius: 6px;
-			background-color: var(--imag-80);
-			color: var(--imag-text-color);
-			transition: background-color 0.2s;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 0.375rem;
-
-			&:hover {
-				background-color: var(--imag-70);
-			}
+		@media (max-width: 48rem) {
+			grid-template-columns: 1fr;
 		}
 	}
 
-	:global(.btn-start) {
-		background: var(--imag-primary) !important;
-		color: #fff !important;
-		border: 1px solid color-mix(in oklab, var(--imag-primary), #000 15%);
-	}
-	:global(.btn-start:hover) {
-		background: color-mix(in oklab, var(--imag-primary), #000 12%);
-	}
-
-	:global(.btn-stop) {
-		background: #7f1d1d !important;
-		border: 1px solid #dc2626;
-		color: #fee2e2 !important;
-	}
-	:global(.btn-stop:hover) {
-		background: #991b1b !important;
+	.history-section {
+		h3 {
+			margin: 0;
+			font-size: 0.9rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: var(--imag-40);
+			flex-shrink: 0;
+		}
 	}
 
-	:global(.btn-full-width) {
-		grid-column: 1 / -1;
-	}
-
-	:global(.btn-rescan) {
-		background: #1e3a8a !important;
-		border: 1px solid #3b82f6;
-		color: #dbeafe !important;
-		white-space: nowrap;
-	}
-	:global(.btn-rescan:hover) {
-		background: #1d4ed8 !important;
-	}
-
-	:global(.btn-missing) {
-		background: #064e3b !important;
-		border: 1px solid #059669;
-		color: #d1fae5 !important;
-		white-space: nowrap;
-	}
-	:global(.btn-missing:hover) {
-		background: #065f46 !important;
-	}
-
-	.concurrency-control-small {
+	.mini-job-card {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.75rem;
 		padding: 0.75rem;
 		background: var(--imag-90);
-		border-radius: 0.5rem;
+		border-radius: 0.625rem;
+		border: 1px solid var(--imag-80);
+		flex-shrink: 0;
+		transition:
+			border-color 0.2s,
+			background-color 0.2s;
 
-		label {
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-			font-size: 0.9rem;
-			font-weight: 500;
-			color: var(--imag-text-color);
-			white-space: nowrap;
+		&:hover {
+			border-color: var(--imag-70);
+			background-color: var(--imag-80);
 		}
 
-		.number-input-wrapper {
-			position: relative;
-			display: flex;
-			align-items: stretch;
+		:global(.status-icon) {
+			font-size: 1.25rem;
 		}
 
-		input {
-			padding: 0.5rem 0.5rem 0.5rem 0.75rem;
-			border: 1px solid var(--imag-80);
-			border-radius: 0.4rem 0 0 0.4rem;
-			background: var(--imag-100);
-			color: var(--imag-text-color);
-			font-size: 0.9rem;
-			width: 3.5rem;
-			text-align: center;
-
-			&:focus {
-				outline: none;
-				border-color: var(--imag-primary);
-				z-index: 1;
-			}
-
-			/* Hide native spinner */
-			&::-webkit-outer-spin-button,
-			&::-webkit-inner-spin-button {
-				-webkit-appearance: none;
-				margin: 0;
-			}
-
-			&[type="number"] {
-				-moz-appearance: textfield;
-				appearance: textfield;
-				opacity: 1;
-			}
-		}
-
-		.spinner-buttons {
+		.mini-job-info {
 			display: flex;
 			flex-direction: column;
-			border: 1px solid var(--imag-80);
-			border-left: none;
-			border-radius: 0 0.4rem 0.4rem 0;
-			overflow: hidden;
+			min-width: 0;
+
+			.mini-job-title {
+				font-size: 0.8125rem;
+				font-weight: 600;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.mini-job-meta,
+			.mini-job-error {
+				font-size: 0.75rem;
+				color: var(--imag-40);
+			}
+
+			.mini-job-error {
+				color: var(--imag-error-color);
+				font-style: italic;
+			}
 		}
 
-		.spinner-btn {
+		&.success {
+			:global(.status-icon) {
+				color: #10b981;
+			}
+		}
+
+		&.failure {
+			:global(.status-icon) {
+				color: var(--imag-error-color);
+			}
+		}
+	}
+
+	:global(.btn-connect),
+	:global(.btn-disconnect) {
+		width: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		font-weight: 700;
+	}
+
+	:global(.btn-connect) {
+		background: var(--imag-primary) !important;
+		color: white !important;
+	}
+	:global(.btn-disconnect) {
+		background: var(--imag-80) !important;
+		color: var(--imag-text-color) !important;
+	}
+
+	.job-types-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.worker-card {
+		background: var(--imag-90);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		border: 1px solid var(--imag-80);
+		transition: border-color 0.2s;
+
+		&:hover {
+			border-color: var(--imag-70);
+		}
+
+		.worker-header {
 			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			margin-bottom: 1rem;
+
+			.worker-id {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+
+				.worker-name {
+					font-weight: 700;
+					font-size: 0.9rem;
+				}
+
+				.worker-dot {
+					width: 0.5rem;
+					height: 0.5rem;
+					border-radius: 50%;
+
+					&.active {
+						background: #10b981;
+					}
+					&.idle {
+						background: var(--imag-60);
+					}
+				}
+			}
+
+			.worker-stats {
+				display: flex;
+				gap: 0.25rem;
+
+				.stat-badge {
+					padding: 0.125rem 0.375rem;
+					border-radius: 0.25rem;
+					font-size: 0.75rem;
+					font-weight: 700;
+
+					&.running {
+						background: rgba(var(--imag-primary-rgb), 0.2);
+						color: var(--imag-primary);
+					}
+					&.queued {
+						background: var(--imag-80);
+						color: var(--imag-40);
+					}
+				}
+			}
+		}
+
+		.worker-actions {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 0.5rem;
+			margin-bottom: 1rem;
+		}
+
+		.concurrency-row {
+			display: flex;
+			justify-content: space-between;
 			align-items: center;
-			justify-content: center;
-			width: 1.75rem;
-			height: 50%;
-			padding: 0;
-			background: var(--imag-90);
-			color: var(--imag-text-color);
-			border: none;
-			cursor: pointer;
-			transition: background-color 0.15s;
+			padding-top: 0.75rem;
+			border-top: 1px solid var(--imag-80);
 
-			&:hover {
+			.concurrency-label {
+				font-size: 0.75rem;
+				font-weight: 600;
+				color: var(--imag-40);
+			}
+
+			.concurrency-input {
+				display: flex;
+				align-items: center;
 				background: var(--imag-80);
-			}
+				border-radius: 0.375rem;
+				overflow: hidden;
 
-			&:active {
-				background: var(--imag-70);
-			}
+				.step-btn {
+					width: 1.5rem;
+					height: 1.5rem;
+					border: none;
+					background: transparent;
+					color: var(--imag-text-color);
+					cursor: pointer;
+					&:hover {
+						background: var(--imag-70);
+					}
+				}
 
-			:global(.material-icons) {
-				font-size: 1.1rem;
+				.step-value {
+					width: 2rem;
+					text-align: center;
+					font-size: 0.875rem;
+					font-weight: 700;
+				}
 			}
 		}
+	}
 
-		.spinner-up {
-			border-bottom: 1px solid var(--imag-70);
+	.connection-status {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.25rem 0.25rem 0.25rem 1rem;
+		border-radius: 1.875rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		background: var(--imag-90);
+		color: var(--imag-40);
+		border: 1px solid var(--imag-80);
+
+		.status-dot {
+			width: 0.5rem;
+			height: 0.5rem;
+			border-radius: 50%;
+			background: var(--imag-60);
 		}
+
+		.status-text {
+			flex: 1;
+		}
+
+		.status-action {
+			display: flex;
+		}
+
+		&.connected {
+			background: rgba(16, 185, 129, 0.1);
+			color: #10b981;
+			border-color: rgba(16, 185, 129, 0.3);
+
+			.status-dot {
+				background: #10b981;
+				animation: pulse 2s infinite;
+			}
+		}
+	}
+
+	@keyframes pulse {
+		0% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
+		100% {
+			opacity: 1;
+		}
+	}
+
+	.empty-state-placeholder {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		flex: 1;
+		color: var(--imag-40);
+		text-align: center;
+		padding: 2rem;
+		border: 2px dashed var(--imag-80);
+		border-radius: 0.75rem;
+		margin: 1rem 0;
+
+		:global(.empty-icon) {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+			opacity: 0.3;
+		}
+
+		p {
+			font-weight: 600;
+			margin: 0;
+			opacity: 0.5;
+		}
+	}
+
+	.mini-empty {
+		padding: 2rem;
+		text-align: center;
+		font-size: 0.75rem;
+		color: var(--imag-60);
+		font-style: italic;
+		border: 1px dashed var(--imag-80);
+		border-radius: 0.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.side-loading {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 2rem;
+		color: var(--imag-40);
+		font-size: 0.875rem;
+	}
+
+	.spinner-small {
+		width: 1rem;
+		height: 1rem;
+		border: 2px solid var(--imag-80);
+		border-top-color: var(--imag-primary);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.separator {
+		margin: 0 0.25rem;
 	}
 </style>

@@ -82,7 +82,7 @@ export const api = apiProxy;
 export { defaults, servers };
 export * from "./client.gen"; // This re-exports all types from the generated client.
 
-// --- Exports from the old client.ts and custom functions ---
+// Exports from the old client.ts and custom functions ---
 export const API_BASE_URL = defaults.baseUrl; // Export the configured base URL
 
 let doneFallback = false;
@@ -168,9 +168,13 @@ export function getFullImagePath(path: string): string {
     return `${base}${path}`;
 }
 
-// --- Realtime helpers (custom) ---
+export type JobSnapshotResponse = {
+    running_by_topic: Record<string, number>;
+    queued_by_topic: Record<string, number>;
+    active: generated.WorkerJob[];
+};
 
-export async function getJobsSnapshot(): Promise<{ data: any; status: number; }> {
+export async function getJobsSnapshot(): Promise<{ data: JobSnapshotResponse; status: number; }> {
     const base = API_BASE_URL; // Use the exported API_BASE_URL
     // Use `currentFetch` for custom fetch calls
     const res = await currentFetch(`${base}/jobs/snapshot`, {
@@ -185,7 +189,7 @@ export async function updateJobTypeConcurrency(
     body: { concurrency: number; }
 ): Promise<{ data: any; status: number; }> {
     const base = API_BASE_URL; // Use the exported API_BASE_URL
-    const url = `${base}/jobs/types/${encodeURIComponent(jobType)}}/concurrency`;
+    const url = `${base}/jobs/types/${encodeURIComponent(jobType)}/concurrency`;
     try {
         // Use `currentFetch` for custom fetch calls
         const res = await currentFetch(url, {

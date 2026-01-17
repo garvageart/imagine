@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"imagine/internal/transform"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
@@ -37,12 +38,21 @@ func NewImageWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 			return fmt.Errorf("%s: %w", JobTypeImageProcess, err)
 		}
 
+		if job.Image.ImageMetadata == nil {
+			err = fmt.Errorf("job %s failed: image metadata is nil for image %s", JobTypeImageProcess, job.Image.Uid)
+			_ = jobs.UpdateWorkerJobStatus(db, msg.UUID, jobs.WorkerJobStatusFailed, utils.StringPtr("worker_error"), utils.StringPtr(jobs.Truncate(err.Error(), 1024)), nil, nil)
+			return nil // Return nil to avoid retry loop for unrecoverable error
+		}
+
 		if wsBroker != nil {
 			wsBroker.Broadcast("job-started", map[string]any{
-				"jobId":    msg.UUID,
-				"type":     JobTypeImageProcess,
-				"imageId":  job.Image.Uid,
-				"filename": job.Image.ImageMetadata.FileName,
+				"uid":       msg.UUID,
+				"jobId":     msg.UUID,
+				"type":      JobTypeImageProcess,
+				"topic":     JobTypeImageProcess,
+				"image_uid": job.Image.Uid,
+				"imageId":   job.Image.Uid,
+				"filename":  job.Image.ImageMetadata.FileName,
 			})
 		}
 
@@ -64,10 +74,13 @@ func NewImageWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 		if err != nil {
 			if wsBroker != nil {
 				wsBroker.Broadcast("job-failed", map[string]any{
-					"jobId":   msg.UUID,
-					"type":    JobTypeImageProcess,
-					"imageId": job.Image.Uid,
-					"error":   err.Error(),
+					"uid":       msg.UUID,
+					"jobId":     msg.UUID,
+					"type":      JobTypeImageProcess,
+					"topic":     JobTypeImageProcess,
+					"image_uid": job.Image.Uid,
+					"imageId":   job.Image.Uid,
+					"error":     err.Error(),
 				})
 			}
 			// persist concise error
@@ -77,9 +90,12 @@ func NewImageWorker(db *gorm.DB, wsBroker *libhttp.WSBroker) *jobs.Worker {
 
 		if wsBroker != nil {
 			wsBroker.Broadcast("job-completed", map[string]any{
-				"jobId":   msg.UUID,
-				"type":    JobTypeImageProcess,
-				"imageId": job.Image.Uid,
+				"uid":       msg.UUID,
+				"jobId":     msg.UUID,
+				"type":      JobTypeImageProcess,
+				"topic":     JobTypeImageProcess,
+				"image_uid": job.Image.Uid,
+				"imageId":   job.Image.Uid,
 			})
 		}
 
@@ -173,7 +189,7 @@ func ImageProcess(ctx context.Context, db *gorm.DB, imgEnt entities.Image, onPro
 
 	ext := imgEnt.ImageMetadata.FileType
 
-	var transformParams *imageops.TransformParams
+	var transformParams *transform.TransformParams
 	var terr error
 
 	if onProgress != nil {
