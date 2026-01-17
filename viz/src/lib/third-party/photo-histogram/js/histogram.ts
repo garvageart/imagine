@@ -8,14 +8,17 @@ export interface HistogramStat {
     rgb: number;
 }
 
+export interface HistogramChannelData {
+    red: number[];
+    green: number[];
+    blue: number[];
+    luminance: number[];
+    rgb: number[];
+};
+
+
 export interface HistogramData {
-    hist: {
-        red: number[];
-        green: number[];
-        blue: number[];
-        luminance: number[];
-        rgb: number[];
-    };
+    hist: HistogramChannelData;
     count: HistogramStat;
     max: HistogramStat;
     mean: HistogramStat;

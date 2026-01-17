@@ -6,16 +6,26 @@
 		label?: string;
 		description?: string;
 		disabled?: boolean;
+		focused?: boolean;
 	}
 
 	let {
 		value = $bindable(),
+		focused = $bindable(),
 		label,
 		description,
 		disabled = false,
 		...props
 	}: Props & SvelteHTMLElements["input"] = $props();
+
 	const inputId = props.id ?? generateRandomString(6);
+	let inputEl = $state<HTMLInputElement | undefined>();
+	$effect(() => {
+		if (inputEl && focused) {
+			inputEl.focus();
+			inputEl.select();
+		}
+	});
 </script>
 
 <div class="input-container" class:disabled>
@@ -33,6 +43,7 @@
 		name={props.name}
 		type={props.type ?? "text"}
 		placeholder={props.placeholder}
+		bind:this={inputEl}
 		bind:value
 		{disabled}
 		oninput={(e) => {
@@ -42,9 +53,11 @@
 			props.onchange?.(e);
 		}}
 		onfocus={(e) => {
+			focused = true;
 			props.onfocus?.(e);
 		}}
 		onblur={(e) => {
+			focused = false;
 			props.onblur?.(e);
 		}}
 	/>

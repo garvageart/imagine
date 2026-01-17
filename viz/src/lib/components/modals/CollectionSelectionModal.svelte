@@ -203,6 +203,7 @@
 					Create Collection
 				</Button>
 				<Button
+					style="background-color: var(--imag-primary);"
 					disabled={!selectedCollection || selectedCollection.isFullyContained}
 					onclick={() => handleSelect(selectedCollection!)}
 				>

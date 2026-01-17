@@ -23,7 +23,14 @@ export function buildTabContextMenu(
 	const isLastTab = viewIndex === group.views.length - 1;
 	const isOnlyTab = group.views.length === 1;
 
-	const items: MenuItem[] = [
+	const items: MenuItem[] = [];
+
+	if (view.menuItems && view.menuItems.length > 0) {
+		items.push(...view.menuItems);
+		items.push({ id: "separator-custom", label: "", separator: true });
+	}
+
+	items.push(
 		{
 			id: view.locked ? "unlock-tab" : "lock-tab",
 			label: view.locked ? "Unlock Tab" : "Lock Tab",
@@ -77,7 +84,7 @@ export function buildTabContextMenu(
 			danger: true,
 			disabled: group.locked
 		}
-	];
+	);
 
 	return items;
 }

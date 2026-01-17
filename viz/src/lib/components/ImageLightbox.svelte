@@ -981,6 +981,11 @@
 		min-width: 0;
 		min-height: 0;
 		pointer-events: auto;
+
+		&:has(.lightbox-placeholder) {
+			width: 100%;
+			height: 100%;
+		}
 	}
 
 	.lightbox-image {
@@ -1001,6 +1006,7 @@
 	.lightbox-placeholder {
 		width: 100%;
 		height: 100%;
+		object-fit: contain;
 	}
 
 	.lightbox-nav {

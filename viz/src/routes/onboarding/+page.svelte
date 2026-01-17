@@ -21,11 +21,25 @@
 	import { fade } from "svelte/transition";
 	import { formatLabel } from "$lib/settings/utils";
 	import ProgressBar from "$lib/components/ProgressBar.svelte";
+	import { page } from "$app/state";
 
 	let isLoading = $state(false);
 	let currentStep = $state(0);
 
-	// --- Superadmin State ---
+	// Redirect Logic
+	$effect(() => {
+		if (
+			system.fetched &&
+			!system.loading &&
+			!system.data?.needs_superadmin &&
+			!system.data?.user_onboarding_required
+		) {
+			const continueUrl = page.url.searchParams.get("continue");
+			goto(continueUrl ? decodeURIComponent(continueUrl) : "/");
+		}
+	});
+
+	// Superadmin State
 	let superadminForm = $state({
 		username: "",
 		email: "",
@@ -35,7 +49,7 @@
 		lastName: ""
 	});
 
-	// --- User Onboarding State ---
+	// User Onboarding State
 	let userForm = $state({
 		firstName: "",
 		lastName: ""
@@ -60,7 +74,7 @@
 
 	let groupNames = $derived(Object.keys(settingsGroups).sort());
 
-	// --- Logic ---
+	// Logic
 
 	async function loadUserSettings() {
 		if (system.data?.user_onboarding_required) {
@@ -123,17 +137,18 @@
 		}
 	});
 
-	// --- Navigation Helpers ---
+	// Navigation Helpers
 	function nextStep() {
 		currentStep++;
 	}
 
 	function prevStep() {
-		if (currentStep > 0) currentStep--;
+		if (currentStep > 0) {
+			currentStep--;
+		}
 	}
 
-	// --- Actions ---
-
+	// Actions
 	async function handleSuperadminSubmit() {
 		if (superadminForm.password !== superadminForm.confirmPassword) {
 			toastState.addToast({
@@ -209,7 +224,9 @@
 				system.data = null;
 
 				user.data = res.data;
-				goto("/");
+
+				const continueUrl = page.url.searchParams.get("continue");
+				goto(continueUrl ? decodeURIComponent(continueUrl) : "/");
 			} else {
 				toastState.addToast({
 					message: res.data.error || "Onboarding failed.",

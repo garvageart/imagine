@@ -4,6 +4,8 @@
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
 	import LabelSelector from "$lib/components/LabelSelector.svelte";
 	import { getImageLabel } from "$lib/utils/images";
+	import { createImageMenu } from "$lib/context-menu/menus/images";
+	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 
 	let activeScope = $derived(selectionManager.activeScope);
 	let activeItem = $derived(activeScope?.active as Image | undefined);
@@ -15,9 +17,37 @@
 			? getFullImagePath(activeItem.image_paths.preview)
 			: null
 	);
+
+	let showMenu = $state(false);
+	let menuAnchor = $state<{ x: number; y: number } | HTMLElement | null>(null);
+	let menuItems = $derived.by(() => {
+		if (!activeItem || !activeScope) {
+			return [];
+		}
+
+		return createImageMenu([activeItem], activeScope, {
+			onDelete(deletedUIDs) {
+				activeScope?.remove(deletedUIDs);
+			}
+		});
+	});
+
+	function handleContextMenu(e: MouseEvent) {
+		if (!activeItem) {
+			return;
+		}
+
+		e.preventDefault();
+		menuAnchor = { x: e.clientX, y: e.clientY };
+		showMenu = true;
+	}
 </script>
 
-<div class="preview-container">
+<div
+	class="preview-container"
+	role="presentation"
+	oncontextmenu={handleContextMenu}
+>
 	{#if isImage}
 		{#if activeItem && imageSrc}
 			<div class="image-wrapper">
@@ -62,6 +92,8 @@
 			<span class="text">No image(s) selected</span>
 		</div>
 	{/if}
+
+	<ContextMenu bind:showMenu items={menuItems} anchor={menuAnchor} />
 </div>
 
 <style lang="scss">

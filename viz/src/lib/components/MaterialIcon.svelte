@@ -185,7 +185,7 @@
 		weight?: number;
 		grade?: -25 | 0 | 200;
 		opticalSize?: 20 | 24 | 40 | 48;
-		iconName: MaterialSymbol;
+		iconName: MaterialSymbol | (string & {});
 		iconStyle?: IconStyle;
 	}
 

@@ -169,6 +169,7 @@ export class ZoomPanCrop extends ZoomPan {
         e.preventDefault();
         e.stopPropagation(); // Stop ZoomPan from seeing this
 
+        this.isPanningDisabled = true;
         this.isDraggingCrop = true;
         this.dragAction = action;
 
@@ -405,6 +406,7 @@ export class ZoomPanCrop extends ZoomPan {
             }
         }
 
+        this.isPanningDisabled = false;
         this.isDraggingCrop = false;
         this.dragAction = null;
         window.removeEventListener("mousemove", this.handleCropMove);

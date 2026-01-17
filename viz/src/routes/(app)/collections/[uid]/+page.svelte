@@ -42,8 +42,7 @@
 	import ImageCard from "$lib/components/ImageCard.svelte";
 	import Button from "$lib/components/Button.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import UploadManager, {
-			} from "$lib/upload/manager.svelte.js";
+	import UploadManager from "$lib/upload/manager.svelte.js";
 	import {
 		addCollectionImages,
 		updateCollection,
@@ -59,9 +58,7 @@
 	import CollectionModal from "$lib/components/modals/CollectionModal.svelte";
 	import InputText from "$lib/components/dom/InputText.svelte";
 	import Dropdown from "$lib/components/Dropdown.svelte";
-	import {
-		createCollection
-	} from "$lib/api";
+	import { createCollection } from "$lib/api";
 	import ContextMenu from "$lib/context-menu/ContextMenu.svelte";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
 	import IconButton from "$lib/components/IconButton.svelte";
@@ -79,7 +76,7 @@
 	import { getImageLabel } from "$lib/utils/images";
 	import { invalidateViz } from "$lib/views/views.svelte";
 	import StarRating from "$lib/components/StarRating.svelte";
-	
+
 	let { data, view }: PageProps & { view?: VizView } = $props();
 
 	let showFilterModal = $state(false);
@@ -215,6 +212,9 @@
 		}
 		return null;
 	});
+
+	// UI Stuff
+	let showCollNameInput = $state(false);
 
 	onDestroy(() => {
 		selectionManager.removeScope(scopeId);
@@ -531,6 +531,7 @@
 
 		e.preventDefault();
 		selectionScope.clear();
+		showCollNameInput = false;
 
 		lightboxImage = undefined;
 	});
@@ -786,54 +787,78 @@
 		}}
 	>
 		<div id="viz-info-container">
-			<div id="coll-metadata" class:std-route={!isLayoutPage()}>
+			<div
+				id="coll-metadata"
+				class:std-route={!isLayoutPage()}
+				class:name-input={showCollNameInput}
+			>
 				<span id="coll-name">
-					<InputText
-						autocorrect="off"
-						spellcheck="false"
-						id="coll-name-input"
-						style="padding: 0% 0.5rem;"
-						title={localDataUpdates.name}
-						bind:value={localDataUpdates.name}
-					/>
-					{#if localDataUpdates.name.trim() === ""}
-						<MaterialIcon
-							iconName="warning"
-							style="font-size: 0.9rem;"
-							title="Name cannot be empty"
+					{#if showCollNameInput}
+						<InputText
+							autocorrect="off"
+							spellcheck="false"
+							id="coll-name-input"
+							style="padding: 0% 0.5rem;"
+							title={localDataUpdates.name}
+							bind:focused={showCollNameInput}
+							bind:value={localDataUpdates.name}
+							onblur={() => {
+								showCollNameInput = false;
+							}}
 						/>
 					{:else}
-						<div
-							id="confirm-icons"
-							style:visibility={localDataUpdates.name.trim() ===
-							data.name.trim()
-								? "hidden"
-								: "visible"}
+						<span
+							id="coll-name-display"
+							role="button"
+							tabindex="0"
+							title={"Click to edit name"}
+							onclick={() => {
+								showCollNameInput = true;
+							}}
+							onkeydown={(e) => e.currentTarget.click()}
 						>
-							<IconButton
-								title="Cancel"
-								class="name-confirm-btn"
-								onclick={() => {
-									localDataUpdates.name = data.name;
-								}}
-								iconName="close"
+							{localDataUpdates.name}
+						</span>
+					{/if}
+					{#if showCollNameInput}
+						{#if localDataUpdates.name.trim() === ""}
+							<MaterialIcon
+								iconName="warning"
+								style="font-size: 0.9rem;"
+								title="Name cannot be empty"
 							/>
-							<IconButton
-								title="Confirm"
-								class="name-confirm-btn"
-								onclick={() => {
-									updateCollectionDetails({
-										name: localDataUpdates.name
-									});
-								}}
-								iconName="check"
-							/>
-						</div>
+						{:else}
+							<div
+								id="confirm-icons"
+								style:visibility={localDataUpdates.name.trim() ===
+								data.name.trim()
+									? "hidden"
+									: "visible"}
+							>
+								<IconButton
+									title="Cancel"
+									class="name-confirm-btn"
+									onclick={() => {
+										localDataUpdates.name = data.name;
+									}}
+									iconName="close"
+								/>
+								<IconButton
+									title="Confirm"
+									class="name-confirm-btn"
+									onclick={() => {
+										updateCollectionDetails({
+											name: localDataUpdates.name
+										});
+									}}
+									iconName="check"
+								/>
+							</div>
+						{/if}
 					{/if}
 				</span>
 				<span
 					id="coll-details"
-					style="padding: 0% 0.5rem;"
 					title="Updated at: {DateTime.fromJSDate(
 						new Date(data.updated_at)
 					).toFormat('dd.MM.yyyy HH:mm')}"
@@ -888,10 +913,27 @@
 		flex-direction: row;
 		align-items: center;
 		gap: 0.5rem;
+		min-height: 2.5rem;
+
+		#coll-name-display {
+			font-size: 1.5rem;
+			line-height: 2.5rem;
+			width: 100%;
+			word-wrap: normal;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			cursor: pointer;
+		}
+
+		:global(.input-container) {
+			flex: 1;
+		}
 
 		#confirm-icons {
 			display: flex;
 			flex-direction: row;
+			flex-shrink: 0;
 		}
 
 		:global(.name-confirm-btn) {
@@ -903,11 +945,11 @@
 		padding: 0.5rem 1rem;
 		display: flex;
 		flex-direction: column;
-		width: 30%;
 		overflow: hidden;
 		color: var(--imag-60);
 		font-family: var(--imag-code-font);
 		gap: 1rem;
+		max-width: 40rem;
 
 		&.std-route {
 			padding: 0.5rem 2rem;

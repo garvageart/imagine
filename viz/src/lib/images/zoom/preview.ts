@@ -27,6 +27,8 @@ export default class ZoomPan {
     protected lastMoveTime = 0;
     protected animationFrameId: number | null = null;
 
+    public isPanningDisabled = false;
+
     minScale: number = MIN_SCALE ;
     maxScale: number = MAX_SCALE ;
 
@@ -106,6 +108,8 @@ export default class ZoomPan {
     }
 
     private onStart = (event: TouchEvent) => {
+        if (this.isPanningDisabled) return;
+
         this.deviceHasTouch = true;
         this.stopInertia(); // Stop any existing movement
 
@@ -147,6 +151,8 @@ export default class ZoomPan {
     };
 
     private onMove = (event: TouchEvent) => {
+        if (this.isPanningDisabled) return;
+
         if (this.stateIs('idle')) {
             return;
         }
@@ -211,6 +217,8 @@ export default class ZoomPan {
     };
 
     private onEndTouch = (event: TouchEvent) => {
+        if (this.isPanningDisabled) return;
+
         if (this.stateIs('idle') || event.touches.length !== 0) {
             return;
         }
@@ -269,6 +277,8 @@ export default class ZoomPan {
     private isMouseDown = false;
 
     private onMouseDown = (event: MouseEvent) => {
+        if (this.isPanningDisabled) return;
+
         if (this.deviceHasTouch) return;
         this.isMouseDown = true;
         this.stopInertia();
@@ -277,6 +287,8 @@ export default class ZoomPan {
     };
 
     private onMouseMove = (event: MouseEvent) => {
+        if (this.isPanningDisabled) return;
+
         if (this.deviceHasTouch) {
             return;
         }

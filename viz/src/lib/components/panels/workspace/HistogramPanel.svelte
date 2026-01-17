@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
-	import { computeHistogram } from "$lib/histogram";
+	import { computeHistogram, type HistogramData } from "$lib/histogram";
 	import { getFullImagePath, type Image as APIImage } from "$lib/api";
 	import InputSelect from "$lib/components/dom/InputSelect.svelte";
 	import { selectionManager } from "$lib/states/selection.svelte";
 	import IconButton from "$lib/components/IconButton.svelte";
 	import type { HistogramChannels } from "$lib/histogram/types";
+	import type { HistogramChannelData } from "$lib/third-party/photo-histogram/js";
 
 	let activeScope = $derived(selectionManager.activeScope);
 	let activeItem = $derived(activeScope?.active as APIImage | undefined);
@@ -79,7 +80,7 @@
 	let selectionStartX: number | undefined = $state();
 	let selectionEndX: number | undefined = $state();
 	let selectionBins: { start: number; end: number } | undefined = $state();
-	let lastHist: any = $state();
+	let lastHist: HistogramChannelData | undefined = $state();
 	let totals:
 		| {
 				red: number;
@@ -97,6 +98,7 @@
 		  }
 		| undefined = $state();
 
+	let isReset = $state(false);
 	const BINS = 256;
 
 	async function runImageLoad(image: HTMLImageElement) {
@@ -113,6 +115,7 @@
 			};
 
 			histReady = true;
+			isReset = false;
 			scheduleRender();
 		} catch (e) {
 			console.warn("Histogram: failed to compute on image load", e);
@@ -140,19 +143,10 @@
 		const dpr =
 			typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
-		// Use the container's width to determine the canvas size accounting for padding
-		const containerStyle = window.getComputedStyle(histogramEl);
-		const paddingX =
-			parseFloat(containerStyle.paddingLeft) +
-			parseFloat(containerStyle.paddingRight);
-		const availableWidth = histogramEl.clientWidth - paddingX;
-
-		const ASPECT_RATIO = 3 / 2;
-		const w = Math.floor(availableWidth);
-		const h = Math.floor(w / ASPECT_RATIO);
-
-		canvasEl.style.width = `${w}px`;
-		canvasEl.style.height = `${h}px`;
+		// CSS handles the display size (width: 100%, aspect-ratio: 3/2)
+		const rect = canvasEl.getBoundingClientRect();
+		const w = rect.width;
+		const h = rect.height;
 
 		// actual drawing buffer size
 		canvasEl.width = Math.floor(w * dpr);
@@ -183,17 +177,21 @@
 		ctx: CanvasRenderingContext2D,
 		width: number,
 		height: number,
-		padding: number,
-		blockSize = 20
+		padding: number
 	) {
-		for (let x = 0; x <= width; x += blockSize) {
+		const steps = 4;
+		ctx.beginPath();
+
+		for (let i = 1; i < steps; i++) {
+			const x = Math.floor((width / steps) * i);
 			ctx.moveTo(0.5 + x + padding, padding);
 			ctx.lineTo(0.5 + x + padding, height + padding);
 		}
 
-		for (let x = 0; x <= height; x += blockSize) {
-			ctx.moveTo(padding, 0.5 + x + padding);
-			ctx.lineTo(width + padding, 0.5 + x + padding);
+		for (let i = 1; i < steps; i++) {
+			const y = Math.floor((height / steps) * i);
+			ctx.moveTo(padding, 0.5 + y + padding);
+			ctx.lineTo(width + padding, 0.5 + y + padding);
 		}
 
 		ctx.strokeStyle = "rgba(255,255,255,0.15)";
@@ -268,9 +266,10 @@
 
 		// draw channels according to selection
 		if (selectedChannel === "all") {
-			drawChannel(hist.blue, CSSColours.blue, 0.7, "color");
-			drawChannel(hist.green, CSSColours.green, 0.7, "color");
-			drawChannel(hist.red, CSSColours.red, 0.7, "color");
+			drawChannel(hist.blue, CSSColours.blue, 0.8, "color");
+			drawChannel(hist.green, CSSColours.green, 0.8, "color");
+			drawChannel(hist.red, CSSColours.red, 0.8, "color");
+			drawChannel(hist.luminance, CSSColours.luminance, 0.1, "source-over");
 		} else if (selectedChannel === "red") {
 			drawChannel(hist.red, CSSColours.red, 0.95, "source-over");
 		} else if (selectedChannel === "green") {
@@ -322,7 +321,11 @@
 		if (selectionBins) {
 			computeSelectionStats(selectionBins.start, selectionBins.end);
 		} else {
-			computeSelectionStats();
+			if (isReset) {
+				stats = undefined;
+			} else {
+				computeSelectionStats();
+			}
 		}
 	}
 
@@ -371,6 +374,7 @@
 	}
 
 	const pointerDown = (ev: PointerEvent) => {
+		isReset = false;
 		canvasEl.setPointerCapture(ev.pointerId);
 		isSelecting = true;
 		selectionStartX = ev.offsetX;
@@ -455,10 +459,15 @@
 	});
 
 	function resetCanvas() {
+		isReset = true;
 		selectedChannel = "all";
+
 		resizeCanvas();
 		clearCanvas();
 		scheduleRender();
+
+		stats = undefined;
+		selectionBins = undefined;
 	}
 
 	$effect(() => {
@@ -506,39 +515,26 @@
 		oncontextmenu={(e) => e.preventDefault()}
 		bind:this={canvasEl}
 	></canvas>
+	{#snippet stat(label: string, value: string)}
+		<div class="stat-row" title={value}>
+			<strong>{label}:</strong>
+			<span class="stat-val">{value}</span>
+		</div>
+	{/snippet}
+
 	<div class="stats">
-		<div class="stat-row">
-			<strong>Range:</strong>
-			<span class="stat-val">
-				{#if selectionBins}
-					{selectionBins.start}–{selectionBins.end}
-				{:else}
-					0–{BINS - 1}
-				{/if}
-			</span>
-		</div>
-		<div class="stat-row">
-			<strong>Pixels:</strong>
-			<span class="stat-val">
-				{#if stats}
-					{stats.count} ({stats.percent.toFixed(2)}%)
-				{:else}
-					—
-				{/if}
-			</span>
-		</div>
-		<div class="stat-row">
-			<strong>Mean:</strong>
-			<span class="stat-val"
-				>{#if stats}{stats.mean.toFixed(2)}{:else}—{/if}</span
-			>
-		</div>
-		<div class="stat-row">
-			<strong>Median:</strong>
-			<span class="stat-val"
-				>{#if stats}{stats.median}{:else}—{/if}</span
-			>
-		</div>
+		{@render stat(
+			"Range",
+			selectionBins
+				? `${selectionBins.start}–${selectionBins.end}`
+				: `0–${BINS - 1}`
+		)}
+		{@render stat(
+			"Pixels",
+			stats ? `${stats.count} (${stats.percent.toFixed(2)}%)` : "—"
+		)}
+		{@render stat("Mean", stats ? stats.mean.toFixed(2) : "—")}
+		{@render stat("Median", stats ? stats.median.toString() : "—")}
 	</div>
 </div>
 
@@ -546,24 +542,27 @@
 	.histogram-container {
 		display: flex;
 		align-items: center;
-		justify-content: space-around;
+		justify-content: flex-start;
 		flex-direction: column;
 		box-sizing: border-box;
 		height: 100%;
-		padding: 1rem;
+		padding: 0.5rem;
 		color: var(--imag-text-color);
 		position: relative;
 		background-color: var(--imag-100);
 		font-size: 0.75rem;
-		gap: 0.5rem;
+		gap: 0.75rem;
 		overflow-y: auto;
 		overflow-x: hidden;
+		container-type: inline-size;
 
 		canvas {
 			display: block;
 			width: 100%;
+			aspect-ratio: 3 / 2;
 			border: 1px solid rgb(105, 105, 105);
 			background-color: rgb(56, 56, 56);
+			flex-shrink: 0;
 		}
 	}
 
@@ -573,25 +572,29 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.stats {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.2rem 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+		gap: 0.2rem 0.5rem;
 		width: 100%;
 		font-family: var(--imag-code-font);
+		flex-shrink: 0;
 	}
 
 	.stat-row {
 		display: flex;
-		justify-content: flex-start;
+		justify-content: space-between;
 		align-items: baseline;
 		gap: 0.5rem;
 	}
 
 	.stat-row .stat-val {
 		text-align: left;
-		text-wrap-mode: nowrap;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

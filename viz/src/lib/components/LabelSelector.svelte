@@ -43,8 +43,8 @@
 
 <svelte:window onclick={handleClickOutside} />
 
-<div class="label-selector-container">
-	{#if variant === "expanded"}
+{#if variant === "expanded"}
+	<div class="label-selector-container">
 		{#each Object.entries(LabelColours).filter(([_, colour]) => colour !== LabelColours.None) as [name, colour]}
 			<button
 				class="label-selector"
@@ -63,58 +63,66 @@
 			>
 			</button>
 		{/each}
-	{:else if variant === "compact"}
-		<div class="relative" bind:this={dropdownContainer}>
-			<button
-				class="label-selector-trigger"
-				class:disable-select={!enableSelection}
-				style={!label || label === LabelColours.None
-					? nullNoneLabelStyle
-					: `background-color: ${label};`}
-				onclick={() => {
-					if (enableSelection) {
-						isOpen = !isOpen;
-					}
-				}}
-				disabled={!enableSelection}
-				title="Select label"
-				type="button"
-			>
-			</button>
-			{#if isOpen}
-				<div class="label-dropdown">
-					{#each Object.entries(LabelColours).filter(([_, colour]) => colour !== LabelColours.None) as [name, colour]}
-						<button
-							class="label-selector"
-							title={name}
-							style="background-color: {colour};"
-							class:selected={label === colour}
-							onclick={() => {
-								if (label === colour) {
-									handleSelect(LabelColours.None);
-								} else {
-									handleSelect(colour as LabelColours);
-								}
-								isOpen = false;
-							}}
-							type="button"
-						>
-						</button>
-					{/each}
-				</div>
-			{/if}
+	</div>
+{:else if variant === "compact"}
+	{#if enableSelection || label !== null || (label && label !== LabelColours.None)}
+		<div class="label-selector-container" class:compact={variant === "compact"}>
+			<div class="compact-container" bind:this={dropdownContainer}>
+				<button
+					class="label-selector-trigger"
+					class:disable-select={!enableSelection}
+					style={!label || label === LabelColours.None
+						? nullNoneLabelStyle
+						: `background-color: ${label};`}
+					onclick={() => {
+						if (enableSelection) {
+							isOpen = !isOpen;
+						}
+					}}
+					disabled={!enableSelection}
+					title="Select label"
+					type="button"
+				>
+				</button>
+				{#if isOpen}
+					<div class="label-dropdown">
+						{#each Object.entries(LabelColours).filter(([_, colour]) => colour !== LabelColours.None) as [name, colour]}
+							<button
+								class="label-selector"
+								title={name}
+								style="background-color: {colour};"
+								class:selected={label === colour}
+								onclick={() => {
+									if (label === colour) {
+										handleSelect(LabelColours.None);
+									} else {
+										handleSelect(colour as LabelColours);
+									}
+									isOpen = false;
+								}}
+								type="button"
+							>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
-</div>
+{/if}
 
 <style lang="scss">
-	.relative {
+	.compact-container {
 		position: relative;
 	}
 
 	.label-selector-container {
 		display: flex;
 		gap: 0.5em;
+
+		&.compact {
+			gap: 0em;
+		}
 	}
 
 	.label-selector {

@@ -528,7 +528,32 @@
 							}
 						}}
 					/>
-					<!-- <StarRating -->
+					<StarRating
+						value={selectionFirstImage?.image_metadata?.rating ?? 0}
+						onChange={async (rating) => {
+							if (!selectionFirstImage) {
+								return;
+							}
+
+							const updatePromises = Array.from(selectionScope.selected).map(
+								(img) =>
+									updateImage(img.uid, {
+										image_metadata: { rating }
+									})
+							);
+
+							const res = await Promise.all(updatePromises);
+
+							const successCount = res.filter((r) => r.status === 200).length;
+							if (successCount > 0) {
+								res.forEach((r) => {
+									if (r.status === 200) {
+										selectionScope.updateItem(r.data, galleryState.images);
+									}
+								});
+							}
+						}}
+					/>
 				</div>
 				<div
 					style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;"
