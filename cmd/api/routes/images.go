@@ -22,6 +22,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/gorm"
 
+	"imagine/internal/config"
 	"imagine/internal/downloads"
 	"imagine/internal/dto"
 	"imagine/internal/entities"
@@ -32,6 +33,7 @@ import (
 	"imagine/internal/jobs"
 	"imagine/internal/jobs/workers"
 	libos "imagine/internal/os"
+	"imagine/internal/transform"
 	"imagine/internal/uid"
 	"imagine/internal/utils"
 )
@@ -116,10 +118,12 @@ func createNewImageEntity(logger *slog.Logger, fileName string, libvipsImg *libv
 
 	// Construct paths with reasonable defaults matching the {uid}/file route params
 	originalPath := fmt.Sprintf("/images/%s/file", id)
-	// Thumbnail: 400px wide, maintain aspect, webp, good quality for small previews
-	thumbnailPath := fmt.Sprintf("/images/%s/file?format=webp&w=400&h=400&quality=85", id)
-	// Preview: 1920px wide, maintain aspect, webp, balanced quality
-	previewPath := fmt.Sprintf("/images/%s/file?format=webp&w=1920&h=1920&quality=90", id)
+
+	thumbParams, _ := images.GetPermanentTransformParams(images.TransformThumbnail)
+	previewParams, _ := images.GetPermanentTransformParams(images.TransformPreview)
+
+	thumbnailPath := fmt.Sprintf("/images/%s/file?%s", id, thumbParams.ToQueryString())
+	previewPath := fmt.Sprintf("/images/%s/file?%s", id, previewParams.ToQueryString())
 
 	paths := dto.ImagePaths{
 		Original:  originalPath,
@@ -317,6 +321,13 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 			return
 		}
 
+		if imgEnt.ImageMetadata == nil {
+			logger.Error("Image metadata is missing", slog.String("uid", uid))
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image is corrupted (missing metadata)"})
+			return
+		}
+
 		isDownload := req.URL.Query().Get("download") == "1"
 		if isDownload {
 			if !validateDownloadRequest(res, req, db, uid) {
@@ -373,6 +384,12 @@ func ImagesRouter(db *gorm.DB, logger *slog.Logger) *chi.Mux {
 
 			render.Status(req, http.StatusOK)
 			render.JSON(res, req, imgEnt.Exif)
+			return
+		}
+
+		if imgEnt.ImageMetadata == nil {
+			render.Status(req, http.StatusInternalServerError)
+			render.JSON(res, req, dto.ErrorResponse{Error: "Image metadata missing"})
 			return
 		}
 
@@ -977,13 +994,13 @@ func serveOriginalImage(res http.ResponseWriter, req *http.Request, logger *slog
 		res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 		res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
 	} else {
-		res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", config.AppConfig.Cache.Images.HTTPPermanentMaxAgeSeconds))
 	}
 
 	http.ServeContent(res, req, imgEnt.ImageMetadata.FileName, imgEnt.UpdatedAt, bytes.NewReader(imageData))
 }
 
-func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *slog.Logger, imgEnt *entities.Image, params *imageops.TransformParams, isDownload bool) {
+func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *slog.Logger, imgEnt *entities.Image, params *transform.TransformParams, isDownload bool) {
 	// 1. Determine if this is a "permanent" transform path
 	reqURI := req.URL.String()
 	isPermanent := imgEnt.ImagePaths.Thumbnail == reqURI || imgEnt.ImagePaths.Preview == reqURI
@@ -992,7 +1009,7 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 	hasVersionParam := req.URL.Query().Get("v") != ""
 
 	// 2. Generate ETag for the transform
-	transformETag := *imageops.CreateTransformEtag(*imgEnt, params)
+	transformETag := *transform.CreateTransformEtag(*imgEnt, params)
 
 	// 3. Check client-side cache first
 	if match := req.Header.Get("If-None-Match"); match != "" {
@@ -1037,10 +1054,10 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 			res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
 		} else if isPermanent || hasVersionParam {
 			// If it's a permanent path or has a version parameter, it's immutable
-			res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", config.AppConfig.Cache.Images.HTTPPermanentMaxAgeSeconds))
 		} else {
 			// Otherwise, use a shorter cache time
-			res.Header().Set("Cache-Control", "public, max-age=604800")
+			res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", config.AppConfig.Cache.Images.HTTPMaxAgeSeconds))
 		}
 
 		res.Header().Set("Content-Length", strconv.Itoa(len(cachedData)))
@@ -1092,9 +1109,9 @@ func serveTransformedImage(res http.ResponseWriter, req *http.Request, logger *s
 		res.Header().Set("Cache-Control", "private, no-cache, no-store, must-revalidate")
 		res.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, imgEnt.ImageMetadata.FileName))
 	} else if isPermanent || hasVersionParam {
-		res.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", config.AppConfig.Cache.Images.HTTPPermanentMaxAgeSeconds))
 	} else {
-		res.Header().Set("Cache-Control", "public, max-age=604800")
+		res.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", config.AppConfig.Cache.Images.HTTPMaxAgeSeconds))
 	}
 
 	res.Header().Set("Content-Length", strconv.Itoa(len(tresult.ImageData)))

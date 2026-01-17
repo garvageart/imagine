@@ -177,16 +177,6 @@ func WarmupAllOps(cfg config.LibvipsConfig) {
 		VectorEnabled:    cfg.VectorEnabled,
 	}
 
-	if vipsConfig.MaxCacheFiles == 0 {
-		vipsConfig.MaxCacheFiles = 100
-	}
-	if vipsConfig.MaxCacheMem == 0 {
-		vipsConfig.MaxCacheMem = 50 * 1024 * 1024 // 50MB
-	}
-	if vipsConfig.MaxCacheSize == 0 {
-		vipsConfig.MaxCacheSize = 500
-	}
-
 	// ensure vips is started with optimized config
 	libvips.Startup(vipsConfig)
 

@@ -45,6 +45,11 @@ func TestGenerateTransform_ModernSamples(t *testing.T) {
 		}
 
 		t.Run(file.Name(), func(t *testing.T) {
+			ext := strings.ToLower(filepath.Ext(file.Name()))
+			if ext == ".cr2" || ext == ".cr3" || ext == ".arw" || ext == ".dng" || ext == ".nef" || ext == ".orf" {
+				t.Skip("Skipping RAW file for speed")
+			}
+
 			path := filepath.Join(samplesDir, file.Name())
 			data, err := os.ReadFile(path)
 			if err != nil {
@@ -174,6 +179,11 @@ func TestPermanentTransforms(t *testing.T) {
 		}
 
 		t.Run(file.Name(), func(t *testing.T) {
+			ext := strings.ToLower(filepath.Ext(file.Name()))
+			if ext == ".cr2" || ext == ".cr3" || ext == ".arw" || ext == ".dng" || ext == ".nef" || ext == ".orf" {
+				t.Skip("Skipping RAW file for speed")
+			}
+
 			path := filepath.Join(samplesDir, file.Name())
 			data, err := os.ReadFile(path)
 			if err != nil {

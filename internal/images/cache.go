@@ -5,15 +5,19 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
-	"log/slog"
+	"gorm.io/gorm"
 
 	"imagine/internal/config"
 	"imagine/internal/dto"
+	"imagine/internal/entities"
+	"imagine/internal/transform"
 )
 
 const (
@@ -228,34 +232,188 @@ func ClearCache(logger *slog.Logger) error {
 	return nil
 }
 
+// PermanentHashGetter is a function that returns a set of hashes for permanent transforms that should be preserved.
+type PermanentHashGetter func(db *gorm.DB) (map[string]bool, error)
+
+// GetPermanentTransformHashes builds a map of hashes for all permanent transforms of existing images.
+func GetPermanentTransformHashes(db *gorm.DB) (map[string]bool, error) {
+	permanentHashes := make(map[string]bool)
+	var images []entities.Image
+
+	// Process images in batches to avoid loading everything into memory
+	err := db.Model(&entities.Image{}).Where("deleted_at IS NULL").FindInBatches(&images, 1000, func(tx *gorm.DB, batch int) error {
+		for _, img := range images {
+			if img.ImageMetadata == nil {
+				continue
+			}
+			// Recalculate etag for each permanent transform and add its hash to the set
+			for _, params := range GetAllPermanentTransforms() {
+				etag := *transform.CreateTransformEtag(img, &params)
+				// The filename is the SHA1 hash of the etag
+				fname := cacheFileName(etag, params.Format)
+				hash := strings.TrimSuffix(fname, filepath.Ext(fname))
+				permanentHashes[hash] = true
+			}
+		}
+		return nil
+	}).Error
+
+	return permanentHashes, err
+}
+
+// PerformTransformCacheCleanup executes the cache cleanup logic.
+func PerformTransformCacheCleanup(rootDir string, logger *slog.Logger, db *gorm.DB, cfg config.CacheConfig, hashGetter PermanentHashGetter) {
+	var maxSizeBytes int64 = 10 * 1000 * 1000 * 1000 // 10 GB
+	var maxAgeDays int = 30
+	var cleanupIntervalMinutes int = 60 * 24 // daily
+	var shouldPreservePermanent bool = true
+
+	if cfg.GCEnabled {
+		maxSizeBytes = cfg.MaxSizeBytes
+		maxAgeDays = cfg.MaxAgeDays
+		cleanupIntervalMinutes = cfg.CleanupIntervalMinutes
+		shouldPreservePermanent = !cfg.ClearPermanentTransforms
+	}
+
+	if cleanupIntervalMinutes <= 0 {
+		cleanupIntervalMinutes = 1440 // 24 hours
+	}
+
+	if logger != nil {
+		logger.Debug("transform cache gc: starting", slog.Int64("max_size_bytes", maxSizeBytes), slog.Int("max_age_days", maxAgeDays), slog.Bool("preserve_permanent", shouldPreservePermanent))
+	}
+
+	permanentHashes := make(map[string]bool)
+	if shouldPreservePermanent && db != nil && hashGetter != nil {
+		logger.Debug("transform cache gc: building list of permanent transforms to preserve")
+		var err error
+		permanentHashes, err = hashGetter(db)
+		if err != nil {
+			logger.Error("transform cache gc: failed to build permanent transform list", slog.Any("error", err))
+		} else {
+			logger.Debug("transform cache gc: finished building permanent transform list", slog.Int("count", len(permanentHashes)))
+		}
+	}
+
+	type fileInfo struct {
+		path string
+		size int64
+		mod  time.Time
+	}
+
+	var files []fileInfo
+	var total int64
+
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		if logger != nil {
+			logger.Warn("cache gc: failed to read images directory", slog.Any("error", err))
+		}
+		return
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		transformsPath := filepath.Join(rootDir, e.Name(), "transforms")
+		info, err := os.Stat(transformsPath)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+
+		tfiles, err := os.ReadDir(transformsPath)
+		if err != nil {
+			continue
+		}
+
+		for _, tf := range tfiles {
+			if tf.IsDir() {
+				continue
+			}
+
+			base := tf.Name()
+			if strings.HasPrefix(base, TempTransformPrefix) {
+				continue
+			}
+
+			finfo, err := tf.Info()
+			if err != nil {
+				continue
+			}
+
+			p := filepath.Join(transformsPath, base)
+			files = append(files, fileInfo{path: p, size: finfo.Size(), mod: finfo.ModTime()})
+			total += finfo.Size()
+		}
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -maxAgeDays)
+	var remaining []fileInfo
+	for _, f := range files {
+		if shouldPreservePermanent {
+			hash := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
+			if permanentHashes[hash] {
+				if logger != nil {
+					logger.Debug("transform cache gc: preserving permanent file", slog.String("path", f.path))
+				}
+				// Do not add to 'remaining' so it is not subject to size-based eviction
+
+				continue // Skip to next file
+			}
+		}
+
+		if f.mod.Before(cutoff) {
+			if err := os.Remove(f.path); err == nil {
+				if logger != nil {
+					logger.Debug("transform cache gc: removed old file", slog.String("path", f.path), slog.Time("mod", f.mod))
+				}
+
+				total -= f.size
+				continue
+			} else if logger != nil {
+				logger.Warn("transform cache gc: failed to remove old file", slog.String("path", f.path), slog.Any("error", err))
+			}
+		}
+
+		remaining = append(remaining, f)
+	}
+
+	if total > maxSizeBytes {
+		sort.Slice(remaining, func(i, j int) bool { return remaining[i].mod.Before(remaining[j].mod) })
+		for _, f := range remaining {
+			if total <= maxSizeBytes {
+				break
+			}
+			if err := os.Remove(f.path); err == nil {
+				total -= f.size
+				if logger != nil {
+					logger.Debug("transform cache gc: evicted file", slog.String("path", f.path), slog.Int64("size", f.size))
+				}
+			} else if logger != nil {
+				logger.Warn("transform cache gc: failed to evict file", slog.String("path", f.path), slog.Any("error", err))
+			}
+		}
+	}
+
+	if logger != nil {
+		logger.Debug("transform cache gc: finished", slog.Int64("remaining_total_bytes", total))
+	}
+}
+
 // StartTransformCacheGC starts a background goroutine that periodically
 // enforces the transform cache eviction policy based on config values.
 // The goroutine will stop when ctx is canceled.
-func StartTransformCacheGC(ctx context.Context, logger *slog.Logger) {
+func StartTransformCacheGC(ctx context.Context, logger *slog.Logger, db *gorm.DB) {
 	go func() {
-		cfg, err := config.ReadConfig()
-
-		var maxSizeBytes int64 = 10 * 1000 * 1000 * 1000 // 10 GB
-		var maxAgeDays int = 30
-		var cleanupIntervalMinutes int = 60 * 24 // daily
-
-		if err == nil {
-			if cfg.IsSet("cache.max_size_bytes") {
-				maxSizeBytes = cfg.GetInt64("cache.max_size_bytes")
+		cfg := config.AppConfig
+		cleanupIntervalMinutes := cfg.Cache.CleanupIntervalMinutes
+		if cleanupIntervalMinutes <= 0 {
+			cleanupIntervalMinutes = 1440 // 24 hours
+			if logger != nil {
+				logger.Warn("transform cache gc: invalid cleanup interval, using default", slog.Int("interval_minutes", cleanupIntervalMinutes))
 			}
-			if cfg.IsSet("cache.max_age_days") {
-				maxAgeDays = cfg.GetInt("cache.max_age_days")
-			}
-			if cfg.IsSet("cache.cleanup_interval_minutes") {
-				cleanupIntervalMinutes = cfg.GetInt("cache.cleanup_interval_minutes")
-			}
-		} else if logger != nil {
-			logger.Warn("cache gc: failed to read config, using defaults", slog.Group("config",
-				slog.Any("error", err),
-				slog.Int64("max_size_bytes", maxSizeBytes),
-				slog.Int("max_age_days", maxAgeDays),
-				slog.Int("cleanup_interval_minutes", cleanupIntervalMinutes),
-			))
 		}
 
 		interval := time.Duration(cleanupIntervalMinutes) * time.Minute
@@ -263,104 +421,10 @@ func StartTransformCacheGC(ctx context.Context, logger *slog.Logger) {
 		defer ticker.Stop()
 
 		doCleanup := func() {
-			if logger != nil {
-				logger.Debug("transform cache gc: starting", slog.Int64("max_size_bytes", maxSizeBytes), slog.Int("max_age_days", maxAgeDays))
-			}
-
-			type fileInfo struct {
-				path string
-				size int64
-				mod  time.Time
-			}
-
-			var files []fileInfo
-			var total int64
-
-			entries, err := os.ReadDir(Directory)
-			if err != nil {
-				if logger != nil {
-					logger.Warn("cache gc: failed to read images directory", slog.Any("error", err))
-				}
-			} else {
-				for _, e := range entries {
-					if !e.IsDir() {
-						continue
-					}
-
-					transformsPath := filepath.Join(Directory, e.Name(), "transforms")
-					info, err := os.Stat(transformsPath)
-					if err != nil || !info.IsDir() {
-						continue
-					}
-
-					tfiles, err := os.ReadDir(transformsPath)
-					if err != nil {
-						continue
-					}
-
-					for _, tf := range tfiles {
-						if tf.IsDir() {
-							continue
-						}
-
-						base := tf.Name()
-						if len(base) >= len(TempTransformPrefix) && base[:len(TempTransformPrefix)] == TempTransformPrefix {
-							continue
-						}
-
-						finfo, err := tf.Info()
-						if err != nil {
-							continue
-						}
-
-						p := filepath.Join(transformsPath, base)
-						files = append(files, fileInfo{path: p, size: finfo.Size(), mod: finfo.ModTime()})
-						total += finfo.Size()
-					}
-				}
-			}
-
-			cutoff := time.Now().AddDate(0, 0, -maxAgeDays)
-			var remaining []fileInfo
-			for _, f := range files {
-				if f.mod.Before(cutoff) {
-					if err := os.Remove(f.path); err == nil {
-						if logger != nil {
-							logger.Debug("transform cache gc: removed old file", slog.String("path", f.path), slog.Time("mod", f.mod))
-						}
-
-						total -= f.size
-						continue
-					} else if logger != nil {
-						logger.Warn("transform cache gc: failed to remove old file", slog.String("path", f.path), slog.Any("error", err))
-					}
-				}
-
-				remaining = append(remaining, f)
-			}
-
-			if total > maxSizeBytes {
-				sort.Slice(remaining, func(i, j int) bool { return remaining[i].mod.Before(remaining[j].mod) })
-				for _, f := range remaining {
-					if total <= maxSizeBytes {
-						break
-					}
-					if err := os.Remove(f.path); err == nil {
-						total -= f.size
-						if logger != nil {
-							logger.Debug("transform cache gc: evicted file", slog.String("path", f.path), slog.Int64("size", f.size))
-						}
-					} else if logger != nil {
-						logger.Warn("transform cache gc: failed to evict file", slog.String("path", f.path), slog.Any("error", err))
-					}
-				}
-			}
-
-			if logger != nil {
-				logger.Debug("transform cache gc: finished", slog.Int64("remaining_total_bytes", total))
-			}
+			PerformTransformCacheCleanup(Directory, logger, db, config.AppConfig.Cache, GetPermanentTransformHashes)
 		}
 
+		// do startup run
 		doCleanup()
 
 		for {
