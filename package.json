@@ -1,0 +1,20 @@
+{
+	"name": "imagine-monorepo",
+	"private": true,
+	"license": "AGPL-3.0",
+	"scripts": {
+		"dev": "pnpm -r --filter \"@imagine/*\" dev",
+		"build": "pnpm -r --filter \"@imagine/*\" build",
+		"test": "pnpm -r --filter \"@imagine/*\" test",
+		"check": "pnpm -r --filter \"@imagine/*\" check",
+		"lint": "pnpm -r --filter \"@imagine/*\" lint",
+		"format": "pnpm -r --filter \"@imagine/*\" format",
+		"gen:api": "pnpm --filter @imagine/scripts gen:api"
+	},
+	"keywords": [],
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
+	}
+}

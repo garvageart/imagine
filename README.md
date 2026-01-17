@@ -62,6 +62,10 @@ See [**docs/BUILDING.md**](./docs/BUILDING.md) for detailed setup instructions, 
 - **Framework**: Svelte 5
 - **Styling**: SCSS
 - **Icons**: Material Design
+
+### Monorepo Structure
+- **Go Workspace**: Managed via `go.work` for the backend.
+- **PNPM Workspaces**: Frontend (`viz/`) and internal tools (`scripts/js/`) are managed as pnpm workspaces.
 ---
 
 ## License
