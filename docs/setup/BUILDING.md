@@ -55,7 +55,7 @@ The Docker setup uses `docker/initdb/01-create-superuser.sh` to automatically cr
 
 ### Prerequisites
 - **Go**: v1.25+ (Required for workspace support)
-- **Node.js**: v22+
+- **Node.js**: v24+
 - **pnpm**: Latest
 - **PostgreSQL**: v14+
 - **Redis**: v7+
@@ -96,15 +96,11 @@ The server should start on port `7770` (or as defined in `imagine.json` / `.env`
 
 ### Step 3: Frontend (Viz)
 
-1.  Navigate to the frontend directory:
-```bash
-cd viz
-```
-2.  Install dependencies:
+1.  **Install dependencies** (from the project root):
 ```bash
 pnpm install
 ```
-3.  Start the development server:
+2.  **Start the development server**:
 ```bash
 pnpm dev
 ```
@@ -116,12 +112,11 @@ Access at `http://localhost:7777`.
 
 In production, the Go backend can serve the compiled frontend assets, deploying as a single binary.
 
-1.  **Build Frontend**:
+1.  **Build Frontend** (from the project root):
 ```bash
-cd viz
 pnpm build
 ```
-This generates the static site in `../build/viz`.
+This generates the single-page application JS file in `./build/viz`.
 
 2.  **Build Backend**:
 From the project root:

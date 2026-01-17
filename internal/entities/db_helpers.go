@@ -4,12 +4,23 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+
+	"imagine/internal/dto"
 )
 
 func CountUsers(db *gorm.DB) (int64, error) {
 	var count int64
 	if err := db.Model(&User{}).Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	return count, nil
+}
+
+func CountSuperadmins(db *gorm.DB) (int64, error) {
+	var count int64
+	if err := db.Model(&User{}).Where("role = ?", dto.UserRoleSuperadmin).Count(&count).Error; err != nil {
+		return 0, fmt.Errorf("failed to count superadmins: %w", err)
 	}
 
 	return count, nil

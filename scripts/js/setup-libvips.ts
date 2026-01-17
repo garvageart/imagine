@@ -53,7 +53,7 @@ async function installWindows() {
       await fs.access(oldVipsDir);
       log(`Cleaning up old dormant installation at ${oldVipsDir}...`);
       await fs.rm(oldVipsDir, { recursive: true, force: true });
-    } catch {} // Ignore errors during cleanup
+    } catch { } // Ignore errors during cleanup
   }
 
   log('Updating MSYS2 packages...');
@@ -72,7 +72,7 @@ async function installWindows() {
     throw e;
   }
 
-  // --- Configure Environment Variables (Crucial for Go build) ---
+  // Configure Environment Variables (Crucial for Go build)
   log('Configuring persistent environment variables for Go build...');
 
   let msys2Root;
@@ -82,13 +82,13 @@ async function installWindows() {
     error("Could not determine MSYS2 root path using 'cygpath -m /'.");
     throw e;
   }
-  
+
   const mingwBinPath = `${msys2Root}/mingw64/bin`;
   const mingwPkgConfigPath = `${msys2Root}/mingw64/lib/pkgconfig`;
 
   // Escape single quotes for PowerShell strings
   const esc = (s: string) => s.replace(/'/g, "''");
-  
+
   const psScript = `
     $MingwBin = '${esc(mingwBinPath)}'
     $MingwPkgConfig = '${esc(mingwPkgConfigPath)}'

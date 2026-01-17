@@ -28,7 +28,7 @@ RUN set -eux; \
 
 
 # --- Frontend Builder ---
-FROM node:22-bookworm-slim AS frontend-builder
+FROM node:24.13.0-bookworm-slim AS frontend-builder
 WORKDIR /app/viz
 ENV NODE_ENV=production
 
