@@ -7,7 +7,7 @@
     "300": "<path d=\"M480-140q-59.61 0-110.61-28.69-51-28.7-76.85-81.31H180v-45.38h92.77q-8.54-29.08-8.73-59.04-.19-29.97-.19-60.04H180v-45.39h83.85q0-31.69.11-63.27.12-31.57 10.43-61.5H180V-630h115.39q14.77-28.38 38.34-49.19 23.58-20.81 52.35-34.04l-77.39-76.38 30-29.62 90.93 90.92q25.69-8.46 51.69-8.46t51.69 8.46l91.31-90.92 30 29.62-76.39 76.38q28.77 13.23 50.85 34.54 22.07 21.31 38.07 48.69H780v45.38h-94.39q11.31 29.93 10.62 61.5-.69 31.58-.69 63.27H780v45.39h-84.46q0 30.07.11 60.04.12 29.96-8.42 59.04H780V-250H668.08q-25.24 53.61-76.54 81.81Q540.23-140 480-140m-73.85-190h147.7v-45.38h-147.7zm0-169.54h147.7v-45.38h-147.7z\" />",
     "400": "<path d=\"M480-120q-65 0-121-31t-83-89H160v-60h92q-7-26-7-52.5V-406h-85v-60h85q0-29 .5-57.5T254-580h-94v-60h120q14-28 37-49t51-35l-77-76 40-40 94 94q28-10 56.5-10t56.5 10l94-94 40 40-76 76q28 14 49.5 35.5T683-640h117v60h-94q9 28 8.5 56.5T714-466h86v60h-86q0 27 .5 53.5T708-300h92v60H685q-26 59-82.5 89.5T480-120m-80-200h160v-60H400zm0-173h160v-60H400z\" />"
 };
-    let { size = "1.5em", className = "", title = "IconBugReport", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "IconBugReport", viewBox = "0 -960 960 960", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -17,7 +17,7 @@
     class={className}
     width={size}
     height={size}
-    viewBox="0 -960 960 960"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}

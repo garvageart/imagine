@@ -1,15 +1,11 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "300": "<path d=\"M654.61-180v-236.15H780V-180zm-237.3 0v-600h125.38v600zM180-180v-403.84h125.39V-180z\" />",
-    "400": "<path d=\"M640-160v-280h160v280zm-240 0v-640h160v640zm-240 0v-440h160v440z\" />",
-    "600": "<path d=\"M661.13-145.87v-300.35H814.7v300.35zm-257.35 0V-814.7h152.44v668.83zm-257.91 0V-614.7h153v468.83z\" />"
+    "400": "<path d=\"M640-160v-280h160v280zm-240 0v-640h160v640zm-240 0v-440h160v440z\" />"
 };
     const filledVariants: Record<string, string> = {
-    "300": "<path d=\"M654.61-180v-236.15H780V-180zm-237.3 0v-600h125.38v600zM180-180v-403.84h125.39V-180z\" />",
-    "400": "<path d=\"M660-160v-280h140v280zm-250 0v-640h140v640zm-250 0v-440h140v440z\" />",
-    "600": "<path d=\"M661.13-145.87v-300.35H814.7v300.35zm-257.35 0V-814.7h152.44v668.83zm-257.91 0V-614.7h153v468.83z\" />"
+    "400": "<path d=\"M660-160v-280h140v280zm-250 0v-640h140v640zm-250 0v-440h140v440z\" />"
 };
-    let { size = "1.5em", className = "", title = "IconBarChart", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "IconBarChart", viewBox = "0 -960 960 960", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -19,7 +15,7 @@
     class={className}
     width={size}
     height={size}
-    viewBox="0 -960 960 960"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}

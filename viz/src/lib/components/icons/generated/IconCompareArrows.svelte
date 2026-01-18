@@ -1,15 +1,11 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "300": "<path d=\"m317.77-180.39-32-32 126.77-126.38H100v-45.38h312.54L285.77-510.54l32-32 181.08 181.08zm324.46-237.46L461.15-598.92 642.23-780l32 31.62-126.77 126.77H860v45.38H547.46l126.77 126.38z\" />",
-    "400": "<path d=\"m320-160-56-57 103-103H80v-80h287L264-503l56-57 200 200zm320-240L440-600l200-200 56 57-103 103h287v80H593l103 103z\" />",
-    "600": "<path d=\"m304-145.87-55.57-55.56 111.39-110.83H65.87v-79.78h293.95L248.43-503.43 304-559l207.13 206.57zm352-255.69L449.43-608.13 656-814.7l55.57 55.57-110.83 111.39H894.7v79.78H600.74l110.83 110.83z\" />"
+    "400": "<path d=\"m320-160-56-57 103-103H80v-80h287L264-503l56-57 200 200zm320-240L440-600l200-200 56 57-103 103h287v80H593l103 103z\" />"
 };
     const filledVariants: Record<string, string> = {
-    "300": "<path d=\"m317.77-180.39-32-32 126.77-126.38H100v-45.38h312.54L285.77-510.54l32-32 181.08 181.08zm324.46-237.46L461.15-598.92 642.23-780l32 31.62-126.77 126.77H860v45.38H547.46l126.77 126.38z\" />",
-    "400": "<path d=\"m317-160-42-42 121-121H80v-60h316L275-504l42-42 193 193zm326-254L450-607l193-193 42 42-121 121h316v60H564l121 121z\" />",
-    "600": "<path d=\"m304-145.87-55.57-55.56 111.39-110.83H65.87v-79.78h293.95L248.43-503.43 304-559l207.13 206.57zm352-255.69L449.43-608.13 656-814.7l55.57 55.57-110.83 111.39H894.7v79.78H600.74l110.83 110.83z\" />"
+    "400": "<path d=\"m317-160-42-42 121-121H80v-60h316L275-504l42-42 193 193zm326-254L450-607l193-193 42 42-121 121h316v60H564l121 121z\" />"
 };
-    let { size = "1.5em", className = "", title = "IconCompareArrows", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "IconCompareArrows", viewBox = "0 -960 960 960", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -19,7 +15,7 @@
     class={className}
     width={size}
     height={size}
-    viewBox="0 -960 960 960"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}

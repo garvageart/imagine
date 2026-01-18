@@ -1,15 +1,11 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "300": "<path d=\"M597.69-242.69v-45.39h129.23v45.39zm0-354.93V-643h260v45.38zm0 177.47v-45.39h216.54v45.39zM146.16-665.77h-43.85v-45.27h161.92v-36.65h112.69v36.54h161.92v45.38H495v388.08q0 23.53-17.08 40.61T437.31-220H203.85q-23.53 0-40.61-17.08t-17.08-40.61zm45.38 0v388.08q0 4.61 3.65 8.46 3.66 3.84 8.66 3.84h233.46q4.61 0 8.46-3.84 3.85-3.85 3.85-8.46v-388.08zm0 0v400.38z\" />",
-    "400": "<path d=\"M600-240v-80h160v80zm0-320v-80h280v80zm0 160v-80h240v80zM120-640H80v-80h160v-60h160v60h160v80h-40v360q0 33-23.5 56.5T440-200H200q-33 0-56.5-23.5T120-280zm80 0v360h240v-360zm0 0v360z\" />",
-    "600": "<path d=\"M609.61-210.78V-277h151.78v66.22zm0-381V-658h286.78v66.22zm0 190.78v-66.78h241.78V-401zM109.17-675h-45v-79.78h176.79v-45h150.26v45H568V-675h-45v409.91q0 32.51-23.52 55.87-23.52 23.35-56.26 23.35H188.39q-32.51 0-55.86-23.35-23.36-23.36-23.36-55.87zm79.22 0v409.91h254.83V-675zm0 0v409.91z\" />"
+    "400": "<path d=\"M600-240v-80h160v80zm0-320v-80h280v80zm0 160v-80h240v80zM120-640H80v-80h160v-60h160v60h160v80h-40v440H120zm80 0v360h240v-360zm0 0v360z\" />"
 };
     const filledVariants: Record<string, string> = {
-    "300": "<path d=\"M597.69-242.69v-45.39h129.23v45.39zm0-354.93V-643h260v45.38zm0 177.47v-45.39h216.54v45.39zM146.16-665.77h-43.85v-45.27h161.92v-36.65h112.69v36.54h161.92v45.38H495v388.08q0 23.53-17.08 40.61T437.31-220H203.85q-23.53 0-40.61-17.08t-17.08-40.61z\" />",
-    "400": "<path d=\"M600-230v-60h145v60zm0-368v-60h280v60zm0 184v-60h235v60zM125-675H80v-60h170v-45h135v45h170v60h-45v415q0 24-18 42t-42 18H185q-24 0-42-18t-18-42z\" />",
-    "600": "<path d=\"M609.61-210.78V-277h151.78v66.22zm0-381V-658h286.78v66.22zm0 190.78v-66.78h241.78V-401zM109.17-675h-45v-79.78h176.79v-45h150.26v45H568V-675h-45v409.91q0 32.51-23.52 55.87-23.52 23.35-56.26 23.35H188.39q-32.51 0-55.86-23.35-23.36-23.36-23.36-55.87z\" />"
+    "400": "<path d=\"M600-230v-60h145v60zm0-368v-60h280v60zm0 184v-60h235v60zM125-675H80v-60h170v-45h135v45h170v60h-45v475H125z\" />"
 };
-    let { size = "1.5em", className = "", title = "IconDeleteSweep", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "IconDeleteSweep", viewBox = "0 -960 960 960", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -19,7 +15,7 @@
     class={className}
     width={size}
     height={size}
-    viewBox="0 -960 960 960"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}

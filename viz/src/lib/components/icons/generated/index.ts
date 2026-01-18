@@ -49,6 +49,7 @@ export { default as IconInbox } from './IconInbox.svelte';
 export { default as IconArrowDropDown } from './IconArrowDropDown.svelte';
 export { default as IconArrowDownwardAlt } from './IconArrowDownwardAlt.svelte';
 export { default as IconUnfoldMore } from './IconUnfoldMore.svelte';
+export { default as IconUnfoldMoreRounded } from './IconUnfoldMoreRounded.svelte';
 export { default as IconStar } from './IconStar.svelte';
 export { default as IconArrowRight } from './IconArrowRight.svelte';
 export { default as IconFavorite } from './IconFavorite.svelte';

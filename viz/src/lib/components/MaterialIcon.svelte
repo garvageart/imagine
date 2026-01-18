@@ -100,9 +100,10 @@
 		return fontLoadMap.get(family);
 	}
 
-	async function loadGeneratedIcon(name: string) {
+	async function loadGeneratedIcon(name: string, style: IconStyle) {
 		const base = normalizeName(name);
-		const modulePath = `/src/lib/components/icons/generated/Icon${base}.svelte`;
+		const styleSuffix = style === 'sharp' ? '' : normalizeName(style);
+		const modulePath = `/src/lib/components/icons/generated/Icon${base}${styleSuffix}.svelte`;
 
 		// 1. Try Eager (Build/Prerender)
 		if (building && modulePath in ICON_MODULES_EAGER) {
@@ -123,25 +124,25 @@
 	}
 
 	// Effects
-	// Load generated component when iconName changes
+	// Load generated component when iconName or iconStyle changes
 	$effect(() => {
 		if (!iconName) {
 			GeneratedComponent = null;
 			return;
 		}
 
-		loadGeneratedIcon(iconName).then((comp) => {
+		loadGeneratedIcon(iconName, iconStyle).then((comp) => {
 			GeneratedComponent = comp;
 
 			// Warn only in dev if missing and not already warned
-			if (!comp && dev && !warnedMissing.has(iconName)) {
+			if (!comp && dev && !warnedMissing.has(`${iconName}-${iconStyle}`)) {
 				// Only warn if we EXPECTED it to be there (i.e. we don't have it in our glob).
 				// Actually, if it's not in the glob, it wasn't generated.
 				// So we warn that we are falling back to font.
 				console.warn(
-					`[MaterialIcon] No generated component found for "${iconName}" — falling back to font ligature.`
+					`[MaterialIcon] No generated component found for "${iconName}" (${iconStyle}) — falling back to font ligature.`
 				);
-				warnedMissing.add(iconName);
+				warnedMissing.add(`${iconName}-${iconStyle}`);
 			}
 		});
 	});

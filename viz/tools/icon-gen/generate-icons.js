@@ -51,14 +51,15 @@ function sanitizeNameForFile (name) {
  * It will prefer a provided weight first, then fall back through common weights.
  * @param {string} name
  * @param {number|string} [preferredWeight]
+ * @param {string} [preferredStyle]
  * @returns {Promise<string|null>} SVG text or null if not found
  */
-async function fetchSvgForName (name, preferredWeight) {
+async function fetchSvgForName (name, preferredWeight, preferredStyle) {
     const s = sanitizeNameForFile(name);
     const variants = [s, `ic_${s}`, s.replace(/^ic_/, '')];
     // Prioritize 400 (standard) first, then go to nearby weights.
     const defaultWeights = [400, 300, 200, 100, 500, 600, 700];
-    const styles = ['outlined', 'rounded', 'sharp'];
+    const defaultStyles = ['sharp', 'rounded', 'outlined'];
 
     // Build search order: preferredWeight first (if provided), then defaults
     /** @type {string[]} */
@@ -73,6 +74,17 @@ async function fetchSvgForName (name, preferredWeight) {
     for (const w of defaultWeights) {
         if (!weights.includes(String(w))) {
             weights.push(String(w));
+        }
+    }
+
+    /** @type {string[]} */
+    const styles = [];
+    if (preferredStyle) {
+        styles.push(preferredStyle);
+    }
+    for (const st of defaultStyles) {
+        if (!styles.includes(st)) {
+            styles.push(st);
         }
     }
 
@@ -91,7 +103,7 @@ async function fetchSvgForName (name, preferredWeight) {
                     const res = await fetch(url);
                     if (res && res.ok) {
                         const text = await res.text();
-                        console.log('Fetched from Google Symbols (400):', url);
+                        console.log(`Fetched from Google Symbols (400, ${style}):`, url);
                         return text;
                     }
                 } catch (e) {
@@ -112,7 +124,7 @@ async function fetchSvgForName (name, preferredWeight) {
                     const res = await fetch(url);
                     if (res && res.ok) {
                         const text = await res.text();
-                        console.log('Fetched from Marella repo:', url);
+                        console.log(`Fetched from Marella repo (${weight}, ${style}):`, url);
                         return text;
                     }
                 } catch (e) {
@@ -249,7 +261,8 @@ async function main () {
     console.log('Scanning files with pattern:', pattern);
     console.log('Found files:', files.length);
     if (files.length > 0) console.log('Example file:', files[0]);
-    // Map of iconName -> Set of weights (as strings). If no weight found, default to '400'.
+    
+    // Map of iconName -> { weights: Set, styles: Set }
     const names = new Map();
 
     const reNameDouble = /iconName\s*=\s*"([a-zA-Z0-9_\- ]+)"/g;
@@ -257,26 +270,33 @@ async function main () {
     const reNameExpr = /iconName\s*=\s*{\s*"([a-zA-Z0-9_\- ]+)"\s*}/g;
     const reNameObj = /iconName\s*:\s*"([a-zA-Z0-9_\- ]+)"/g; // object literal
 
-    // Weight detection (common patterns). Capture 3-digit weights like 100..700
+    // Weight detection
     const reWeightDouble = /(?:iconWeight|weight)\s*=\s*"([0-9]{3})"/g;
     const reWeightSingle = /(?:iconWeight|weight)\s*=\s*'([0-9]{3})'/g;
     const reWeightExpr = /(?:iconWeight|weight)\s*=\s*{\s*([0-9]{3})\s*}/g;
     const reWeightObj = /(?:iconWeight|weight)\s*:\s*"([0-9]{3})"/g;
 
+    // Style detection
+    const reStyleDouble = /iconStyle\s*=\s*"([a-z]+)"/g;
+    const reStyleSingle = /iconStyle\s*=\s*'([a-z]+)'/g;
+    const reStyleExpr = /iconStyle\s*=\s*{\s*"([a-z]+)"\s*}/g;
+    const reStyleObj = /iconStyle\s*:\s*"([a-z]+)"/g;
+
     for (const f of files) {
+        if (f.includes('/generated/')) continue;
         const text = readFileSync(f, 'utf8');
         let m;
-        // collect names
+        
+        const fileNames = new Set();
         [reNameDouble, reNameSingle, reNameExpr, reNameObj].forEach((r) => {
             r.lastIndex = 0;
             while ((m = r.exec(text)) !== null) {
-                const n = m[1];
-                if (!names.has(n)) names.set(n, new Set());
+                fileNames.add(m[1]);
             }
         });
 
-        // collect weights nearby: a file may contain both name and weight; we conservatively
-        // associate any found weight in the file with all discovered names in that file.
+        if (fileNames.size === 0) continue;
+
         const foundWeights = new Set();
         [reWeightDouble, reWeightSingle, reWeightExpr, reWeightObj].forEach((r) => {
             r.lastIndex = 0;
@@ -285,18 +305,19 @@ async function main () {
             }
         });
 
-        if (foundWeights.size > 0) {
-            for (const n of names.keys()) {
-                const set = names.get(n);
-                foundWeights.forEach(w => set.add(w));
+        const foundStyles = new Set();
+        [reStyleDouble, reStyleSingle, reStyleExpr, reStyleObj].forEach((r) => {
+            r.lastIndex = 0;
+            while ((m = r.exec(text)) !== null) {
+                foundStyles.add(m[1]);
             }
-        }
-    }
+        });
 
-    // Ensure at least a default weight for icons without detected weights
-    for (const [n, set] of names.entries()) {
-        if (set.size === 0) {
-            set.add('400');
+        for (const n of fileNames) {
+            if (!names.has(n)) names.set(n, { weights: new Set(), styles: new Set() });
+            const entry = names.get(n);
+            foundWeights.forEach(w => entry.weights.add(w));
+            foundStyles.forEach(s => entry.styles.add(s));
         }
     }
 
@@ -307,92 +328,90 @@ async function main () {
     const generated = [];
 
     // debug: list discovered literal icon names
-    console.log('Discovered icon names:', Array.from(names).sort());
+    console.log('Discovered icon names:', Array.from(names.keys()).sort());
     console.log('Total distinct icon names:', names.size);
 
-    // Generate a single multi-weight component per icon name. For each name we try to
-    // fetch SVGs for the detected weights and embed them in a `variants` map used
-    // at runtime via a `weight` prop.
-    for (const [name, weightSet] of names.entries()) {
-        const compName = 'Icon' + pascalCase(name);
-        const outFile = join(OUT_DIR, `${compName}.svelte`);
+    for (const [name, entry] of names.entries()) {
+        const requiredWeights = new Set(['400', ...Array.from(entry.weights)]);
+        const requiredStyles = new Set(['sharp', ...Array.from(entry.styles)]);
+        
+        // Filter out "filled" from styles as it's handled via the "fill" prop in our components
+        requiredStyles.delete('filled');
 
-        // We ALWAYS want weight 400 as a base fallback if available.
-        const requiredWeights = new Set(['400', ...Array.from(weightSet)]);
+        for (const style of requiredStyles) {
+            const isDefaultStyle = style === 'sharp';
+            const styleSuffix = isDefaultStyle ? '' : pascalCase(style);
+            const compName = 'Icon' + pascalCase(name) + styleSuffix;
+            const outFile = join(OUT_DIR, `${compName}.svelte`);
 
-        console.log('Processing', name, 'weights', Array.from(requiredWeights).join(','));
-        /** @type {Record<string,string>} */
-        const variants = {};
-        /** @type {Record<string,string>} */
-        const filledVariants = {};
-        let finalViewBox = '0 0 24 24';
+            console.log(`Processing ${name} (${style}) weights ${Array.from(requiredWeights).join(',')}`);
+            
+            /** @type {Record<string,string>} */
+            const variants = {};
+            /** @type {Record<string,string>} */
+            const filledVariants = {};
+            let finalViewBox = '0 0 24 24';
 
-        for (const weight of Array.from(requiredWeights)) {
-            // 1. Try normal version
-            const rawSvg = await fetchSvgForName(name, weight);
-            if (rawSvg) {
-                const optimized = optimize(rawSvg, { multipass: true }).data;
-                const vbMatch = optimized.match(/viewBox="([^\"]+)"/i);
-                if (vbMatch) finalViewBox = vbMatch[1];
+            for (const weight of Array.from(requiredWeights)) {
+                // 1. Try normal version
+                const rawSvg = await fetchSvgForName(name, weight, style);
+                if (rawSvg) {
+                    const optimized = optimize(rawSvg, { multipass: true }).data;
+                    const vbMatch = optimized.match(/viewBox="([^\"]+)"/i);
+                    if (vbMatch) finalViewBox = vbMatch[1];
 
-                const cleaned = optimized
-                    .replace(/<\?xml[\s\S]*?\?>/g, '')
-                    .replace(/\swidth="[^"]+"/g, '')
-                    .replace(/\sheight="[^"]+"/g, '')
-                    .replace(/\sxmlns(:\w+)?="[^"]+"/g, '')
-                    .replace(/\sviewBox="[^"]+"/g, '')
-                    .trim();
-                const innerMatch = cleaned.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
-                const inner = innerMatch ? innerMatch[1].trim() : cleaned;
-                variants[String(weight)] = inner.replace(/\/>/g, ' \/>');
-            }
+                    const cleaned = optimized
+                        .replace(/<\?xml[\s\S]*?\?>/g, '')
+                        .replace(/\swidth="[^"]+"/g, '')
+                        .replace(/\sheight="[^"]+"/g, '')
+                        .replace(/\sxmlns(:\w+)?="[^"]+"/g, '')
+                        .replace(/\sviewBox="[^"]+"/g, '')
+                        .trim();
+                    const innerMatch = cleaned.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+                    const inner = innerMatch ? innerMatch[1].trim() : cleaned;
+                    variants[String(weight)] = inner.replace(/\/>/g, ' \/>');
+                }
 
-            // 2. Try filled version (currently only supported via Marella repo fallback)
-            const s = sanitizeNameForFile(name);
-            const nm = s.replace(/^ic_/, '');
-            const styles = ['outlined', 'rounded', 'sharp'];
-
-            let filledSvg = null;
-            for (const style of styles) {
-                const url = `https://raw.githubusercontent.com/marella/material-symbols/main/svg/${weight}/${style}/${nm}-fill.svg`;
+                // 2. Try filled version
+                const s = sanitizeNameForFile(name);
+                const nm = s.replace(/^ic_/, '');
+                
+                // Try Marella repo for filled variant
+                const filledUrl = `https://raw.githubusercontent.com/marella/material-symbols/main/svg/${weight}/${style}/${nm}-fill.svg`;
                 try {
-                    const res = await fetch(url);
+                    const res = await fetch(filledUrl);
                     if (res && res.ok) {
-                        filledSvg = await res.text();
-                        console.log('Fetched filled variant:', url);
-                        break;
+                        const filledSvg = await res.text();
+                        console.log('Fetched filled variant:', filledUrl);
+                        
+                        const optimized = optimize(filledSvg, { multipass: true }).data;
+                        const cleaned = optimized
+                            .replace(/<\?xml[\s\S]*?\?>/g, '')
+                            .replace(/\swidth="[^"]+"/g, '')
+                            .replace(/\sheight="[^"]+"/g, '')
+                            .replace(/\sxmlns(:\w+)?="[^"]+"/g, '')
+                            .replace(/\sviewBox="[^"]+"/g, '')
+                            .trim();
+                        const innerMatch = cleaned.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+                        const inner = innerMatch ? innerMatch[1].trim() : cleaned;
+                        filledVariants[String(weight)] = inner.replace(/\/>/g, ' \/>');
                     }
                 } catch (e) { }
             }
 
-            if (filledSvg) {
-                const optimized = optimize(filledSvg, { multipass: true }).data;
-                const cleaned = optimized
-                    .replace(/<\?xml[\s\S]*?\?>/g, '')
-                    .replace(/\swidth="[^"]+"/g, '')
-                    .replace(/\sheight="[^"]+"/g, '')
-                    .replace(/\sxmlns(:\w+)?="[^"]+"/g, '')
-                    .replace(/\sviewBox="[^"]+"/g, '')
-                    .trim();
-                const innerMatch = cleaned.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
-                const inner = innerMatch ? innerMatch[1].trim() : cleaned;
-                filledVariants[String(weight)] = inner.replace(/\/>/g, ' \/>');
+            if (Object.keys(variants).length === 0) {
+                console.warn(`No variants available for ${name} (${style}); skipping component generation.`);
+                continue;
             }
-        }
 
-        if (Object.keys(variants).length === 0) {
-            console.warn('No variants available for', name, '; skipping component generation.');
-            continue;
-        }
+            const variantsJson = JSON.stringify(variants, null, 4);
+            const filledJson = JSON.stringify(filledVariants, null, 4);
 
-        const variantsJson = JSON.stringify(variants, null, 4);
-        const filledJson = JSON.stringify(filledVariants, null, 4);
-
-        const svelte = `
+            const svelte = `
 <script lang="ts">
     const variants: Record<string, string> = ${variantsJson};
     const filledVariants: Record<string, string> = ${filledJson};
-    let { size = "1.5em", className = "", title = "${compName}", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "${compName}", viewBox = "${finalViewBox}", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -402,7 +421,7 @@ async function main () {
     class={className}
     width={size}
     height={size}
-    viewBox="${finalViewBox}"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}
@@ -420,9 +439,10 @@ async function main () {
 </style>
 `;
 
-        writeFileSync(outFile, svelte.trimStart(), 'utf8');
-        console.log('Wrote', outFile);
-        generated.push({ name, compName });
+            writeFileSync(outFile, svelte.trimStart(), 'utf8');
+            console.log('Wrote', outFile);
+            generated.push({ name, compName, style, isDefault: isDefaultStyle });
+        }
     }
 
     // write index file

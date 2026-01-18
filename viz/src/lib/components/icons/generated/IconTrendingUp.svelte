@@ -1,15 +1,11 @@
 <script lang="ts">
     const variants: Record<string, string> = {
-    "300": "<path d=\"M132.62-258.08 100-290.69l271.23-271 165.08 165.08L785-643.77H649.54v-45.38H860v210.46h-44.77v-131.85L535.69-330.62 370.62-495.69z\" />",
-    "400": "<path d=\"m136-240-56-56 296-298 160 160 208-206H640v-80h240v240h-80v-104L536-320 376-480z\" />",
-    "600": "<path d=\"m122.43-227.56-56.56-56.57 308.39-306.83 167 167 219.52-220.65H638.87v-79.78H894.7v255.83h-78.79v-118.48L540.26-310.83l-167-167z\" />"
+    "400": "<path d=\"m136-240-56-56 296-298 160 160 208-206H640v-80h240v240h-80v-104L536-320 376-480z\" />"
 };
     const filledVariants: Record<string, string> = {
-    "300": "<path d=\"M132.62-258.08 100-290.69l271.23-271 165.08 165.08L785-643.77H649.54v-45.38H860v210.46h-44.77v-131.85L535.69-330.62 370.62-495.69z\" />",
-    "400": "<path d=\"m123-240-43-43 292-291 167 167 241-241H653v-60h227v227h-59v-123L538-321 371-488z\" />",
-    "600": "<path d=\"m122.43-227.56-56.56-56.57 308.39-306.83 167 167 219.52-220.65H638.87v-79.78H894.7v255.83h-78.79v-118.48L540.26-310.83l-167-167z\" />"
+    "400": "<path d=\"m123-240-43-43 292-291 167 167 241-241H653v-60h227v227h-59v-123L538-321 371-488z\" />"
 };
-    let { size = "1.5em", className = "", title = "IconTrendingUp", viewBox = "0 0 24 24", weight = "400", fill = false, ...rest } = $props();
+    let { size = "1.5em", className = "", title = "IconTrendingUp", viewBox = "0 -960 960 960", weight = "400", fill = false, ...rest } = $props();
     
     const activeMap = $derived(fill ? filledVariants : variants);
     const inner = $derived(activeMap[String(weight)] || activeMap["400"] || Object.values(activeMap)[0]);
@@ -19,7 +15,7 @@
     class={className}
     width={size}
     height={size}
-    viewBox="0 -960 960 960"
+    viewBox={viewBox}
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-label={title}
