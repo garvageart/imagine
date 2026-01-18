@@ -55,7 +55,7 @@
 		weight = 400,
 		grade = 0,
 		opticalSize = 24,
-		size,
+		size = "1.5em",
 		...props
 	}: IconProps & SvelteHTMLElements["span"] = $props();
 
@@ -170,7 +170,12 @@
 	);
 </script>
 
-<span class="viz-material-icon">
+<span 
+	class="viz-material-icon"
+	style:width={size}
+	style:height={size}
+	style:flex-shrink="0"
+>
 	{#if GeneratedComponent}
 		<GeneratedComponent
 			{...props}
@@ -192,6 +197,12 @@
 		align-items: center;
 		justify-content: center;
 		line-height: 0; /* Prevents line-height from messing with SVG size */
+
+		:global(svg) {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
 	}
 
 	/* Fallback Font Styles */
