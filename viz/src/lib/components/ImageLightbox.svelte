@@ -1,16 +1,11 @@
 <script lang="ts">
+	import { getFullImagePath, updateImage, type Image } from "$lib/api";
+	import { LabelColours, type ImageLabel } from "$lib/images/constants";
+	import { setRating } from "$lib/images/exif";
+	import { ZoomPanCrop, type CropRect } from "$lib/images/zoom/crop";
+	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 	import { loadImage } from "$lib/utils/dom";
-	import { fade } from "svelte/transition";
-	import Lightbox from "./Lightbox.svelte";
-	import LoadingContainer from "./LoadingContainer.svelte";
-	import MaterialIcon from "./MaterialIcon.svelte";
-	import {
-		getFullImagePath,
-		updateImage,
-		type Image,
-		type ImageUpdate
-	} from "$lib/api";
-	import hotkeys from "hotkeys-js";
+	import { downloadOriginalImageFile } from "$lib/utils/http";
 	import {
 		formatBytes,
 		getFlashMode,
@@ -18,16 +13,17 @@
 		getTakenAt,
 		getThumbhashURL
 	} from "$lib/utils/images";
-	import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
-	import IconButton from "./IconButton.svelte";
-	import { downloadOriginalImageFile } from "$lib/utils/http";
-	import { ZoomPanCrop } from "$lib/images/zoom/crop";
-	import { setRating } from "$lib/images/exif";
-	import InputText from "./dom/InputText.svelte";
-	import LabelSelector from "./LabelSelector.svelte";
-	import { LabelColours, type ImageLabel } from "$lib/images/constants";
+	import hotkeys from "hotkeys-js";
+	import { fade } from "svelte/transition";
 	import CropOverlay from "./CropOverlay.svelte";
 	import CropTools from "./CropTools.svelte";
+	import InputText from "./dom/InputText.svelte";
+	import IconButton from "./IconButton.svelte";
+	import LabelSelector from "./LabelSelector.svelte";
+	import Lightbox from "./Lightbox.svelte";
+	import LoadingContainer from "./LoadingContainer.svelte";
+	import MaterialIcon from "./MaterialIcon.svelte";
+	import StarRating from "./StarRating.svelte";
 
 	interface Props {
 		lightboxImage: Image | undefined;
@@ -54,17 +50,10 @@
 	// Crop State
 	let isCropping = $state(false);
 	let cropAspectRatio = $state<number | null>(null);
-	let currentCrop = $state<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
+	let currentCrop = $state<CropRect | null>(null);
 	let cropMenuPosition = $state<{ x: number; y: number } | null>(null);
 	// Store crop edits (original/natural coordinates) to restore them when re-entering crop mode
-	let cropEdits = $state<
-		Record<string, { x: number; y: number; width: number; height: number }>
-	>({});
+	let cropEdits = $state<Record<string, CropRect>>({});
 
 	let overriddenImages = $state<Record<string, string>>({});
 	let displayURL = $derived(
@@ -118,20 +107,28 @@
 	});
 
 	function goToPrev() {
-		if (isCropping) return;
+		if (isCropping) {
+			return;
+		}
+
 		direction = "left";
 		prevLightboxImage?.();
 	}
 
 	function goToNext() {
-		if (isCropping) return;
+		if (isCropping) {
+			return;
+		}
+
 		direction = "right";
 		nextLightboxImage?.();
 	}
 
 	function restoreCrop(targetZoomer?: ZoomPanCrop) {
 		const z = targetZoomer || zoomer;
-		if (!z || !imageEl || !lightboxImage) return;
+		if (!z || !imageEl || !lightboxImage) {
+			return;
+		}
 
 		// Ensure we capture dimensions for overlay
 		if (imageEl.clientWidth > 0 && imageEl.clientHeight > 0) {
@@ -177,7 +174,9 @@
 	}
 
 	function toggleCropMode() {
-		if (!imageEl) return;
+		if (!imageEl) {
+			return;
+		}
 
 		if (!isCropping) {
 			// Enter crop mode
@@ -284,7 +283,9 @@
 	}
 
 	function handleCropReset() {
-		if (!zoomer || !lightboxImage) return;
+		if (!zoomer || !lightboxImage) {
+			return;
+		}
 
 		// Clear saved crop state
 		delete cropEdits[lightboxImage.uid];
@@ -297,11 +298,9 @@
 	}
 
 	function handleContextMenu(e: MouseEvent) {
+		e.preventDefault();
 		if (isCropping) {
-			e.preventDefault();
 			cropMenuPosition = { x: e.clientX, y: e.clientY };
-		} else {
-			e.preventDefault();
 		}
 	}
 
@@ -314,15 +313,9 @@
 		imageUid ? document.createElement("img") : undefined
 	);
 
-	// Rating UI state: previewRating for hover preview, rating is the set value
-	let previewRating = $state<number | null>(null);
-	let rating = $state<number | null>(
+	let starRating = $derived<number | null>(
 		lightboxImage?.image_metadata?.rating ?? null
 	);
-
-	// Star values moved to state to avoid rebuilding the array on each render
-	let starValues = $state<number[]>([1, 2, 3, 4, 5]);
-
 	// Prevent concurrent rating updates
 	let updatingRating = $state(false);
 
@@ -336,8 +329,8 @@
 		}
 
 		updatingRating = true;
-		const prev = rating;
-		rating = newRating;
+		const prev = starRating;
+		starRating = newRating;
 
 		try {
 			const newSuccessfulRating = await setRating(
@@ -345,15 +338,15 @@
 				prev,
 				newRating
 			);
-			rating = newSuccessfulRating;
-		} catch (err: any) {
+			starRating = newSuccessfulRating;
+		} catch (err) {
 			const ratingErr = err as Error;
 			toastState.addToast({
 				type: "error",
 				title: "Failed to update rating",
 				message: `An error occurred while updating the image rating: ${ratingErr.message}`
 			});
-			rating = prev;
+			starRating = prev;
 		} finally {
 			updatingRating = false;
 		}
@@ -564,8 +557,7 @@
 							/>
 							<div class="card-values">
 								<div class="value-sub">
-									Flash {getFlashMode(lightboxImage?.exif?.flash) ??
-										"—"}
+									Flash {getFlashMode(lightboxImage?.exif?.flash) ?? "—"}
 								</div>
 							</div>
 						</div>
@@ -654,39 +646,11 @@
 					}}
 				/>
 
-				<div
-					class="rating-stars"
-					role="group"
-					onmouseleave={() => (previewRating = null)}
-				>
-					{#each starValues as i}
-						<button
-							class="rating-button"
-							title={`Set Rating: ${i}`}
-							aria-label={`Set Rating: ${i}`}
-							onmouseenter={() => (previewRating = i)}
-							onmouseleave={() => (previewRating = null)}
-							onclick={() => setImageRating(i)}
-							disabled={updatingRating}
-						>
-							<MaterialIcon
-								fill={i <= (previewRating ?? rating ?? 0)}
-								iconName="star"
-								iconStyle={"sharp"}
-							/>
-						</button>
-					{/each}
-					{#if rating !== null && rating !== 0}
-						<button
-							class="rating-clear"
-							aria-label="Clear rating"
-							onclick={() => setImageRating(0)}
-							disabled={updatingRating}
-						>
-							<MaterialIcon iconName="close" weight={600} />
-						</button>
-					{/if}
-				</div>
+				<StarRating
+					bind:value={starRating}
+					{updatingRating}
+					onChange={setImageRating}
+				/>
 			</div>
 		</div>
 	</div>
@@ -1135,25 +1099,5 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5em;
-	}
-
-	.rating-stars {
-		display: flex;
-		align-items: center;
-	}
-
-	.rating-button,
-	.rating-clear {
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		color: var(--imag-30);
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.rating-clear {
-		margin: 0em 0.5em;
 	}
 </style>

@@ -10,7 +10,7 @@
 	}
 
 	let {
-		value,
+		value = $bindable(null),
 		updatingRating = $bindable(false),
 		onChange,
 		onClear
