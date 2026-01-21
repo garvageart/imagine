@@ -8,43 +8,53 @@
 	const collectionScope = filterManager.getScope("collections");
 </script>
 
-<div class="filter-panel">
-	{#if filterManager.activeScopeType === "collections" && collectionScope}
-		<CollectionFilter
-			bind:criteria={collectionScope.criteria}
-			facets={collectionScope.facets}
-			bind:uiState={collectionScope.uiState}
-			save={() => filterManager.save()}
-		/>
-	{:else if imageScope}
-		<ImageFilter
-			bind:criteria={imageScope.criteria}
-			facets={imageScope.facets}
-			bind:uiState={imageScope.uiState}
-			save={() => filterManager.save()}
-		/>
-	{/if}
-
-	<div class="filter-actions">
-		<IconButton
-			iconName={filterManager.keepFilters ? "keep" : "keep_off"}
-			variant="mini"
-			title="Keep Filters while browsing"
-			style={filterManager.keepFilters
-				? "background-color: var(--imag-80);"
-				: ""}
-			onclick={() => filterManager.toggleKeepFilters()}
-		/>
-		<IconButton
-			iconName="layers_clear"
-			variant="mini"
-			onclick={() => filterManager.resetActiveScope(true)}
-			title="Clear all active filters"
-		/>
+<div class="filter-panel-container">
+	<div class="filter-panel">
+		{#if filterManager.activeScopeType === "collections" && collectionScope}
+			<CollectionFilter
+				bind:criteria={collectionScope.criteria}
+				facets={collectionScope.facets}
+				bind:uiState={collectionScope.uiState}
+				save={() => filterManager.save()}
+			/>
+		{:else if imageScope}
+			<ImageFilter
+				bind:criteria={imageScope.criteria}
+				facets={imageScope.facets}
+				bind:uiState={imageScope.uiState}
+				save={() => filterManager.save()}
+			/>
+		{/if}
+	</div>
+	<div class="filter-panel-footer">
+		<div class="filter-actions">
+			<IconButton
+				iconName={filterManager.keepFilters ? "keep" : "keep_off"}
+				variant="mini"
+				title="Keep Filters while browsing"
+				style={filterManager.keepFilters
+					? "background-color: var(--imag-80);"
+					: ""}
+				onclick={() => filterManager.toggleKeepFilters()}
+			/>
+			<IconButton
+				iconName="layers_clear"
+				variant="mini"
+				onclick={() => filterManager.resetActiveScope(true)}
+				title="Clear all active filters"
+			/>
+		</div>
 	</div>
 </div>
 
 <style lang="scss">
+	.filter-panel-container {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		background-color: var(--imag-bg-color);
+	}
+
 	.filter-panel {
 		display: flex;
 		flex-direction: column;
@@ -56,13 +66,17 @@
 		position: relative;
 	}
 
+	.filter-panel-footer {
+		// flex-shrink: 0;
+		border-top: 1px solid var(--imag-80);
+		position: relative;
+	}
+
 	.filter-actions {
-		position: absolute;
-		bottom: 0;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
-		padding: 0.2rem 0;
+		padding: 0.2rem 0.5rem;
 		background-color: var(--imag-bg-color);
 		gap: 0.5rem;
 		width: 100%;

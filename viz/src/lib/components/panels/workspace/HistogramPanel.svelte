@@ -549,7 +549,7 @@
 		padding: 0.5rem;
 		color: var(--imag-text-color);
 		position: relative;
-		background-color: var(--imag-100);
+		background-color: var(--imag-bg-color);
 		font-size: 0.75rem;
 		gap: 0.75rem;
 		overflow-y: auto;
