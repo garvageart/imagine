@@ -1,0 +1,4 @@
+imagine.local {
+	tls internal
+	reverse_proxy localhost:7777
+}
