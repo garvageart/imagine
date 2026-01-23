@@ -16,7 +16,7 @@
 	import ImageCard from "$lib/components/ImageCard.svelte";
 	import PhotoAssetGrid from "$lib/components/PhotoAssetGrid.svelte";
 	import ImageLightbox from "$lib/components/ImageLightbox.svelte";
-	import type { Collection, Image } from "$lib/api";
+	import type { Collection, ImageAsset } from "$lib/api";
 	import hotkeys from "hotkeys-js";
 	import {
 		getConsolidatedGroups,
@@ -55,13 +55,13 @@
 	let timeFound = $state(0);
 
 	// Lightbox
-	let lightboxImage: Image | undefined = $state();
+	let lightboxImage: ImageAsset | undefined = $state();
 
 	// Selection Scopes
 	const imageScopeId = SelectionScopeNames.SEARCH_IMAGES;
 	const collectionScopeId = SelectionScopeNames.SEARCH_COLLECTIONS;
 
-	const imageSelection = selectionManager.getScope<Image>(imageScopeId);
+	const imageSelection = selectionManager.getScope<ImageAsset>(imageScopeId);
 	const collectionSelection =
 		selectionManager.getScope<Collection>(collectionScopeId);
 	let disableOutsideUnselect = $derived(isLayoutPage());
@@ -227,7 +227,7 @@
 		}
 	});
 
-	function openLightbox(asset: Image) {
+	function openLightbox(asset: ImageAsset) {
 		lightboxImage = asset;
 	}
 
@@ -368,7 +368,7 @@
 	/>
 {/if}
 
-{#snippet imageCard(asset: Image)}
+{#snippet imageCard(asset: ImageAsset)}
 	<ImageCard {asset} />
 {/snippet}
 
@@ -665,7 +665,7 @@
 										openLightbox(asset);
 									}}
 									onassetcontext={(detail: {
-										asset: Image;
+										asset: ImageAsset;
 										anchor: { x: number; y: number } | HTMLElement;
 									}) => {
 										const { asset } = detail;

@@ -1,9 +1,9 @@
-import type { Image, ImagesListResponse } from "$lib/api";
+import type { ImageAsset, ImagesListResponse } from "$lib/api";
 
 // Helper class for managing gallery state
 // This ensures we can mutate state (append images) while still initializing from data
 export class ImagePaginationState {
-    images = $state<Image[]>([]);
+    images = $state<ImageAsset[]>([]);
     pagination = $state({ limit: 100, page: 0 });
     totalCount = $state(0);
     hasMore = $state(false);
@@ -12,7 +12,7 @@ export class ImagePaginationState {
         if (!data) {
             return;
         }
-        
+
         this.images = data.items?.map((i) => i.image) ?? [];
         this.pagination = {
             limit: data.limit ?? 100,

@@ -1,4 +1,4 @@
-import type { Image, ImagesResponse, ImageMetadata, ImagePaths } from "$lib/api";
+import type { ImageAsset, ImagesResponse, ImageMetadata, ImagePaths } from "$lib/api";
 
 export class ImageObjectData {
     uid: string;
@@ -34,7 +34,7 @@ export class ImageObjectData {
     /**
      * Create ImageObjectData from API Image response
      */
-    static fromAPI(apiImage: Image): ImageObjectData {
+    static fromAPI(apiImage: ImageAsset): ImageObjectData {
         return new ImageObjectData({
             uid: apiImage.uid,
             name: apiImage.name,
