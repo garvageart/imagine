@@ -1,23 +1,27 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { executeSearch, type Image, type Collection } from "$lib/api";
-	import CollectionCard from "$lib/components/CollectionCard.svelte";
-	import ImageCard from "$lib/components/ImageCard.svelte";
+	import { api, executeSearch, type Image, type Collection } from "$lib/api";
+	import CompactListItem from "./CompactListItem.svelte";
 	import MaterialIcon from "$lib/components/MaterialIcon.svelte";
-	import { slide } from "svelte/transition";
+	import { slide, fade } from "svelte/transition";
 	import { initDB } from "$lib/db/client";
+	import { VizMimeTypes } from "$lib/constants";
+	import { DragData } from "$lib/drag-drop/data";
 
 	let favouriteImages = $state<Image[]>([]);
 	let favouriteCollections = $state<Collection[]>([]);
-    let db = $state(initDB());
+	let db = $state(initDB());
 	let loading = $state(true);
+	let isDraggingOver = $state(false);
+	let isInternalDrag = false;
+	let dragCounter = 0;
 
 	// Collapse state
 	let showCollections = $state(false);
 	let showImages = $state(false);
 	let settingsLoaded = false;
 
-	// Load settings directly into state as early as possible
+	// Load settings directly into state
 	db.then(async (db) => {
 		try {
 			const settings = await db.get("settings", "favourites_panel");
@@ -70,6 +74,95 @@
 		}
 	}
 
+	function handleDragStart(e: DragEvent) {
+		isInternalDrag = true;
+	}
+
+	function handleDragEnd(e: DragEvent) {
+		isInternalDrag = false;
+		isDraggingOver = false;
+		dragCounter = 0;
+	}
+
+	async function handleDrop(e: DragEvent) {
+		isDraggingOver = false;
+		dragCounter = 0;
+		if (!e.dataTransfer || isInternalDrag) return;
+
+		const imageUidsData = DragData.getData<string[]>(
+			e.dataTransfer,
+			VizMimeTypes.IMAGE_UIDS
+		);
+		const collectionUidsData = DragData.getData<string[]>(
+			e.dataTransfer,
+			VizMimeTypes.COLLECTION_UIDS
+		);
+
+		let changed = false;
+
+		if (imageUidsData) {
+			for (const uid of imageUidsData.payload) {
+				await api.updateImage(uid, { favourited: true });
+				changed = true;
+			}
+		}
+
+		if (collectionUidsData) {
+			for (const uid of collectionUidsData.payload) {
+				await api.updateCollection(uid, { favourited: true });
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			loadFavourites();
+		}
+	}
+
+	function handleDragEnter(e: DragEvent) {
+		if (isInternalDrag) return;
+
+		if (
+			DragData.isType(e.dataTransfer!, VizMimeTypes.IMAGE_UIDS) ||
+			DragData.isType(e.dataTransfer!, VizMimeTypes.COLLECTION_UIDS)
+		) {
+			e.preventDefault();
+			dragCounter++;
+			isDraggingOver = true;
+		}
+	}
+
+	function handleDragLeave(e: DragEvent) {
+		if (isInternalDrag) return;
+
+		dragCounter--;
+		
+		// Use relatedTarget to check if we are truly leaving the container
+		const relatedTarget = e.relatedTarget as Node;
+		const currentTarget = e.currentTarget as Node;
+		
+		if (dragCounter <= 0 || (currentTarget && !currentTarget.contains(relatedTarget))) {
+			isDraggingOver = false;
+			dragCounter = 0;
+		}
+	}
+
+	function handleDragOver(e: DragEvent) {
+		if (isInternalDrag) return;
+
+		if (
+			DragData.isType(e.dataTransfer!, VizMimeTypes.IMAGE_UIDS) ||
+			DragData.isType(e.dataTransfer!, VizMimeTypes.COLLECTION_UIDS)
+		) {
+			e.preventDefault();
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = "copy";
+			}
+			// Ensure we stay in dragging state
+			if (!isDraggingOver) isDraggingOver = true;
+		}
+	}
+
 	onMount(() => {
 		loadFavourites();
 	});
@@ -82,84 +175,114 @@
 	});
 </script>
 
-<div class="favourites-panel">
-	<!-- Collections Section -->
-	<div class="section">
-		<button
-			class="section-header"
-			onclick={() => (showCollections = !showCollections)}
-		>
-			<div class="header-content">
-				<MaterialIcon
-					iconName={showCollections ? "keyboard_arrow_down" : "chevron_right"}
-					style="font-size: 1.2em;"
-				/>
-				<span>Collections</span>
-				<span class="count">({favouriteCollections.length})</span>
-			</div>
-		</button>
-		{#if showCollections}
-			<div class="grid-container" transition:slide>
-				{#if favouriteCollections.length === 0 && !loading}
-					<div class="empty-state">No favourite collections</div>
-				{:else}
-					<div class="grid collections-grid">
-						{#each favouriteCollections as collection}
-							<div class="card-wrapper">
-								<CollectionCard {collection} />
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
+<div
+	class="panel-container"
+	ondragenter={handleDragEnter}
+	ondragover={handleDragOver}
+	ondragleave={handleDragLeave}
+	ondrop={handleDrop}
+	ondragstart={handleDragStart}
+	ondragend={handleDragEnd}
+	role="region"
+	aria-label="Favourites Panel"
+>
+	<div class="favourites-panel">
+		<!-- Collections Section -->
+		<div class="section">
+			<button
+				class="section-header"
+				onclick={() => (showCollections = !showCollections)}
+			>
+				<div class="header-content">
+					<MaterialIcon
+						iconName={showCollections ? "keyboard_arrow_down" : "chevron_right"}
+					/>
+					<span>Collections</span>
+					<span class="count">({favouriteCollections.length})</span>
+				</div>
+			</button>
+			{#if showCollections}
+				<div class="list-container" transition:slide>
+					{#if favouriteCollections.length === 0 && !loading}
+						<div class="empty-state">No favourite collections</div>
+					{:else}
+						<div class="list">
+							{#each favouriteCollections as collection (collection.uid)}
+								<CompactListItem item={collection} type="collection" />
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Images Section -->
+		<div class="section">
+			<button class="section-header" onclick={() => (showImages = !showImages)}>
+				<div class="header-content">
+					<MaterialIcon
+						iconName={showImages ? "keyboard_arrow_down" : "chevron_right"}
+					/>
+					<span>Images</span>
+					<span class="count">({favouriteImages.length})</span>
+				</div>
+			</button>
+			{#if showImages}
+				<div class="list-container" transition:slide>
+					{#if favouriteImages.length === 0 && !loading}
+						<div class="empty-state">No favourite images</div>
+					{:else}
+						<div class="list">
+							{#each favouriteImages as image (image.uid)}
+								<CompactListItem item={image} type="image" />
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
 	</div>
 
-	<!-- Images Section -->
-	<div class="section">
-		<button class="section-header" onclick={() => (showImages = !showImages)}>
-			<div class="header-content">
+	{#if isDraggingOver}
+		<div class="drop-overlay" transition:fade={{ duration: 150 }}>
+			<div class="drop-overlay-content">
 				<MaterialIcon
-					iconName={showImages ? "keyboard_arrow_down" : "chevron_right"}
-					style="font-size: 1.2em;"
+					iconName="favorite"
+					style="font-size: 3rem; margin-bottom: 0.5rem; color: white;"
+					fill={true}
 				/>
-				<span>Images</span>
-				<span class="count">({favouriteImages.length})</span>
+				<span>Drop to favourite</span>
 			</div>
-		</button>
-		{#if showImages}
-			<div class="grid-container" transition:slide>
-				{#if favouriteImages.length === 0 && !loading}
-					<div class="empty-state">No favourite images</div>
-				{:else}
-					<div class="grid images-grid">
-						{#each favouriteImages as image}
-							<div class="card-wrapper">
-								<ImageCard asset={image} />
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="scss">
+	.panel-container {
+		position: relative;
+		height: 100%;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
 	.favourites-panel {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		overflow-y: auto;
-		background-color: var(--imag-bg);
+		background-color: var(--imag-bg-color);
 		color: var(--imag-text-color);
 		padding: 0.5rem;
-		gap: 0.5rem;
+		gap: 0.75rem;
+		box-sizing: border-box;
 	}
 
 	.section {
 		display: flex;
 		flex-direction: column;
+		gap: 0.25rem;
 	}
 
 	.section-header {
@@ -170,76 +293,73 @@
 		border: none;
 		color: var(--imag-text-color);
 		cursor: pointer;
-		padding: 0.5rem;
+		padding: 0.25rem;
 		font-family: inherit;
-		font-size: 1rem;
-		font-weight: bold;
+		font-size: 0.9rem;
+		font-weight: 600;
 		text-align: left;
-		border-radius: 4px;
+		border-radius: 0.25rem;
 
 		&:hover {
-			background-color: var(--imag-hover);
+			background-color: var(--imag-90);
+			opacity: 0.9;
 		}
 	}
 
 	.header-content {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.25rem;
 	}
 
 	.count {
 		font-weight: normal;
-		opacity: 0.7;
-		font-size: 0.9em;
+		opacity: 0.5;
+		font-size: 0.8em;
 	}
 
-	.grid-container {
-		overflow: hidden; /* For slide transition */
+	.list-container {
+		overflow: hidden;
 	}
 
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-		gap: 0.5rem;
-		padding: 0.5rem;
+	.list {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 
 	.empty-state {
 		padding: 1rem;
 		text-align: center;
-		color: var(--imag-text-muted);
+		color: var(--imag-60);
 		font-style: italic;
+		font-size: 0.85rem;
 	}
 
-	/* Scale down the cards to look like "little thumbnails" */
-	.card-wrapper {
-		/* Force the cards to be smaller */
-		:global(.coll-card) {
-			font-size: 0.7rem; /* Scale down text */
-		}
+	.drop-overlay {
+		position: absolute;
+		inset: 0;
+		z-index: 1000;
+		color: white;
+		background: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(4px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
 
-		:global(.image-container) {
-			height: 6rem !important; /* Override fixed height */
-		}
-
-		:global(.image-card) {
-			padding: 0.4rem;
-			font-size: 0.7rem;
-		}
-
-		:global(.image-card-meta) {
-			display: none; /* Hide metadata for cleaner thumbnail look */
-		}
-
-		:global(.metadata) {
-			padding: 0.5rem;
-		}
-
-		/* Hide extra details in collection card if needed */
-		:global(.coll-created_at),
-		:global(.coll-image_count) {
-			display: none;
-		}
+	.drop-overlay-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		border: 1px solid var(--imag-60);
+		border-radius: 1rem;
+		padding: 2rem;
+		background: rgba(0, 0, 0, 0.5);
+		color: white;
+		font-weight: bold;
 	}
 </style>
