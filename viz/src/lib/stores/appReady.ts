@@ -74,7 +74,10 @@ function finalizeReady() {
             const el = document.getElementById('app-splash');
             if (el) {
                 el.classList.add('app-splash--fade');
-                const cleanup = () => el.remove();
+                const cleanup = () => {
+                    el.remove();
+                    document.getElementById("splash-styles")?.remove();
+                };
                 el.addEventListener('transitionend', cleanup, { once: true });
                 // fallback removal in case transitionend doesn't fire
                 setTimeout(() => { if (el.parentNode) el.remove(); }, 700);
