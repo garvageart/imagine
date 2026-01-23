@@ -109,7 +109,8 @@ export default defineConfig({
 	server: {
 		port: config.servers.viz.port,
 		cors: true,
-		proxy: viteProxy
+		proxy: viteProxy,
+		allowedHosts: ['imagine.local']
 	},
 	preview: {
 		port: config.servers.viz.port,

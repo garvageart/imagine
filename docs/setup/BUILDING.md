@@ -136,6 +136,51 @@ Accessing `http://localhost:7770` (API port) will serve the frontend app for any
 
 ---
 
+## 4. HTTPS / Custom Domain Setup (Optional)
+
+You can run the application with a custom domain (e.g., `https://imagine.local`) and valid HTTPS certificates locally using [Caddy](https://caddyserver.com/). This mimics a production environment and avoids browser security warnings.
+
+### Automated Setup (Recommended)
+You can use the built-in setup script to configure your `hosts` file and `Caddyfile` automatically.
+
+**Note:** You must run this command with administrative privileges (Administrator Command Prompt on Windows, or `sudo` on macOS/Linux).
+
+```bash
+pnpm run setup:https
+```
+
+### Manual Setup
+If you prefer to configure this yourself, follow these steps:
+
+### 1. Install Caddy
+- **Windows**: `choco install caddy`
+- **macOS**: `brew install caddy`
+- **Linux**: [Install instructions](https://caddyserver.com/docs/install) (e.g., `sudo apt install caddy`)
+
+### 2. Configure Hosts File
+Map your custom domain to your local machine.
+- **Windows**: Edit `C:\Windows\System32\drivers\etc\hosts` (as Administrator)
+- **macOS/Linux**: Edit `/etc/hosts` (use `sudo`)
+
+Add the following line:
+```text
+127.0.0.1 imagine.local
+```
+
+### 3. Run Caddy
+From the project root (where the `Caddyfile` is located), run:
+
+```bash
+caddy run
+```
+*Note: You may need to run as Administrator/sudo the first time to allow Caddy to install its root certificate into your system's trust store.*
+
+### 4. Access
+Open **https://imagine.local** in your browser.
+Caddy will automatically reverse-proxy requests to your running frontend (`localhost:7777`), which in turn proxies API requests to the backend.
+
+---
+
 ## Troubleshooting
 
 - **`connect: connection refused`**: Check if Redis and Postgres are running.
