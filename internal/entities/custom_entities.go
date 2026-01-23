@@ -25,5 +25,10 @@ func (u UserWithPassword) ToUser() User {
 // FromUser creates a UserWithPassword from a generated User and optional
 // password hash.
 func FromUser(u User, password *string) UserWithPassword {
-    return UserWithPassword{User: u, Password: password}
+	return UserWithPassword{User: u, Password: password}
+}
+
+// TableName overrides the default GORM table name (image_assets) to keep using "images".
+func (ImageAsset) TableName() string {
+	return "images"
 }
