@@ -74,10 +74,10 @@ export function blurOnEsc(event: KeyboardEvent) {
 export async function loadImage(url: string, element: HTMLImageElement, crossOrigin: string | null = null): Promise<string> {
     return new Promise((resolve, reject) => {
         element.crossOrigin = crossOrigin;
-        element.src = url;
         element.onload = () => {
             resolve(url);
         };
         element.onerror = reject;
+        element.src = url;
     });
 }

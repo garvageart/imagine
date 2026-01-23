@@ -87,17 +87,26 @@ export class SelectionScope<T extends { uid: string; } = any> {
     updateItem(updatedItem: T, sourceArray: T[]) {
         const idx = sourceArray.findIndex(i => i.uid === updatedItem.uid);
         if (idx !== -1) {
-            const oldItem = sourceArray[idx];
+            // Update source array (keeping reference if possible is good, but here we replace)
             sourceArray[idx] = updatedItem;
+        }
 
-            if (this.has(oldItem)) {
-                this.remove(oldItem);
-                this.add(updatedItem);
+        // Find and update in selected set by UID
+        let itemInSet: T | undefined;
+        for (const item of this.selected) {
+            if (item.uid === updatedItem.uid) {
+                itemInSet = item;
+                break;
             }
+        }
 
-            if (this.active?.uid === updatedItem.uid) {
-                this.active = updatedItem;
-            }
+        if (itemInSet) {
+            this.remove(itemInSet);
+            this.add(updatedItem);
+        }
+
+        if (this.active?.uid === updatedItem.uid) {
+            this.active = updatedItem;
         }
     }
 

@@ -47,7 +47,6 @@
 	import UploadManager, {
 		type ImageUploadSuccess
 	} from "$lib/upload/manager.svelte";
-	import { performImageDownloads } from "$lib/utils/http.js";
 	import { getImageLabel } from "$lib/utils/images.js";
 	import StarRating from "$lib/components/StarRating.svelte";
 	import hotkeys from "hotkeys-js";
@@ -56,9 +55,27 @@
 
 	// Display options as MenuItem[] for Dropdown
 	const displayMenuItems: MenuItem[] = [
-		{ id: "display-grid", label: "Grid" },
-		{ id: "display-list", label: "List" },
-		{ id: "display-cards", label: "Thumbnails" }
+		{
+			id: "display-grid",
+			label: "Grid",
+			action: () => {
+				viewSettings.setView("grid");
+			}
+		},
+		{
+			id: "display-list",
+			label: "List",
+			action: () => {
+				viewSettings.setView("list");
+			}
+		},
+		{
+			id: "display-cards",
+			label: "Thumbnails",
+			action: () => {
+				viewSettings.setView("thumbnails");
+			}
+		}
 	];
 
 	function getDisplaySelectedId(): string | undefined {
@@ -106,7 +123,11 @@
 	// Selection (shared across groups)
 	const scopeId = SelectionScopeNames.PHOTOS_MAIN;
 	const selectionScope = selectionManager.getScope<Image>(scopeId);
-	let selectionFirstImage = $derived(Array.from(selectionScope.selected)[0]);
+	let selectionFirstImage = $derived(
+		Array.from(selectionScope.selected).sort((a, b) =>
+			a.uid.localeCompare(b.uid)
+		)[0]
+	);
 
 	onDestroy(() => {
 		selectionManager.removeScope(scopeId);
@@ -523,6 +544,9 @@
 								res.forEach((r) => {
 									if (r.status === 200) {
 										selectionScope.updateItem(r.data, galleryState.images);
+										if (lightboxImage && lightboxImage.uid === r.data.uid) {
+											lightboxImage = r.data;
+										}
 									}
 								});
 							}
@@ -549,6 +573,9 @@
 								res.forEach((r) => {
 									if (r.status === 200) {
 										selectionScope.updateItem(r.data, galleryState.images);
+										if (lightboxImage && lightboxImage.uid === r.data.uid) {
+											lightboxImage = r.data;
+										}
 									}
 								});
 							}

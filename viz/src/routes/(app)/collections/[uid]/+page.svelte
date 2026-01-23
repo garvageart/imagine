@@ -557,6 +557,27 @@
 		...ctxItems
 	]);
 
+	// Create a list for the selection toolbar Dropdown
+	// This mirrors ctxItems but overrides/adds the bulk delete action
+	let selectionToolbarItems: MenuItem[] = $derived.by(() => {
+		const list = [...ctxItems];
+		// Override "remove-" action with the bulk handler if present, or add it
+		const removeIdx = list.findIndex((i) => i.id.startsWith("remove-"));
+		const removeAction: MenuItem = {
+			id: "remove-selected",
+			label: "Remove from Collection",
+			icon: "remove_circle",
+			action: handleDeleteSelected
+		};
+
+		if (removeIdx >= 0) {
+			list[removeIdx] = removeAction;
+		} else {
+			list.push(removeAction);
+		}
+		return list;
+	});
+
 	// Display options as MenuItem[] for Dropdown
 	let displayMenuItems: MenuItem[] = $derived(
 		viewSettings.displayOptions.map((o, idx) => ({
@@ -749,12 +770,17 @@
 		/>
 	</div>
 
-	<IconButton
-		iconName="delete"
-		title="Delete Selected"
-		style="position: absolute; right: 1em; background-color: var(--imag-100);"
-		onclick={handleDeleteSelected}
-	/>
+	<div
+		style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;"
+	>
+		<Dropdown
+			class="toolbar-button"
+			icon="more_horiz"
+			showSelectionIndicator={false}
+			items={selectionToolbarItems}
+			align="right"
+		/>
+	</div>
 {/snippet}
 
 <VizViewContainer
@@ -907,7 +933,7 @@
 	}
 
 	#coll-name {
-		color: var(--imag-20);
+		color: var(--imag-text-color);
 		font-weight: bold;
 		display: flex;
 		flex-direction: row;

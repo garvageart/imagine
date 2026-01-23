@@ -1,7 +1,7 @@
 import { goto } from "$app/navigation";
 import { sleep } from "$lib/utils/misc";
 import { cookieMethods } from "$lib/utils/cookie";
-import { defaults, getCurrentUser, logout, type User } from "$lib/api";
+import { defaults, getCurrentUser, getUserSettings, logout, type User } from "$lib/api";
 import { user } from "$lib/states/index.svelte";
 
 interface OAuthResponseUserData {
@@ -20,6 +20,17 @@ export async function fetchCurrentUser(): Promise<User | null> {
             user.data = result.data;
             user.error = null;
             user.isAdmin = result.data.role.includes('admin');
+
+            // Fetch settings
+            try {
+                const settingsRes = await getUserSettings();
+                if (settingsRes.status === 200) {
+                    user.settings = settingsRes.data;
+                }
+            } catch (e) {
+                console.error("Failed to fetch user settings", e);
+            }
+
             return result.data;
         } else {
             user.data = null;
@@ -39,6 +50,7 @@ export async function fetchCurrentUser(): Promise<User | null> {
 
 export function clearUser() {
     user.data = null;
+    user.settings = null;
     user.error = null;
     user.fetched = true;
 }
