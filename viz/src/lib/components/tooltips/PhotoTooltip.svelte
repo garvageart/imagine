@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Image } from "$lib/api";
+	import type { ImageAsset } from "$lib/api";
 	import { getImageLabel, getTakenAt } from "$lib/utils/images";
 	import { DateTime } from "luxon";
 	import LabelSelector from "../LabelSelector.svelte";
 
-	let { asset }: { asset: Image } = $props();
+	let { asset }: { asset: ImageAsset } = $props();
 	let takenAt = $derived(getTakenAt(asset));
 </script>
 

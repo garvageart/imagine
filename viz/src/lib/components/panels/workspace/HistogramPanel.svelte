@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
 	import { computeHistogram, type HistogramData } from "$lib/histogram";
-	import { getFullImagePath, type Image as APIImage } from "$lib/api";
+	import { getFullImagePath, type ImageAsset } from "$lib/api";
 	import InputSelect from "$lib/components/dom/InputSelect.svelte";
 	import { selectionManager } from "$lib/states/selection.svelte";
 	import IconButton from "$lib/components/IconButton.svelte";
@@ -9,7 +9,7 @@
 	import type { HistogramChannelData } from "$lib/third-party/photo-histogram/js";
 
 	let activeScope = $derived(selectionManager.activeScope);
-	let activeItem = $derived(activeScope?.active as APIImage | undefined);
+	let activeItem = $derived(activeScope?.active as ImageAsset | undefined);
 
 	let imageSrcPath = $derived(
 		activeItem?.image_paths?.preview

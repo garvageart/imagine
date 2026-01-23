@@ -1,4 +1,4 @@
-import { deleteCollectionImages, deleteImagesBulk, getFullImagePath, updateCollection, updateImage, type Collection, type CollectionDetailResponse, type Image } from "$lib/api";
+import { deleteCollectionImages, deleteImagesBulk, getFullImagePath, updateCollection, updateImage, type Collection, type CollectionDetailResponse, type ImageAsset } from "$lib/api";
 import { toastState } from "$lib/toast-notifcations/notif-state.svelte";
 import { copyToClipboard } from "$lib/utils/misc";
 import type { MaterialSymbol } from "$lib/types/MaterialSymbol";
@@ -8,12 +8,12 @@ import type { SelectionScope } from "$lib/states/selection.svelte";
 import { invalidateViz } from "$lib/views/views.svelte";
 
 interface CollectionImageMenuOptions {
-    downloadImages?: (images: Image[]) => void;
-    onImageUpdated?: (image: Image) => void;
+    downloadImages?: (images: ImageAsset[]) => void;
+    onImageUpdated?: (image: ImageAsset) => void;
     onCollectionUpdated?: (collection: Collection) => void;
 }
 
-export function createCollectionImageMenu(asset: Image | undefined, collection: CollectionDetailResponse, opts?: CollectionImageMenuOptions) {
+export function createCollectionImageMenu(asset: ImageAsset | undefined, collection: CollectionDetailResponse, opts?: CollectionImageMenuOptions) {
     if (!asset) {
         return [];
     }
@@ -177,7 +177,7 @@ interface ImageMenuOptions {
     onDelete?: (deletedUIDs: string[]) => void;
 }
 
-export function createImageMenu(images: Image[], selectionScope: SelectionScope<Image>, opts?: ImageMenuOptions) {
+export function createImageMenu(images: ImageAsset[], selectionScope: SelectionScope<ImageAsset>, opts?: ImageMenuOptions) {
     let items = Array.from(selectionScope.selected);
 
     if (items.length === 0) {

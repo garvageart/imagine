@@ -1,6 +1,6 @@
 import type { AssetSort, AssetGridView } from "$lib/types/asset";
 import type { UploadImage } from "$lib/upload/asset.svelte";
-import { type User, type SystemStatusResponse, type Image, type Collection, updateUserSetting, type UserSetting } from "$lib/api";
+import { type User, type SystemStatusResponse, type ImageAsset, type Collection, updateUserSetting, type UserSetting } from "$lib/api";
 import { VizLocalStorage, VizCookieStorage } from "$lib/utils/misc";
 import { MediaQuery } from "svelte/reactivity";
 import type { MenuItem } from "$lib/context-menu/types";
@@ -70,7 +70,7 @@ export let search = $state({
             data: [] as Collection[]
         },
         images: {
-            data: [] as Image[]
+            data: [] as ImageAsset[]
         }
     },
     value: "",

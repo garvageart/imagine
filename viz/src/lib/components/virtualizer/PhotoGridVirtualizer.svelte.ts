@@ -1,5 +1,5 @@
 import { JustifiedLayout } from "@immich/justified-layout-wasm";
-import type { Image } from "$lib/api";
+import type { ImageAsset } from "$lib/api";
 import type { ConsolidatedGroup, ImageWithDateLabel } from "$lib/photo-layout";
 import { getTakenAt } from "$lib/utils/images";
 import { DateTime } from "luxon";
@@ -190,7 +190,7 @@ export class PhotoGridVirtualizer {
      * Updates layout for flat list of images (no groups).
      * We treat this as a single unnamed group without a header.
      */
-    updateFlat(images: Image[], width: number) {
+    updateFlat(images: ImageAsset[], width: number) {
         if (width <= 0) {
             return;
         }

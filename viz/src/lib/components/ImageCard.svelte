@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getFullImagePath, type Image } from "$lib/api";
+	import { type ImageAsset } from "$lib/api";
 	import { thumbHashToDataURL } from "thumbhash";
 	import { onMount } from "svelte";
 	import { getImageLabel, getTakenAt } from "$lib/utils/images";
@@ -18,7 +18,7 @@
 		imageVariant = "thumbnail",
 		priority = false
 	}: {
-		asset: Image;
+		asset: ImageAsset;
 		variant?: "mini" | "full";
 		showMetadata?: boolean;
 	} & Omit<AssetImageProps, "asset" | "variant"> & {

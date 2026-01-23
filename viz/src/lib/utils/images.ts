@@ -1,6 +1,6 @@
 import { thumbHashToDataURL } from "thumbhash";
 import { DateTime, Duration } from "luxon";
-import { downloadImagesZipBlob, signDownload, type CollectionDetailResponse, type Image } from "../api";
+import { downloadImagesZipBlob, signDownload, type CollectionDetailResponse, type ImageAsset } from "../api";
 import { flashModes, LabelColours } from "$lib/images/constants";
 
 /**
@@ -76,7 +76,7 @@ export function parseExifDate(raw?: string | null): Date | undefined {
     return isNaN(d.getTime()) ? undefined : d;
 }
 
-export function getTakenAt(image: Image): Date {
+export function getTakenAt(image: ImageAsset): Date {
     if (image.taken_at) {
         return new Date(image.taken_at);
     }
@@ -101,11 +101,11 @@ export function getTakenAt(image: Image): Date {
     return new Date(image.created_at);
 }
 
-export function compareByTakenAtDesc(a: Image, b: Image): number {
+export function compareByTakenAtDesc(a: ImageAsset, b: ImageAsset): number {
     return getTakenAt(b).getTime() - getTakenAt(a).getTime();
 }
 
-export function getThumbhashURL(asset: Image): string | undefined {
+export function getThumbhashURL(asset: ImageAsset): string | undefined {
     if (!asset.image_metadata?.thumbhash) {
         return undefined;
     }
@@ -276,7 +276,7 @@ export async function collectionExportPhotos(uids: string[], data: CollectionDet
     URL.revokeObjectURL(url);
 }
 
-export function getImageLabel(image: Image) {
+export function getImageLabel(image: ImageAsset) {
     const label = image.image_metadata?.label;
     switch (label) {
         case "Red":

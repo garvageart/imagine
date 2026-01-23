@@ -1,5 +1,5 @@
 import type { ImageUploadFileData } from "$lib/upload/manager.svelte";
-import { API_BASE_URL, downloadImagesZipBlob, getImageFile, getImageFileBlob, signDownload, type Image } from "$lib/api";
+import { API_BASE_URL, downloadImagesZipBlob, getImageFile, getImageFileBlob, signDownload, type ImageAsset } from "$lib/api";
 import { debugMode } from "$lib/states/index.svelte";
 
 type RequestInitOptions = { fetch?: typeof fetch; } & RequestInit;
@@ -67,7 +67,7 @@ export const uploadRequest = async <T>(options: UploadRequestOptions): Promise<{
     });
 };
 
-export async function downloadOriginalImageFile(img: Image) {
+export async function downloadOriginalImageFile(img: ImageAsset) {
     const uid = img.uid;
     const fileRes = await getImageFileBlob(uid, {}, { cache: "no-cache" });
     if (fileRes.status === 304) {
@@ -99,7 +99,7 @@ export async function downloadOriginalImageFile(img: Image) {
 
 // Helper to perform token-based bulk download given a list of UIDs.
 // The server will create a download token and use it for authentication.
-export async function performImageDownloads(images: Image[]) {
+export async function performImageDownloads(images: ImageAsset[]) {
     if (!images || images.length === 0) {
         throw new Error("No image UIDs provided for download");
     }

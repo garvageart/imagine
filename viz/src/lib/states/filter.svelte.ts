@@ -1,10 +1,10 @@
 import { openDB, type IDBPDatabase } from "idb";
-import { type Image, type Collection } from "$lib/api";
+import { type ImageAsset, type Collection } from "$lib/api";
 import { DateTime } from "luxon";
 import { initDB } from "$lib/db/client";
 import { getImageLabel } from "$lib/utils/images";
 
-export type Asset = Image | Collection;
+export type Asset = ImageAsset | Collection;
 
 export interface DateRange {
     after?: string;
@@ -120,7 +120,7 @@ export class FilterScope<F, A extends Asset> {
         }
     }
 
-    isImageScope(): this is FilterScope<ImageFilters, Image> {
+    isImageScope(): this is FilterScope<ImageFilters, ImageAsset> {
         return this.type === 'images';
     }
 
@@ -184,7 +184,7 @@ export class FilterScope<F, A extends Asset> {
 
             for (const item of items) {
                 if ('image_metadata' in item) {
-                    const img = item as Image;
+                    const img = item as ImageAsset;
                     const exif = img.exif || {};
 
                     if (exif.model) {
@@ -273,7 +273,7 @@ export class FilterScope<F, A extends Asset> {
                     return false;
                 }
                 
-                const img = item as Image;
+                const img = item as ImageAsset;
                 const exif = img.exif || {};
 
                 if (criteria.rating !== null) {
@@ -393,7 +393,7 @@ export class FilterScope<F, A extends Asset> {
 }
 
 class FilterManager {
-    scopes: Map<string, FilterScope<ImageFilters, Image> | FilterScope<CollectionFilters, Collection>> = $state(new Map());
+    scopes: Map<string, FilterScope<ImageFilters, ImageAsset> | FilterScope<CollectionFilters, Collection>> = $state(new Map());
     activeScopeType: 'images' | 'collections' | null = $state('images');
     keepFilters: boolean = $state(false);
 
@@ -434,16 +434,16 @@ class FilterManager {
         this.isInitialized = true;
     }
 
-    get activeScope(): FilterScope<ImageFilters, Image> | FilterScope<CollectionFilters, Collection> | undefined {
+    get activeScope(): FilterScope<ImageFilters, ImageAsset> | FilterScope<CollectionFilters, Collection> | undefined {
         if (this.activeScopeType) {
             return this.scopes.get(this.activeScopeType);
         }
         return undefined;
     }
 
-    getScope(type: 'images'): FilterScope<ImageFilters, Image> | undefined;
+    getScope(type: 'images'): FilterScope<ImageFilters, ImageAsset> | undefined;
     getScope(type: 'collections'): FilterScope<CollectionFilters, Collection> | undefined;
-    getScope(type: 'images' | 'collections'): FilterScope<ImageFilters, Image> | FilterScope<CollectionFilters, Collection> | undefined {
+    getScope(type: 'images' | 'collections'): FilterScope<ImageFilters, ImageAsset> | FilterScope<CollectionFilters, Collection> | undefined {
         return this.scopes.get(type);
     }
 

@@ -17,7 +17,7 @@
 		type ImageUploadSuccess
 	} from "$lib/upload/manager.svelte";
 	import { invalidateAll, goto } from "$app/navigation";
-	import { createCollection, addCollectionImages, type Image } from "$lib/api";
+	import { createCollection, addCollectionImages, type ImageAsset } from "$lib/api";
 	import { SelectionScope } from "$lib/states/selection.svelte";
 	import { UploadState } from "$lib/upload/asset.svelte";
 	import UploadManager from "$lib/upload/manager.svelte";
@@ -27,7 +27,7 @@
 
 	interface Props {
 		scopeId: string; // might be useful soon
-		selectionScope: SelectionScope<Image>;
+		selectionScope: SelectionScope<ImageAsset>;
 		showCollectionCreateBox?: boolean;
 		createCollectionFromSelected?: () => Promise<void>;
 	}

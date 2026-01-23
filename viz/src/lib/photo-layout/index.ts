@@ -1,9 +1,9 @@
-import type { Image } from "$lib/api";
+import type { ImageAsset } from "$lib/api";
 import { getTakenAt, compareByTakenAtDesc } from "$lib/utils/images";
 import { DateTime } from "luxon";
 import { SvelteMap } from "svelte/reactivity";
 
-export type ImageWithDateLabel = Image & {
+export type ImageWithDateLabel = ImageAsset & {
     dateLabel?: string;
     isFirstOfDate?: boolean;
     isFirstOfConsolidatedGroup?: boolean;
@@ -21,15 +21,15 @@ export type ConsolidatedGroup = {
     endDate: DateTime; // oldest date in this consolidated block
 };
 
-export interface DateGroup { 
-    key: string; 
-    date: DateTime; 
-    label: string; 
-    items: Image[];
+export interface DateGroup {
+    key: string;
+    date: DateTime;
+    label: string;
+    items: ImageAsset[];
 }
 
-export function groupImagesByDate(list: Image[]) {
-    const map = new SvelteMap<string, Image[]>();
+export function groupImagesByDate(list: ImageAsset[]) {
+    const map = new SvelteMap<string, ImageAsset[]>();
 
     for (const img of list) {
         const taken = getTakenAt(img);
@@ -94,5 +94,4 @@ export function getConsolidatedGroups(groups: DateGroup[]) {
     });
 
     return consolidated;
-} 
- 
+}
