@@ -9,7 +9,8 @@
 		"check": "pnpm -r --filter \"@imagine/*\" check",
 		"lint": "pnpm -r --filter \"@imagine/*\" lint",
 		"format": "pnpm -r --filter \"@imagine/*\" format",
-		"gen:api": "pnpm --filter @imagine/scripts gen:api"
+		"gen:api": "pnpm --filter @imagine/scripts gen:api",
+		"setup:https": "pnpm --filter @imagine/scripts setup:https"
 	},
 	"keywords": [],
 	"pnpm": {

@@ -12,7 +12,8 @@
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"gen:api": "tsx gen-api.ts",
 		"gen:api:install": "tsx gen-api.ts --install-tools",
-		"gen:api:build": "tsx gen-api.ts --build"
+		"gen:api:build": "tsx gen-api.ts --build",
+		"setup:https": "tsx setup-https.ts"
 	},
 	"keywords": [],
 	"author": "Les <hello@lesis.online>",

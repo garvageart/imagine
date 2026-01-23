@@ -6179,9 +6179,14 @@ type GetEventsSinceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		Count      int           `json:"count"`
-		Events     []EventRecord `json:"events"`
-		NextCursor uint64        `json:"nextCursor"`
+		// Count Number of events
+		Count int `json:"count"`
+
+		// Events List of events
+		Events []EventRecord `json:"events"`
+
+		// NextCursor Next cursor ID
+		NextCursor uint64 `json:"nextCursor"`
 	}
 	JSON401 *ErrorResponse
 }
@@ -6634,6 +6639,7 @@ type PingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
+		// Message Pong message
 		Message string `json:"message"`
 	}
 }
@@ -9656,9 +9662,14 @@ func ParseGetEventsSinceResponse(rsp *http.Response) (*GetEventsSinceResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Count      int           `json:"count"`
-			Events     []EventRecord `json:"events"`
-			NextCursor uint64        `json:"nextCursor"`
+			// Count Number of events
+			Count int `json:"count"`
+
+			// Events List of events
+			Events []EventRecord `json:"events"`
+
+			// NextCursor Next cursor ID
+			NextCursor uint64 `json:"nextCursor"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -10385,6 +10396,7 @@ func ParsePingResponse(rsp *http.Response) (*PingResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			// Message Pong message
 			Message string `json:"message"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

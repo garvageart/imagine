@@ -37,6 +37,7 @@ paths:
                 properties:
                   message:
                     type: string
+                    description: Pong message
                 required: [message]
 
   /accounts/:
@@ -240,8 +241,10 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: User email address
                 password:
                   type: string
+                  description: User password
               required: [email, password]
       responses:
         "200":
@@ -727,6 +730,7 @@ paths:
               properties:
                 value:
                   type: string
+                  description: New setting value
               required: [value]
       responses:
         "200":
@@ -933,8 +937,10 @@ paths:
                   type: array
                   items:
                     type: string
+                  description: List of image UIDs
                 force:
                   type: boolean
+                  description: Force deletion
               required: [uids]
       responses:
         "200":
@@ -1517,6 +1523,7 @@ paths:
                   type: array
                   items:
                     type: string
+                  description: List of image UIDs
               required: [uids]
       responses:
         "200":
@@ -1560,6 +1567,7 @@ paths:
                   type: array
                   items:
                     type: string
+                  description: List of image UIDs
               required: [uids]
       responses:
         "200":
@@ -2483,11 +2491,14 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/EventRecord"
+                    description: List of events
                   count:
                     type: integer
+                    description: Number of events
                   nextCursor:
                     type: integer
                     format: uint64
+                    description: Next cursor ID
                 required: [events, count, nextCursor]
         "401":
           description: Unauthorized
@@ -2556,7 +2567,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /system/status: # <-- NEW PATH
+  /system/status:
     get:
       summary: Get system and user onboarding status
       operationId: getSystemStatus
@@ -2575,7 +2586,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /setup/superadmin: # <-- NEW PATH
+  /setup/superadmin:
     post:
       summary: Initialize application with first superadmin user
       operationId: setupSuperadmin
@@ -2665,6 +2676,7 @@ components:
       properties:
         error:
           type: string
+          description: Error message
       required: [error]
 
     MessageResponse:
@@ -2672,6 +2684,7 @@ components:
       properties:
         message:
           type: string
+          description: Response message
       required: [message]
 
     ImageUploadRequest:
@@ -2680,10 +2693,13 @@ components:
         data:
           type: string
           format: binary
+          description: Image file data
         file_name:
           type: string
+          description: Name of the file
         checksum:
           type: string
+          description: Optional checksum of the file
       required: [data, file_name]
 
     ImageUploadResponse:
@@ -2691,9 +2707,11 @@ components:
       properties:
         uid:
           type: string
+          description: UID of the uploaded image
         metadata:
           type: object
           additionalProperties: true
+          description: Extracted metadata
       required: [uid]
 
     AdminUserCreate:
@@ -2701,15 +2719,19 @@ components:
       properties:
         name:
           type: string
+          description: User's full name
         email:
           type: string
           format: email
+          description: User's email address
         password:
           type: string
+          description: User's password
         role:
           type: string
           enum: [user, admin, superadmin, guest]
           default: user
+          description: User role
       required: [name, email, password]
 
     SystemStatsResponse:
@@ -2718,8 +2740,10 @@ components:
         uptime_seconds:
           type: integer
           format: int64
+          description: System uptime in seconds
         num_goroutine:
           type: integer
+          description: Number of running goroutines
         alloc_memory:
           type: integer
           format: int64
@@ -2734,6 +2758,7 @@ components:
           description: "Total size of files in the base directory"
         storage_path:
           type: string
+          description: Path to storage directory
         total_system_space_bytes:
           type: integer
           format: int64
@@ -2760,12 +2785,15 @@ components:
         user_count:
           type: integer
           format: int64
+          description: Total number of users
         image_count:
           type: integer
           format: int64
+          description: Total number of images
         collection_count:
           type: integer
           format: int64
+          description: Total number of collections
         db_size_bytes:
           type: integer
           format: int64
@@ -2811,6 +2839,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkerInfo"
+          description: List of workers
       required: [items]
 
     WorkerJobCreateRequest:
@@ -2835,8 +2864,10 @@ components:
       properties:
         message:
           type: string
+          description: Response message
         count:
           type: integer
+          description: Count of enqueued jobs
       required: [message]
 
     WorkerJob:
@@ -2845,38 +2876,50 @@ components:
       properties:
         uid:
           type: string
+          description: Job UID
         type:
           type: string
+          description: Job type
         topic:
           type: string
+          description: Job topic
         command:
           type: string
           nullable: true
+          description: Job command
         image_uid:
           type: string
           nullable: true
+          description: Related image UID
         status:
           type: string
+          description: Job status
         payload:
           type: string
           nullable: true
+          description: Job payload
         error_code:
           type: string
           nullable: true
+          description: Error code if failed
         error_msg:
           type: string
           nullable: true
+          description: Error message if failed
         enqueued_at:
           type: string
           format: date-time
+          description: Enqueued timestamp
         started_at:
           type: string
           format: date-time
           nullable: true
+          description: Started timestamp
         completed_at:
           type: string
           format: date-time
           nullable: true
+          description: Completed timestamp
       required: [uid, type, topic, status, enqueued_at]
 
     WorkerJobsResponse:
@@ -2886,8 +2929,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkerJob"
+          description: List of jobs
         total:
           type: integer
+          description: Total count of jobs
       required: [items, total]
 
     WorkerJobStatsResponse:
@@ -2895,14 +2940,17 @@ components:
       properties:
         running:
           type: integer
+          description: Total running jobs
         running_by_topic:
           type: object
           additionalProperties:
             type: integer
+          description: Running jobs by topic
         queued_by_topic:
           type: object
           additionalProperties:
             type: integer
+          description: Queued jobs by topic
       required: [running, running_by_topic, queued_by_topic]
 
     # WebSocket-related schemas
@@ -2911,13 +2959,16 @@ components:
       properties:
         connectedClients:
           type: integer
+          description: Number of connected clients
         clientIds:
           type: array
           items:
             type: string
+          description: List of connected client IDs
         timestamp:
           type: string
           format: date-time
+          description: Timestamp of the stats
       required: [connectedClients, clientIds, timestamp]
 
     WSMetricsResponse:
@@ -2925,15 +2976,19 @@ components:
       properties:
         connectedClients:
           type: integer
+          description: Number of connected clients
         totalEvents:
           type: integer
+          description: Total events processed
         eventsByType:
           type: object
           additionalProperties:
             type: integer
+          description: Count of events by type
         timestamp:
           type: string
           format: date-time
+          description: Timestamp of the metrics
       required: [connectedClients, totalEvents, eventsByType, timestamp]
 
     EventRecord:
@@ -2942,11 +2997,14 @@ components:
         timestamp:
           type: string
           format: date-time
+          description: Event timestamp
         event:
           type: string
+          description: Event name
         data:
           type: object
           additionalProperties: true
+          description: Event data payload
       required: [timestamp, event, data]
 
     EventHistoryResponse:
@@ -2956,8 +3014,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EventRecord"
+          description: List of historical events
         count:
           type: integer
+          description: Count of events returned
       required: [events, count]
 
     WSBroadcastRequest:
@@ -2965,9 +3025,11 @@ components:
       properties:
         event:
           type: string
+          description: Event name to broadcast
         data:
           type: object
           additionalProperties: true
+          description: Event data payload
       required: [event, data]
 
     WSBroadcastResponse:
@@ -2975,10 +3037,13 @@ components:
       properties:
         success:
           type: boolean
+          description: Whether broadcast was successful
         message:
           type: string
+          description: Response message
         clients:
           type: integer
+          description: Number of clients reached
       required: [success, message, clients]
 
     AddImagesResponse:
@@ -2986,8 +3051,10 @@ components:
       properties:
         added:
           type: boolean
+          description: Whether images were added
         error:
           type: string
+          description: Error message if failed
       required: [added]
 
     DeleteImagesResponse:
@@ -2995,8 +3062,10 @@ components:
       properties:
         deleted:
           type: boolean
+          description: Whether images were deleted
         error:
           type: string
+          description: Error message if failed
       required: [deleted]
 
     DeleteAssetsResponse:
@@ -3009,11 +3078,14 @@ components:
             properties:
               uid:
                 type: string
+                description: UID of the asset
               deleted:
                 type: boolean
+                description: Whether it was deleted
               error:
                 type: string
-
+                description: Error message if failed
+          description: Results of deletion
     SettingDefault:
       x-entity: true
       x-go-gorm-index:
@@ -3088,26 +3160,34 @@ components:
       properties:
         name:
           type: string
+          description: Setting unique name
         display_name:
           type: string
+          description: Readable name
         value:
           type: string
           description: The effective value (override if exists, else default).
         default_value:
           type: string
+          description: Default value
         value_type:
           type: string
+          description: Type of the value
         allowed_values:
           type: array
           items:
             type: string
           nullable: true
+          description: Allowed values if enum
         is_user_editable:
           type: boolean
+          description: Whether user can edit
         group:
           type: string
+          description: Setting group
         description:
           type: string
+          description: Setting description
       required:
         [
           name,
@@ -3124,10 +3204,13 @@ components:
       properties:
         url:
           type: string
+          description: Download URL
         expires:
           type: integer
+          description: Expiry timestamp
         sig:
           type: string
+          description: Signature
       required: [url, sig]
 
     DownloadRequest:
@@ -3137,8 +3220,10 @@ components:
           type: array
           items:
             type: string
+          description: List of UIDs to download
         file_name:
           type: string
+          description: Desired filename for the archive
       required: [uids]
 
     SignDownloadRequest:
@@ -3260,11 +3345,14 @@ components:
         email:
           type: string
           format: email
+          description: User email
         name:
           type: string
+          description: User name
         picture:
           type: string
           format: uri
+          description: User profile picture URL
       required: [email, name, picture]
 
     Pagination:
@@ -3272,83 +3360,90 @@ components:
       properties:
         href:
           type: string
+          description: Self link
         prev:
           type: string
-        next:
-          type: string
-        limit:
-          type: integer
-        offset:
-          type: integer
-        count:
-          type: integer
+          description: Previous page link
+        next: { type: string, description: Next page link }
+        limit: { type: integer, description: Limit per page }
+        offset: { type: integer, description: Offset }
+        count: { type: integer, description: Total count }
       required: [href, limit, offset, count]
 
     ImageEXIF:
       type: object
       properties:
-        exif_version: { type: string }
-        make: { type: string }
-        model: { type: string }
-        date_time: { type: string }
-        date_time_original: { type: string }
-        iso: { type: string }
-        focal_length: { type: string }
-        exposure_time: { type: string }
-        aperture: { type: string }
-        exposure_value: { type: string }
-        f_number: { type: string }
-        flash: { type: integer }
-        white_balance: { type: string }
-        lens_make: { type: string }
-        lens_model: { type: string }
-        focal_length_in_35mm_format: { type: string }
-        scene_capture_type: { type: string }
-        exposure_program: { type: string }
-        metering_mode: { type: string }
-        sensing_method: { type: string }
-        light_source: { type: string }
-        exposure_bias_value: { type: string }
-        max_aperture_value: { type: string }
-        exposure_mode: { type: string }
-        digital_zoom_ratio: { type: string }
-        focal_plane_x_resolution: { type: string }
-        focal_plane_y_resolution: { type: string }
-        focal_plane_resolution_unit: { type: string }
-        copyright: { type: string }
-        modify_date: { type: string }
-        rating: { type: string }
-        orientation: { type: string }
-        resolution: { type: string }
-        software: { type: string }
-        longitude: { type: string }
-        latitude: { type: string }
-        gps_altitude: { type: string }
-        gps_img_direction: { type: string }
-        gps_img_direction_ref: { type: string }
-        gps_speed: { type: string }
-        gps_speed_ref: { type: string }
-        offset_time: { type: string }
-        offset_time_original: { type: string }
-        offset_time_digitized: { type: string }
+        exif_version: { type: string, description: EXIF version }
+        make: { type: string, description: Camera make }
+        model: { type: string, description: Camera model }
+        date_time: { type: string, description: Date and time }
+        date_time_original:
+          { type: string, description: Original date and time }
+        iso: { type: string, description: ISO speed rating }
+        focal_length: { type: string, description: Focal length }
+        exposure_time: { type: string, description: Exposure time }
+        aperture: { type: string, description: Aperture }
+        exposure_value: { type: string, description: Exposure value }
+        f_number: { type: string, description: F-number }
+        flash: { type: integer, description: Flash fired }
+        white_balance: { type: string, description: White balance }
+        lens_make: { type: string, description: Lens make }
+        lens_model: { type: string, description: Lens model }
+        focal_length_in_35mm_format:
+          { type: string, description: Focal length in 35mm format }
+        scene_capture_type: { type: string, description: Scene capture type }
+        exposure_program: { type: string, description: Exposure program }
+        metering_mode: { type: string, description: Metering mode }
+        sensing_method: { type: string, description: Sensing method }
+        light_source: { type: string, description: Light source }
+        exposure_bias_value: { type: string, description: Exposure bias value }
+        max_aperture_value: { type: string, description: Max aperture value }
+        exposure_mode: { type: string, description: Exposure mode }
+        digital_zoom_ratio: { type: string, description: Digital zoom ratio }
+        focal_plane_x_resolution:
+          { type: string, description: Focal plane X resolution }
+        focal_plane_y_resolution:
+          { type: string, description: Focal plane Y resolution }
+        focal_plane_resolution_unit:
+          { type: string, description: Focal plane resolution unit }
+        copyright: { type: string, description: Copyright }
+        modify_date: { type: string, description: Modify date }
+        rating: { type: string, description: Rating }
+        orientation: { type: string, description: Orientation }
+        resolution: { type: string, description: Resolution }
+        software: { type: string, description: Software }
+        longitude: { type: string, description: GPS Longitude }
+        latitude: { type: string, description: GPS Latitude }
+        gps_altitude: { type: string, description: GPS Altitude }
+        gps_img_direction: { type: string, description: GPS Image Direction }
+        gps_img_direction_ref:
+          { type: string, description: GPS Image Direction Ref }
+        gps_speed: { type: string, description: GPS Speed }
+        gps_speed_ref: { type: string, description: GPS Speed Ref }
+        offset_time: { type: string, description: Offset time }
+        offset_time_original:
+          { type: string, description: Offset time original }
+        offset_time_digitized:
+          { type: string, description: Offset time digitized }
 
     ImagePaths:
       type: object
       properties:
-        original: { type: string }
-        thumbnail: { type: string }
-        preview: { type: string }
-        raw: { type: string }
+        original: { type: string, description: Path to original file }
+        thumbnail: { type: string, description: Path to thumbnail }
+        preview: { type: string, description: Path to preview }
+        raw: { type: string, description: Path to raw file }
       required: [original, thumbnail, preview]
 
     ImageMetadata:
       type: object
       properties:
-        file_name: { type: string }
-        file_size: { type: integer, format: int64 }
-        original_file_name: { type: string }
-        file_type: { type: string }
-        metadata: { type: string }
+        file_name: { type: string, description: Original file name }
+        file_size:
+          { type: integer, format: int64, description: File size in bytes }
+        original_file_name: { type: string, description: Original file name }
+        file_type: { type: string, description: File MIME type }
+        metadata: { type: string, description: Additional metadata }
         rating:
           {
             type: integer,
@@ -3360,18 +3455,25 @@ components:
         keywords:
           type: array
           items: { type: string }
-        color_space: { type: string }
-        has_icc_profile: { type: boolean }
-        file_modified_at: { type: string, format: date-time }
-        file_created_at: { type: string, format: date-time }
-        thumbhash: { type: string }
+          description: Keywords
+        color_space: { type: string, description: Color space }
+        has_icc_profile: { type: boolean, description: Has ICC profile }
+        file_modified_at:
+          {
+            type: string,
+            format: date-time,
+            description: File modification time,
+          }
+        file_created_at:
+          { type: string, format: date-time, description: File creation time }
+        thumbhash: { type: string, description: Thumbhash }
         label:
           type: string
           enum: [Red, Orange, Yellow, Purple, Pink, Green, Blue, None]
           nullable: true
           description: "User-assigned label for the image. Null = unlabeled"
 
-        checksum: { type: string }
+        checksum: { type: string, description: File checksum }
       required:
         [
           file_name,
@@ -3386,27 +3488,35 @@ components:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        name: { type: string }
+        uid: { type: string, description: Image UID }
+        name: { type: string, description: Image name }
         uploaded_by:
           $ref: "#/components/schemas/User"
         owner:
           $ref: "#/components/schemas/User"
-        description: { type: string }
+        description: { type: string, description: Image description }
         exif:
           $ref: "#/components/schemas/ImageEXIF"
-        private: { type: boolean }
-        favourited: { type: boolean }
-        width: { type: integer, format: int32 }
-        height: { type: integer, format: int32 }
-        processed: { type: boolean }
+        private: { type: boolean, description: Is private }
+        favourited: { type: boolean, description: Is favourited }
+        width: { type: integer, format: int32, description: Image width }
+        height: { type: integer, format: int32, description: Image height }
+        processed: { type: boolean, description: Is processed }
         image_metadata:
           $ref: "#/components/schemas/ImageMetadata"
         image_paths:
           $ref: "#/components/schemas/ImagePaths"
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-        taken_at: { type: string, format: date-time, nullable: true }
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
+        taken_at:
+          {
+            type: string,
+            format: date-time,
+            nullable: true,
+            description: Taken time,
+          }
       required:
         [
           uid,
@@ -3424,8 +3534,9 @@ components:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        added_at: { type: string, format: date-time }
+        uid: { type: string, description: Image UID }
+        added_at:
+          { type: string, format: date-time, description: Added timestamp }
         added_by:
           $ref: "#/components/schemas/User"
       required: [uid, added_at]
@@ -3434,48 +3545,52 @@ components:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        name: { type: string }
-        image_count: { type: integer }
-        private: { type: boolean, nullable: true }
-        favourited: { type: boolean }
+        uid: { type: string, description: Collection UID }
+        name: { type: string, description: Collection name }
+        image_count: { type: integer, description: Number of images }
+        private: { type: boolean, nullable: true, description: Is private }
+        favourited: { type: boolean, description: Is favourited }
         images:
           type: array
           items:
             $ref: "#/components/schemas/CollectionImage"
+          description: List of images
         created_by:
           $ref: "#/components/schemas/User"
         owner:
           $ref: "#/components/schemas/User"
-        description: { type: string }
+        description: { type: string, description: Collection description }
         thumbnail:
           $ref: "#/components/schemas/Image"
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
       required: [uid, name, image_count, created_at, updated_at]
 
     CollectionCreate:
       type: object
       properties:
-        name: { type: string }
-        private: { type: boolean, nullable: true }
-        description: { type: string }
+        name: { type: string, description: Collection name }
+        private: { type: boolean, nullable: true, description: Is private }
+        description: { type: string, description: Collection description }
       required: [name]
 
     CollectionUpdate:
       type: object
       properties:
-        name: { type: string }
-        thumbnailUID: { type: string }
-        description: { type: string }
-        private: { type: boolean }
-        favourited: { type: boolean }
-        ownerUID: { type: string }
+        name: { type: string, description: Collection name }
+        thumbnailUID: { type: string, description: Thumbnail image UID }
+        description: { type: string, description: Collection description }
+        private: { type: boolean, description: Is private }
+        favourited: { type: boolean, description: Is favourited }
+        ownerUID: { type: string, description: Owner UID }
 
     ImagesResponse:
       type: object
       properties:
-        added_at: { type: string, format: date-time }
+        added_at:
+          { type: string, format: date-time, description: Added timestamp }
         added_by:
           $ref: "#/components/schemas/User"
         image:
@@ -3485,68 +3600,75 @@ components:
     ImagesListResponse:
       type: object
       properties:
-        href: { type: string }
-        prev: { type: string }
-        next: { type: string }
-        limit: { type: integer }
-        page: { type: integer }
-        count: { type: integer }
+        href: { type: string, description: Self link }
+        prev: { type: string, description: Previous page link }
+        next: { type: string, description: Next page link }
+        limit: { type: integer, description: Items per page }
+        page: { type: integer, description: Current page }
+        count: { type: integer, description: Total count }
         items:
           type: array
           items:
             $ref: "#/components/schemas/ImagesResponse"
+          description: List of items
       required: [limit, page, items]
 
     CollectionListResponse:
       type: object
       properties:
-        href: { type: string }
-        prev: { type: string }
-        next: { type: string }
-        limit: { type: integer }
-        page: { type: integer }
-        count: { type: integer }
+        href: { type: string, description: Self link }
+        prev: { type: string, description: Previous page link }
+        next: { type: string, description: Next page link }
+        limit: { type: integer, description: Items per page }
+        page: { type: integer, description: Current page }
+        count: { type: integer, description: Total count }
         items:
           type: array
           items:
             $ref: "#/components/schemas/Collection"
+          description: List of collections
       required: [limit, page, items]
 
     CollectionDetailResponse:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        name: { type: string }
-        image_count: { type: integer }
-        private: { type: boolean, nullable: true }
+        uid: { type: string, description: Collection UID }
+        name: { type: string, description: Collection name }
+        image_count: { type: integer, description: Number of images }
+        private: { type: boolean, nullable: true, description: Is private }
         images:
           $ref: "#/components/schemas/ImagesListResponse"
         created_by:
           $ref: "#/components/schemas/User"
         owner:
           $ref: "#/components/schemas/User"
-        description: { type: string }
+        description: { type: string, description: Collection description }
         thumbnail:
           $ref: "#/components/schemas/Image"
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
       required: [uid, name, images, created_at, updated_at]
 
     User:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        first_name: { type: string }
-        last_name: { type: string }
-        username: { type: string }
-        email: { type: string }
+        uid: { type: string, description: User UID }
+        first_name: { type: string, description: First name }
+        last_name: { type: string, description: Last name }
+        username: { type: string, description: Username }
+        email: { type: string, description: Email }
         role:
           type: string
           enum: [user, admin, superadmin, guest]
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+          description: User role
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
       required:
         [
           uid,
@@ -3562,9 +3684,9 @@ components:
     UserCreate:
       type: object
       properties:
-        name: { type: string }
-        email: { type: string, format: email }
-        password: { type: string }
+        name: { type: string, description: Full name }
+        email: { type: string, format: email, description: Email address }
+        password: { type: string, description: Password }
       required: [name, email, password]
 
     UserUpdate:
@@ -3573,16 +3695,20 @@ components:
         first_name:
           type: string
           nullable: true
+          description: First name
         last_name:
           type: string
           nullable: true
+          description: Last name
         username:
           type: string
           nullable: true
+          description: Username
         email:
           type: string
           format: email
           nullable: true
+          description: Email address
 
     AdminUserUpdate:
       type: object
@@ -3590,52 +3716,64 @@ components:
         first_name:
           type: string
           nullable: true
+          description: First name
         last_name:
           type: string
           nullable: true
+          description: Last name
         username:
           type: string
           nullable: true
+          description: Username
         email:
           type: string
           format: email
           nullable: true
+          description: Email address
         role:
           type: string
           enum: [user, admin, superadmin, guest]
           nullable: true
+          description: User role
 
     UserPasswordUpdate:
       type: object
       properties:
         current:
           type: string
+          description: Current password
         new:
           type: string
+          description: New password
       required: [current, new]
 
     Session:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        token: { type: string }
-        user_uid: { type: string }
+        uid: { type: string, description: Session UID }
+        token: { type: string, description: Session token }
+        user_uid: { type: string, description: User UID }
         user:
           $ref: "#/components/schemas/User"
-        client_id: { type: string }
-        client_name: { type: string }
-        client_ip: { type: string }
-        last_active: { type: string, format: date-time }
-        expires_at: { type: string, format: date-time }
-        timeout: { type: integer, format: int64 }
-        user_agent: { type: string }
-        ref_id: { type: string }
-        login_ip: { type: string }
-        login_at: { type: string, format: date-time }
-        status: { type: integer }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+        client_id: { type: string, description: Client ID }
+        client_name: { type: string, description: Client name }
+        client_ip: { type: string, description: Client IP }
+        last_active:
+          { type: string, format: date-time, description: Last active time }
+        expires_at:
+          { type: string, format: date-time, description: Expiry time }
+        timeout:
+          { type: integer, format: int64, description: Timeout in seconds }
+        user_agent: { type: string, description: User agent }
+        ref_id: { type: string, description: Reference ID }
+        login_ip: { type: string, description: Login IP }
+        login_at: { type: string, format: date-time, description: Login time }
+        status: { type: integer, description: Session status }
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
       required: [uid, token, user_uid, created_at, updated_at]
     SessionUpdate:
       type: object
@@ -3643,29 +3781,48 @@ components:
         clientName:
           type: string
           nullable: true
+          description: New client name
         status:
           type: integer
           nullable: true
+          description: New status
     APIKey:
       x-entity: true
       type: object
       properties:
-        uid: { type: string }
-        name: { type: string }
-        description: { type: string, nullable: true }
-        key_hashed: { type: string }
+        uid: { type: string, description: API Key UID }
+        name: { type: string, description: API Key name }
+        description:
+          { type: string, nullable: true, description: API Key description }
+        key_hashed: { type: string, description: Hashed key }
         user:
           $ref: "#/components/schemas/User"
         scopes:
           type: array
           items:
             type: string
-        last_used_at: { type: string, format: date-time, nullable: true }
-        revoked: { type: boolean }
-        revoked_at: { type: string, format: date-time }
-        expires_at: { type: string, format: date-time, nullable: true }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+          description: List of scopes
+        last_used_at:
+          {
+            type: string,
+            format: date-time,
+            nullable: true,
+            description: Last used time,
+          }
+        revoked: { type: boolean, description: Is revoked }
+        revoked_at:
+          { type: string, format: date-time, description: Revocation time }
+        expires_at:
+          {
+            type: string,
+            format: date-time,
+            nullable: true,
+            description: Expiry time,
+          }
+        created_at:
+          { type: string, format: date-time, description: Creation time }
+        updated_at:
+          { type: string, format: date-time, description: Update time }
       required: [uid, revoked, key_hashed, created_at, updated_at, scopes]
 
     APIKeyCreate:
@@ -3673,27 +3830,33 @@ components:
       properties:
         name:
           type: string
+          description: API Key name
         description:
           type: string
           nullable: true
+          description: API Key description
         scopes:
           type: array
           items:
             type: string
+          description: List of scopes
         expires_at:
           type: string
           format: date-time
           nullable: true
+          description: Expiry time
 
     APIKeyCreateResponse:
       type: object
       properties:
         consumer_key:
           type: string
+          description: The consumer key (secret)
         expires_at:
           type: string
           format: date-time
           nullable: true
+          description: Expiry time
       required: [consumer_key]
 
     APIKeyListResponse:
@@ -3703,8 +3866,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/APIKey"
+          description: List of API keys
         count:
           type: integer
+          description: Total count
       required: [items, count]
 
     SystemStatusResponse:
@@ -3713,6 +3878,9 @@ components:
         initialized:
           type: boolean
           description: True if the system has been initialized (at least one superadmin exists and first_run_complete is true).
+        user_onboarding_required:
+          type: boolean
+          description: True if the current user (if authenticated) still needs to complete onboarding.
         needs_superadmin:
           type: boolean
           description: True if the system requires initial superadmin setup (no superadmin exists).
@@ -3730,17 +3898,22 @@ components:
       properties:
         username:
           type: string
+          description: Desired username
         email:
           type: string
           format: email
+          description: Email address
         password:
           type: string
+          description: Password
         firstName:
           type: string
           nullable: true
+          description: First name
         lastName:
           type: string
           nullable: true
+          description: Last name
       required:
         - username
         - email
@@ -3750,6 +3923,7 @@ components:
       properties:
         message:
           type: string
+          description: Response message
         user:
           $ref: "#/components/schemas/User"
         sessionToken:
@@ -3770,11 +3944,14 @@ components:
             properties:
               name:
                 type: string
+                description: Setting name
               value:
                 type: string
+                description: Setting value
             required:
               - name
               - value
+          description: List of settings to update
       required:
         - settings
 
@@ -3783,8 +3960,10 @@ components:
       properties:
         first_name:
           type: string
+          description: First name
         last_name:
           type: string
+          description: Last name
         settings:
           type: array
           description: User-specific setting overrides
@@ -3797,16 +3976,21 @@ components:
       properties:
         name:
           type: string
+          description: Image name
         owner_uid:
           type: string
           nullable: true
+          description: Owner UID
         description:
           type: string
           nullable: true
+          description: Image description
         private:
           type: boolean
+          description: Is private
         favourited:
           type: boolean
+          description: Is favourited
         exif:
           $ref: "#/components/schemas/ImageEXIF"
         image_metadata:
@@ -3827,16 +4011,19 @@ components:
               type: array
               items:
                 type: string
+              description: Keywords
 
     ImagineConfig:
       type: object
       properties:
         baseUrl:
           type: string
+          description: Base URL of the application
         logging:
           $ref: "#/components/schemas/LoggingConfig"
         base_directory:
           type: string
+          description: Base directory path
         upload:
           $ref: "#/components/schemas/UploadConfig"
         database:
@@ -3857,90 +4044,116 @@ components:
       properties:
         level:
           type: string
+          description: Logging level
 
     UploadConfig:
       type: object
       properties:
         location:
           type: string
+          description: Upload location
 
     DatabaseConfig:
       type: object
       properties:
         location:
           type: string
+          description: Database location/host
         user:
           type: string
+          description: Database user
         password:
           type: string
           description: "Masked password"
         name:
           type: string
+          description: Database name
         port:
           type: integer
+          description: Database port
 
     QueueConfig:
       type: object
       properties:
         enabled:
           type: boolean
+          description: Is queue enabled
         host:
           type: string
+          description: Queue host
         port:
           type: integer
+          description: Queue port
         username:
           type: string
+          description: Queue username
         password:
           type: string
           description: "Masked password"
         db:
           type: integer
+          description: Redis DB index
         use_tls:
           type: boolean
+          description: Use TLS
         pool_size:
           type: integer
+          description: Connection pool size
         dial_timeout_seconds:
           type: integer
+          description: Dial timeout
         read_timeout_seconds:
           type: integer
+          description: Read timeout
         write_timeout_seconds:
           type: integer
+          description: Write timeout
 
     LibvipsConfig:
       type: object
       properties:
         match_system_logging:
           type: boolean
+          description: Match system logging level
         cache_max_memory_mb:
           type: integer
+          description: Cache max memory MB
         cache_max_files:
           type: integer
+          description: Cache max files
         cache_max_operations:
           type: integer
+          description: Cache max operations
         concurrency:
           type: integer
+          description: Concurrency level
         vector_enabled:
           type: boolean
+          description: Vector enabled
 
     CacheConfig:
       type: object
       properties:
         gc_enabled:
           type: boolean
+          description: GC enabled
 
     UserManagementConfig:
       type: object
       properties:
         allow_manual_registration:
           type: boolean
+          description: Allow manual registration
 
     StorageMetricsConfig:
       type: object
       properties:
         enabled:
           type: boolean
+          description: Metrics enabled
         interval_seconds:
           type: integer
+          description: Interval in seconds
 
     SearchListResponse:
       type: object
@@ -3949,8 +4162,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Image"
+          description: List of images found
         collections:
           type: array
           items:
             $ref: "#/components/schemas/Collection"
+          description: List of collections found
       required: [images, collections]

@@ -19,264 +19,442 @@ export const servers = {
     productionApi: "/api"
 };
 export type UserCreate = {
+    /** Full name */
     name: string;
+    /** Email address */
     email: string;
+    /** Password */
     password: string;
 };
 export type User = {
+    /** User UID */
     uid: string;
+    /** First name */
     first_name: string;
+    /** Last name */
     last_name: string;
+    /** Username */
     username: string;
+    /** Email */
     email: string;
+    /** User role */
     role: "user" | "admin" | "superadmin" | "guest";
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
 };
 export type ErrorResponse = {
+    /** Error message */
     error: string;
 };
 export type ApiKey = {
+    /** API Key UID */
     uid: string;
+    /** API Key name */
     name?: string;
+    /** API Key description */
     description?: string | null;
+    /** Hashed key */
     key_hashed: string;
     user?: User;
+    /** List of scopes */
     scopes: string[];
+    /** Last used time */
     last_used_at?: string | null;
+    /** Is revoked */
     revoked: boolean;
+    /** Revocation time */
     revoked_at?: string;
+    /** Expiry time */
     expires_at?: string | null;
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
 };
 export type ApiKeyCreate = {
+    /** API Key name */
     name?: string;
+    /** API Key description */
     description?: string | null;
+    /** List of scopes */
     scopes?: string[];
+    /** Expiry time */
     expires_at?: string | null;
 };
 export type ApiKeyCreateResponse = {
+    /** The consumer key (secret) */
     consumer_key: string;
+    /** Expiry time */
     expires_at?: string | null;
 };
 export type ApiKeyListResponse = {
+    /** List of API keys */
     items: ApiKey[];
+    /** Total count */
     count: number;
 };
 export type MessageResponse = {
+    /** Response message */
     message: string;
 };
 export type OAuthUserData = {
+    /** User email */
     email: string;
+    /** User name */
     name: string;
+    /** User profile picture URL */
     picture: string;
 };
 export type Session = {
+    /** Session UID */
     uid: string;
+    /** Session token */
     token: string;
+    /** User UID */
     user_uid: string;
     user?: User;
+    /** Client ID */
     client_id?: string;
+    /** Client name */
     client_name?: string;
+    /** Client IP */
     client_ip?: string;
+    /** Last active time */
     last_active?: string;
+    /** Expiry time */
     expires_at?: string;
+    /** Timeout in seconds */
     timeout?: number;
+    /** User agent */
     user_agent?: string;
+    /** Reference ID */
     ref_id?: string;
+    /** Login IP */
     login_ip?: string;
+    /** Login time */
     login_at?: string;
+    /** Session status */
     status?: number;
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
 };
 export type UserUpdate = {
+    /** First name */
     first_name?: string | null;
+    /** Last name */
     last_name?: string | null;
+    /** Username */
     username?: string | null;
+    /** Email address */
     email?: string | null;
 };
 export type UserSetting = {
+    /** Setting unique name */
     name: string;
+    /** Readable name */
     display_name: string;
     /** The effective value (override if exists, else default). */
     value: string;
+    /** Default value */
     default_value: string;
+    /** Type of the value */
     value_type: string;
+    /** Allowed values if enum */
     allowed_values?: string[] | null;
+    /** Whether user can edit */
     is_user_editable?: boolean;
+    /** Setting group */
     group: string;
+    /** Setting description */
     description: string;
 };
 export type UserOnboardingBody = {
+    /** First name */
     first_name: string;
+    /** Last name */
     last_name: string;
     /** User-specific setting overrides */
     settings: UserSetting[];
 };
 export type UserPasswordUpdate = {
+    /** Current password */
     current: string;
+    /** New password */
     "new": string;
 };
 export type SessionUpdate = {
+    /** New client name */
     clientName?: string | null;
+    /** New status */
     status?: number | null;
 };
 export type UserSettingUpdateRequest = {
+    /** List of settings to update */
     settings: {
+        /** Setting name */
         name: string;
+        /** Setting value */
         value: string;
     }[];
 };
 export type ImageExif = {
+    /** EXIF version */
     exif_version?: string;
+    /** Camera make */
     make?: string;
+    /** Camera model */
     model?: string;
+    /** Date and time */
     date_time?: string;
+    /** Original date and time */
     date_time_original?: string;
+    /** ISO speed rating */
     iso?: string;
+    /** Focal length */
     focal_length?: string;
+    /** Exposure time */
     exposure_time?: string;
+    /** Aperture */
     aperture?: string;
+    /** Exposure value */
     exposure_value?: string;
+    /** F-number */
     f_number?: string;
+    /** Flash fired */
     flash?: number;
+    /** White balance */
     white_balance?: string;
+    /** Lens make */
     lens_make?: string;
+    /** Lens model */
     lens_model?: string;
+    /** Focal length in 35mm format */
     focal_length_in_35mm_format?: string;
+    /** Scene capture type */
     scene_capture_type?: string;
+    /** Exposure program */
     exposure_program?: string;
+    /** Metering mode */
     metering_mode?: string;
+    /** Sensing method */
     sensing_method?: string;
+    /** Light source */
     light_source?: string;
+    /** Exposure bias value */
     exposure_bias_value?: string;
+    /** Max aperture value */
     max_aperture_value?: string;
+    /** Exposure mode */
     exposure_mode?: string;
+    /** Digital zoom ratio */
     digital_zoom_ratio?: string;
+    /** Focal plane X resolution */
     focal_plane_x_resolution?: string;
+    /** Focal plane Y resolution */
     focal_plane_y_resolution?: string;
+    /** Focal plane resolution unit */
     focal_plane_resolution_unit?: string;
+    /** Copyright */
     copyright?: string;
+    /** Modify date */
     modify_date?: string;
+    /** Rating */
     rating?: string;
+    /** Orientation */
     orientation?: string;
+    /** Resolution */
     resolution?: string;
+    /** Software */
     software?: string;
+    /** GPS Longitude */
     longitude?: string;
+    /** GPS Latitude */
     latitude?: string;
+    /** GPS Altitude */
     gps_altitude?: string;
+    /** GPS Image Direction */
     gps_img_direction?: string;
+    /** GPS Image Direction Ref */
     gps_img_direction_ref?: string;
+    /** GPS Speed */
     gps_speed?: string;
+    /** GPS Speed Ref */
     gps_speed_ref?: string;
+    /** Offset time */
     offset_time?: string;
+    /** Offset time original */
     offset_time_original?: string;
+    /** Offset time digitized */
     offset_time_digitized?: string;
 };
 export type ImageMetadata = {
+    /** Original file name */
     file_name: string;
+    /** File size in bytes */
     file_size?: number;
+    /** Original file name */
     original_file_name?: string;
+    /** File MIME type */
     file_type: string;
+    /** Additional metadata */
     metadata?: string;
     /** User-assigned rating (0-5). Null = unrated */
     rating?: number | null;
+    /** Keywords */
     keywords?: string[];
+    /** Color space */
     color_space: string;
+    /** Has ICC profile */
     has_icc_profile?: boolean;
+    /** File modification time */
     file_modified_at: string;
+    /** File creation time */
     file_created_at: string;
+    /** Thumbhash */
     thumbhash?: string;
     /** User-assigned label for the image. Null = unlabeled */
     label?: ("Red" | "Orange" | "Yellow" | "Purple" | "Pink" | "Green" | "Blue" | "None") | null;
+    /** File checksum */
     checksum: string;
 };
 export type ImagePaths = {
+    /** Path to original file */
     original: string;
+    /** Path to thumbnail */
     thumbnail: string;
+    /** Path to preview */
     preview: string;
+    /** Path to raw file */
     raw?: string;
 };
 export type Image = {
+    /** Image UID */
     uid: string;
+    /** Image name */
     name: string;
     uploaded_by?: User;
     owner?: User;
+    /** Image description */
     description?: string;
     exif?: ImageExif;
+    /** Is private */
     "private": boolean;
+    /** Is favourited */
     favourited?: boolean;
+    /** Image width */
     width: number;
+    /** Image height */
     height: number;
+    /** Is processed */
     processed: boolean;
     image_metadata?: ImageMetadata;
     image_paths: ImagePaths;
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
+    /** Taken time */
     taken_at?: string | null;
 };
 export type CollectionImage = {
+    /** Image UID */
     uid: string;
+    /** Added timestamp */
     added_at: string;
     added_by?: User;
 };
 export type Collection = {
+    /** Collection UID */
     uid: string;
+    /** Collection name */
     name: string;
+    /** Number of images */
     image_count: number;
+    /** Is private */
     "private"?: boolean | null;
+    /** Is favourited */
     favourited?: boolean;
+    /** List of images */
     images?: CollectionImage[];
     created_by?: User;
     owner?: User;
+    /** Collection description */
     description?: string;
     thumbnail?: Image;
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
 };
 export type SearchListResponse = {
+    /** List of images found */
     images: Image[];
+    /** List of collections found */
     collections: Collection[];
 };
 export type ImagesResponse = {
+    /** Added timestamp */
     added_at: string;
     added_by?: User;
     image: Image;
 };
 export type ImagesListResponse = {
+    /** Self link */
     href?: string;
+    /** Previous page link */
     prev?: string;
+    /** Next page link */
     next?: string;
+    /** Items per page */
     limit: number;
+    /** Current page */
     page: number;
+    /** Total count */
     count?: number;
+    /** List of items */
     items: ImagesResponse[];
 };
 export type ImageUploadRequest = {
+    /** Image file data */
     data: Blob;
+    /** Name of the file */
     file_name: string;
+    /** Optional checksum of the file */
     checksum?: string;
 };
 export type ImageUploadResponse = {
+    /** UID of the uploaded image */
     uid: string;
+    /** Extracted metadata */
     metadata?: {
         [key: string]: any;
     };
 };
 export type DeleteAssetsResponse = {
+    /** Results of deletion */
     results?: {
+        /** UID of the asset */
         uid?: string;
+        /** Whether it was deleted */
         deleted?: boolean;
+        /** Error message if failed */
         error?: string;
     }[];
 };
 export type ImageUpdate = {
+    /** Image name */
     name?: string;
+    /** Owner UID */
     owner_uid?: string | null;
+    /** Image description */
     description?: string | null;
+    /** Is private */
     "private"?: boolean;
+    /** Is favourited */
     favourited?: boolean;
     exif?: ImageExif;
     image_metadata?: {
@@ -284,54 +462,84 @@ export type ImageUpdate = {
         label?: ("Red" | "Orange" | "Yellow" | "Purple" | "Pink" | "Green" | "Blue" | "None") | null;
         /** User-assigned rating (0-5). Null = unrated */
         rating?: number | null;
+        /** Keywords */
         keywords?: string[];
     };
 };
 export type CollectionListResponse = {
+    /** Self link */
     href?: string;
+    /** Previous page link */
     prev?: string;
+    /** Next page link */
     next?: string;
+    /** Items per page */
     limit: number;
+    /** Current page */
     page: number;
+    /** Total count */
     count?: number;
+    /** List of collections */
     items: Collection[];
 };
 export type CollectionCreate = {
+    /** Collection name */
     name: string;
+    /** Is private */
     "private"?: boolean | null;
+    /** Collection description */
     description?: string;
 };
 export type CollectionDetailResponse = {
+    /** Collection UID */
     uid: string;
+    /** Collection name */
     name: string;
+    /** Number of images */
     image_count?: number;
+    /** Is private */
     "private"?: boolean | null;
     images: ImagesListResponse;
     created_by?: User;
     owner?: User;
+    /** Collection description */
     description?: string;
     thumbnail?: Image;
+    /** Creation time */
     created_at: string;
+    /** Update time */
     updated_at: string;
 };
 export type CollectionUpdate = {
+    /** Collection name */
     name?: string;
+    /** Thumbnail image UID */
     thumbnailUID?: string;
+    /** Collection description */
     description?: string;
+    /** Is private */
     "private"?: boolean;
+    /** Is favourited */
     favourited?: boolean;
+    /** Owner UID */
     ownerUID?: string;
 };
 export type AddImagesResponse = {
+    /** Whether images were added */
     added: boolean;
+    /** Error message if failed */
     error?: string;
 };
 export type DeleteImagesResponse = {
+    /** Whether images were deleted */
     deleted: boolean;
+    /** Error message if failed */
     error?: string;
 };
 export type DownloadRequest = {
+    /** List of UIDs to download */
     uids: string[];
+    /** Desired filename for the archive */
     file_name?: string;
 };
 export type SignDownloadRequest = {
@@ -399,54 +607,82 @@ export type SettingOverride = {
     value: string;
 };
 export type LoggingConfig = {
+    /** Logging level */
     level?: string;
 };
 export type UploadConfig = {
+    /** Upload location */
     location?: string;
 };
 export type DatabaseConfig = {
+    /** Database location/host */
     location?: string;
+    /** Database user */
     user?: string;
     /** Masked password */
     password?: string;
+    /** Database name */
     name?: string;
+    /** Database port */
     port?: number;
 };
 export type QueueConfig = {
+    /** Is queue enabled */
     enabled?: boolean;
+    /** Queue host */
     host?: string;
+    /** Queue port */
     port?: number;
+    /** Queue username */
     username?: string;
     /** Masked password */
     password?: string;
+    /** Redis DB index */
     db?: number;
+    /** Use TLS */
     use_tls?: boolean;
+    /** Connection pool size */
     pool_size?: number;
+    /** Dial timeout */
     dial_timeout_seconds?: number;
+    /** Read timeout */
     read_timeout_seconds?: number;
+    /** Write timeout */
     write_timeout_seconds?: number;
 };
 export type LibvipsConfig = {
+    /** Match system logging level */
     match_system_logging?: boolean;
+    /** Cache max memory MB */
     cache_max_memory_mb?: number;
+    /** Cache max files */
     cache_max_files?: number;
+    /** Cache max operations */
     cache_max_operations?: number;
+    /** Concurrency level */
     concurrency?: number;
+    /** Vector enabled */
     vector_enabled?: boolean;
 };
 export type CacheConfig = {
+    /** GC enabled */
     gc_enabled?: boolean;
 };
 export type UserManagementConfig = {
+    /** Allow manual registration */
     allow_manual_registration?: boolean;
 };
 export type StorageMetricsConfig = {
+    /** Metrics enabled */
     enabled?: boolean;
+    /** Interval in seconds */
     interval_seconds?: number;
 };
 export type ImagineConfig = {
+    /** Base URL of the application */
     baseUrl?: string;
     logging?: LoggingConfig;
+    /** Base directory path */
     base_directory?: string;
     upload?: UploadConfig;
     database?: DatabaseConfig;
@@ -457,7 +693,9 @@ export type ImagineConfig = {
     storage_metrics?: StorageMetricsConfig;
 };
 export type SystemStatsResponse = {
+    /** System uptime in seconds */
     uptime_seconds: number;
+    /** Number of running goroutines */
     num_goroutine: number;
     /** Bytes of allocated heap objects */
     alloc_memory: number;
@@ -465,6 +703,7 @@ export type SystemStatsResponse = {
     sys_memory: number;
     /** Total size of files in the base directory */
     storage_used_bytes: number;
+    /** Path to storage directory */
     storage_path: string;
     /** Total disk space on the system */
     total_system_space_bytes: number;
@@ -472,8 +711,11 @@ export type SystemStatsResponse = {
     total_available_space_bytes: number;
 };
 export type DatabaseStatsResponse = {
+    /** Total number of users */
     user_count: number;
+    /** Total number of images */
     image_count: number;
+    /** Total number of collections */
     collection_count: number;
     /** Size of the database in bytes (Postgres only) */
     db_size_bytes?: number;
@@ -493,16 +735,25 @@ export type CacheStatusResponse = {
     hit_ratio: number;
 };
 export type AdminUserCreate = {
+    /** User's full name */
     name: string;
+    /** User's email address */
     email: string;
+    /** User's password */
     password: string;
+    /** User role */
     role?: "user" | "admin" | "superadmin" | "guest";
 };
 export type AdminUserUpdate = {
+    /** First name */
     first_name?: string | null;
+    /** Last name */
     last_name?: string | null;
+    /** Username */
     username?: string | null;
+    /** Email address */
     email?: string | null;
+    /** User role */
     role?: ("user" | "admin" | "superadmin" | "guest") | null;
 };
 export type WorkerInfo = {
@@ -516,6 +767,7 @@ export type WorkerInfo = {
     count?: number;
 };
 export type WorkersListResponse = {
+    /** List of workers */
     items: WorkerInfo[];
 };
 export type WorkerRegisterRequest = {
@@ -533,89 +785,131 @@ export type WorkerJobCreateRequest = {
     uids?: string[];
 };
 export type WorkerJobEnqueueResponse = {
+    /** Response message */
     message: string;
+    /** Count of enqueued jobs */
     count?: number;
 };
 export type WorkerJob = {
+    /** Job UID */
     uid: string;
+    /** Job type */
     "type": string;
+    /** Job topic */
     topic: string;
+    /** Job command */
     command?: string | null;
+    /** Related image UID */
     image_uid?: string | null;
+    /** Job status */
     status: string;
+    /** Job payload */
     payload?: string | null;
+    /** Error code if failed */
     error_code?: string | null;
+    /** Error message if failed */
     error_msg?: string | null;
+    /** Enqueued timestamp */
     enqueued_at: string;
+    /** Started timestamp */
     started_at?: string | null;
+    /** Completed timestamp */
     completed_at?: string | null;
 };
 export type WorkerJobsResponse = {
+    /** List of jobs */
     items: WorkerJob[];
+    /** Total count of jobs */
     total: number;
 };
 export type WorkerJobStatsResponse = {
+    /** Total running jobs */
     running: number;
+    /** Running jobs by topic */
     running_by_topic: {
         [key: string]: number;
     };
+    /** Queued jobs by topic */
     queued_by_topic: {
         [key: string]: number;
     };
 };
 export type WsStatsResponse = {
+    /** Number of connected clients */
     connectedClients: number;
+    /** List of connected client IDs */
     clientIds: string[];
+    /** Timestamp of the stats */
     timestamp: string;
 };
 export type WsMetricsResponse = {
+    /** Number of connected clients */
     connectedClients: number;
+    /** Total events processed */
     totalEvents: number;
+    /** Count of events by type */
     eventsByType: {
         [key: string]: number;
     };
+    /** Timestamp of the metrics */
     timestamp: string;
 };
 export type EventRecord = {
+    /** Event timestamp */
     timestamp: string;
+    /** Event name */
     event: string;
+    /** Event data payload */
     data: {
         [key: string]: any;
     };
 };
 export type EventHistoryResponse = {
+    /** List of historical events */
     events: EventRecord[];
+    /** Count of events returned */
     count: number;
 };
 export type WsBroadcastRequest = {
+    /** Event name to broadcast */
     event: string;
+    /** Event data payload */
     data: {
         [key: string]: any;
     };
 };
 export type WsBroadcastResponse = {
+    /** Whether broadcast was successful */
     success: boolean;
+    /** Response message */
     message: string;
+    /** Number of clients reached */
     clients: number;
 };
 export type SystemStatusResponse = {
-    /** True if the system has been initialized (at least one user exists or first_run_complete is true). */
+    /** True if the system has been initialized (at least one superadmin exists and first_run_complete is true). */
     initialized: boolean;
-    /** True if the authenticated user needs to complete onboarding. */
+    /** True if the current user (if authenticated) still needs to complete onboarding. */
     user_onboarding_required: boolean;
-    /** True if the system requires initial superadmin setup. */
+    /** True if the system requires initial superadmin setup (no superadmin exists). */
     needs_superadmin: boolean;
     /** True if user registration is enabled, let's users register accounts themselves */
     allow_manual_registration: boolean;
 };
 export type SuperadminSetupRequest = {
+    /** Desired username */
     username: string;
+    /** Email address */
     email: string;
+    /** Password */
     password: string;
+    /** First name */
     firstName?: string | null;
+    /** Last name */
     lastName?: string | null;
 };
 export type SuperadminSetupResponse = {
+    /** Response message */
     message: string;
     user: User;
     /** Session token for the newly created superadmin */
@@ -628,6 +922,7 @@ export function ping(opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
         status: 200;
         data: {
+            /** Pong message */
             message: string;
         };
     }>("/ping", {
@@ -754,7 +1049,9 @@ export function rotateApiKey(uid: string, opts?: Oazapfts.RequestOpts) {
  * Login with email and password
  */
 export function login(body: {
+    /** User email address */
     email: string;
+    /** User password */
     password: string;
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
@@ -1036,6 +1333,7 @@ export function getUserSettings(opts?: Oazapfts.RequestOpts) {
  * Update a user setting (Override)
  */
 export function updateUserSetting(name: string, body: {
+    /** New setting value */
     value: string;
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
@@ -1151,7 +1449,9 @@ export function uploadImage(imageUploadRequest: ImageUploadRequest, opts?: Oazap
  * Delete multiple asset UID directories (soft move to trash or force delete)
  */
 export function deleteImagesBulk(body: {
+    /** List of image UIDs */
     uids: string[];
+    /** Force deletion */
     force?: boolean;
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
@@ -1439,6 +1739,7 @@ export function listCollectionImages(uid: string, { limit, offset }: {
  * Add images to a collection
  */
 export function addCollectionImages(uid: string, body: {
+    /** List of image UIDs */
     uids: string[];
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
@@ -1460,6 +1761,7 @@ export function addCollectionImages(uid: string, body: {
  * Remove images from a collection
  */
 export function deleteCollectionImages(uid: string, body: {
+    /** List of image UIDs */
     uids: string[];
 }, opts?: Oazapfts.RequestOpts) {
     return oazapfts.fetchJson<{
@@ -1986,8 +2288,11 @@ export function getEventsSince({ cursor, limit }: {
     return oazapfts.fetchJson<{
         status: 200;
         data: {
+            /** List of events */
             events: EventRecord[];
+            /** Number of events */
             count: number;
+            /** Next cursor ID */
             nextCursor: number;
         };
     } | {

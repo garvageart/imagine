@@ -123,71 +123,125 @@ const (
 
 // APIKey defines model for APIKey.
 type APIKey struct {
-	CreatedAt   time.Time  `json:"created_at"`
-	Description *string    `json:"description"`
-	ExpiresAt   *time.Time `json:"expires_at"`
-	KeyHashed   string     `json:"key_hashed"`
-	LastUsedAt  *time.Time `json:"last_used_at"`
-	Name        *string    `json:"name,omitempty"`
-	Revoked     bool       `json:"revoked"`
-	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
-	Scopes      []string   `json:"scopes"`
-	Uid         string     `json:"uid"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	User        *User      `json:"user,omitempty"`
+	// CreatedAt Creation time
+	CreatedAt time.Time `json:"created_at"`
+
+	// Description API Key description
+	Description *string `json:"description"`
+
+	// ExpiresAt Expiry time
+	ExpiresAt *time.Time `json:"expires_at"`
+
+	// KeyHashed Hashed key
+	KeyHashed string `json:"key_hashed"`
+
+	// LastUsedAt Last used time
+	LastUsedAt *time.Time `json:"last_used_at"`
+
+	// Name API Key name
+	Name *string `json:"name,omitempty"`
+
+	// Revoked Is revoked
+	Revoked bool `json:"revoked"`
+
+	// RevokedAt Revocation time
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+
+	// Scopes List of scopes
+	Scopes []string `json:"scopes"`
+
+	// Uid API Key UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
+	UpdatedAt time.Time `json:"updated_at"`
+	User      *User     `json:"user,omitempty"`
 }
 
 // APIKeyCreate defines model for APIKeyCreate.
 type APIKeyCreate struct {
-	Description *string    `json:"description"`
-	ExpiresAt   *time.Time `json:"expires_at"`
-	Name        *string    `json:"name,omitempty"`
-	Scopes      *[]string  `json:"scopes,omitempty"`
+	// Description API Key description
+	Description *string `json:"description"`
+
+	// ExpiresAt Expiry time
+	ExpiresAt *time.Time `json:"expires_at"`
+
+	// Name API Key name
+	Name *string `json:"name,omitempty"`
+
+	// Scopes List of scopes
+	Scopes *[]string `json:"scopes,omitempty"`
 }
 
 // APIKeyCreateResponse defines model for APIKeyCreateResponse.
 type APIKeyCreateResponse struct {
-	ConsumerKey string     `json:"consumer_key"`
-	ExpiresAt   *time.Time `json:"expires_at"`
+	// ConsumerKey The consumer key (secret)
+	ConsumerKey string `json:"consumer_key"`
+
+	// ExpiresAt Expiry time
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 // APIKeyListResponse defines model for APIKeyListResponse.
 type APIKeyListResponse struct {
-	Count int      `json:"count"`
+	// Count Total count
+	Count int `json:"count"`
+
+	// Items List of API keys
 	Items []APIKey `json:"items"`
 }
 
 // AddImagesResponse defines model for AddImagesResponse.
 type AddImagesResponse struct {
-	Added bool    `json:"added"`
+	// Added Whether images were added
+	Added bool `json:"added"`
+
+	// Error Error message if failed
 	Error *string `json:"error,omitempty"`
 }
 
 // AdminUserCreate defines model for AdminUserCreate.
 type AdminUserCreate struct {
-	Email    openapi_types.Email  `json:"email"`
-	Name     string               `json:"name"`
-	Password string               `json:"password"`
-	Role     *AdminUserCreateRole `json:"role,omitempty"`
+	// Email User's email address
+	Email openapi_types.Email `json:"email"`
+
+	// Name User's full name
+	Name string `json:"name"`
+
+	// Password User's password
+	Password string `json:"password"`
+
+	// Role User role
+	Role *AdminUserCreateRole `json:"role,omitempty"`
 }
 
-// AdminUserCreateRole defines model for AdminUserCreate.Role.
+// AdminUserCreateRole User role
 type AdminUserCreateRole string
 
 // AdminUserUpdate defines model for AdminUserUpdate.
 type AdminUserUpdate struct {
-	Email     *openapi_types.Email `json:"email"`
-	FirstName *string              `json:"first_name"`
-	LastName  *string              `json:"last_name"`
-	Role      *AdminUserUpdateRole `json:"role"`
-	Username  *string              `json:"username"`
+	// Email Email address
+	Email *openapi_types.Email `json:"email"`
+
+	// FirstName First name
+	FirstName *string `json:"first_name"`
+
+	// LastName Last name
+	LastName *string `json:"last_name"`
+
+	// Role User role
+	Role *AdminUserUpdateRole `json:"role"`
+
+	// Username Username
+	Username *string `json:"username"`
 }
 
-// AdminUserUpdateRole defines model for AdminUserUpdate.Role.
+// AdminUserUpdateRole User role
 type AdminUserUpdateRole string
 
 // CacheConfig defines model for CacheConfig.
 type CacheConfig struct {
+	// GcEnabled GC enabled
 	GcEnabled *bool `json:"gc_enabled,omitempty"`
 }
 
@@ -211,112 +265,199 @@ type CacheStatusResponse struct {
 
 // Collection defines model for Collection.
 type Collection struct {
-	CreatedAt   time.Time          `json:"created_at"`
-	CreatedBy   *User              `json:"created_by,omitempty"`
-	Description *string            `json:"description,omitempty"`
-	Favourited  *bool              `json:"favourited,omitempty"`
-	ImageCount  int                `json:"image_count"`
-	Images      *[]CollectionImage `json:"images,omitempty"`
-	Name        string             `json:"name"`
-	Owner       *User              `json:"owner,omitempty"`
-	Private     *bool              `json:"private"`
-	Thumbnail   *Image             `json:"thumbnail,omitempty"`
-	Uid         string             `json:"uid"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	// CreatedAt Creation time
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy *User     `json:"created_by,omitempty"`
+
+	// Description Collection description
+	Description *string `json:"description,omitempty"`
+
+	// Favourited Is favourited
+	Favourited *bool `json:"favourited,omitempty"`
+
+	// ImageCount Number of images
+	ImageCount int `json:"image_count"`
+
+	// Images List of images
+	Images *[]CollectionImage `json:"images,omitempty"`
+
+	// Name Collection name
+	Name  string `json:"name"`
+	Owner *User  `json:"owner,omitempty"`
+
+	// Private Is private
+	Private   *bool  `json:"private"`
+	Thumbnail *Image `json:"thumbnail,omitempty"`
+
+	// Uid Collection UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CollectionCreate defines model for CollectionCreate.
 type CollectionCreate struct {
+	// Description Collection description
 	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
-	Private     *bool   `json:"private"`
+
+	// Name Collection name
+	Name string `json:"name"`
+
+	// Private Is private
+	Private *bool `json:"private"`
 }
 
 // CollectionDetailResponse defines model for CollectionDetailResponse.
 type CollectionDetailResponse struct {
-	CreatedAt   time.Time          `json:"created_at"`
-	CreatedBy   *User              `json:"created_by,omitempty"`
-	Description *string            `json:"description,omitempty"`
-	ImageCount  *int               `json:"image_count,omitempty"`
-	Images      ImagesListResponse `json:"images"`
-	Name        string             `json:"name"`
-	Owner       *User              `json:"owner,omitempty"`
-	Private     *bool              `json:"private"`
-	Thumbnail   *Image             `json:"thumbnail,omitempty"`
-	Uid         string             `json:"uid"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	// CreatedAt Creation time
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy *User     `json:"created_by,omitempty"`
+
+	// Description Collection description
+	Description *string `json:"description,omitempty"`
+
+	// ImageCount Number of images
+	ImageCount *int               `json:"image_count,omitempty"`
+	Images     ImagesListResponse `json:"images"`
+
+	// Name Collection name
+	Name  string `json:"name"`
+	Owner *User  `json:"owner,omitempty"`
+
+	// Private Is private
+	Private   *bool  `json:"private"`
+	Thumbnail *Image `json:"thumbnail,omitempty"`
+
+	// Uid Collection UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CollectionImage defines model for CollectionImage.
 type CollectionImage struct {
+	// AddedAt Added timestamp
 	AddedAt time.Time `json:"added_at"`
 	AddedBy *User     `json:"added_by,omitempty"`
-	Uid     string    `json:"uid"`
+
+	// Uid Image UID
+	Uid string `json:"uid"`
 }
 
 // CollectionListResponse defines model for CollectionListResponse.
 type CollectionListResponse struct {
-	Count *int         `json:"count,omitempty"`
-	Href  *string      `json:"href,omitempty"`
+	// Count Total count
+	Count *int `json:"count,omitempty"`
+
+	// Href Self link
+	Href *string `json:"href,omitempty"`
+
+	// Items List of collections
 	Items []Collection `json:"items"`
-	Limit int          `json:"limit"`
-	Next  *string      `json:"next,omitempty"`
-	Page  int          `json:"page"`
-	Prev  *string      `json:"prev,omitempty"`
+
+	// Limit Items per page
+	Limit int `json:"limit"`
+
+	// Next Next page link
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page
+	Page int `json:"page"`
+
+	// Prev Previous page link
+	Prev *string `json:"prev,omitempty"`
 }
 
 // CollectionUpdate defines model for CollectionUpdate.
 type CollectionUpdate struct {
-	Description  *string `json:"description,omitempty"`
-	Favourited   *bool   `json:"favourited,omitempty"`
-	Name         *string `json:"name,omitempty"`
-	OwnerUID     *string `json:"ownerUID,omitempty"`
-	Private      *bool   `json:"private,omitempty"`
+	// Description Collection description
+	Description *string `json:"description,omitempty"`
+
+	// Favourited Is favourited
+	Favourited *bool `json:"favourited,omitempty"`
+
+	// Name Collection name
+	Name *string `json:"name,omitempty"`
+
+	// OwnerUID Owner UID
+	OwnerUID *string `json:"ownerUID,omitempty"`
+
+	// Private Is private
+	Private *bool `json:"private,omitempty"`
+
+	// ThumbnailUID Thumbnail image UID
 	ThumbnailUID *string `json:"thumbnailUID,omitempty"`
 }
 
 // DatabaseConfig defines model for DatabaseConfig.
 type DatabaseConfig struct {
+	// Location Database location/host
 	Location *string `json:"location,omitempty"`
-	Name     *string `json:"name,omitempty"`
+
+	// Name Database name
+	Name *string `json:"name,omitempty"`
 
 	// Password Masked password
 	Password *string `json:"password,omitempty"`
-	Port     *int    `json:"port,omitempty"`
-	User     *string `json:"user,omitempty"`
+
+	// Port Database port
+	Port *int `json:"port,omitempty"`
+
+	// User Database user
+	User *string `json:"user,omitempty"`
 }
 
 // DatabaseStatsResponse defines model for DatabaseStatsResponse.
 type DatabaseStatsResponse struct {
 	// ActiveConnections Number of active connections (Postgres only)
 	ActiveConnections *int64 `json:"active_connections,omitempty"`
-	CollectionCount   int64  `json:"collection_count"`
+
+	// CollectionCount Total number of collections
+	CollectionCount int64 `json:"collection_count"`
 
 	// DbSizeBytes Size of the database in bytes (Postgres only)
 	DbSizeBytes *int64 `json:"db_size_bytes,omitempty"`
-	ImageCount  int64  `json:"image_count"`
-	UserCount   int64  `json:"user_count"`
+
+	// ImageCount Total number of images
+	ImageCount int64 `json:"image_count"`
+
+	// UserCount Total number of users
+	UserCount int64 `json:"user_count"`
 }
 
 // DeleteAssetsResponse defines model for DeleteAssetsResponse.
 type DeleteAssetsResponse struct {
+	// Results Results of deletion
 	Results *[]struct {
-		Deleted *bool   `json:"deleted,omitempty"`
-		Error   *string `json:"error,omitempty"`
-		Uid     *string `json:"uid,omitempty"`
+		// Deleted Whether it was deleted
+		Deleted *bool `json:"deleted,omitempty"`
+
+		// Error Error message if failed
+		Error *string `json:"error,omitempty"`
+
+		// Uid UID of the asset
+		Uid *string `json:"uid,omitempty"`
 	} `json:"results,omitempty"`
 }
 
 // DeleteImagesResponse defines model for DeleteImagesResponse.
 type DeleteImagesResponse struct {
-	Deleted bool    `json:"deleted"`
-	Error   *string `json:"error,omitempty"`
+	// Deleted Whether images were deleted
+	Deleted bool `json:"deleted"`
+
+	// Error Error message if failed
+	Error *string `json:"error,omitempty"`
 }
 
 // DownloadRequest defines model for DownloadRequest.
 type DownloadRequest struct {
-	FileName *string  `json:"file_name,omitempty"`
-	Uids     []string `json:"uids"`
+	// FileName Desired filename for the archive
+	FileName *string `json:"file_name,omitempty"`
+
+	// Uids List of UIDs to download
+	Uids []string `json:"uids"`
 }
 
 // DownloadToken Persistent download token with granular access controls
@@ -354,109 +495,249 @@ type DownloadToken struct {
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
+	// Error Error message
 	Error string `json:"error"`
 }
 
 // EventHistoryResponse defines model for EventHistoryResponse.
 type EventHistoryResponse struct {
-	Count  int           `json:"count"`
+	// Count Count of events returned
+	Count int `json:"count"`
+
+	// Events List of historical events
 	Events []EventRecord `json:"events"`
 }
 
 // EventRecord defines model for EventRecord.
 type EventRecord struct {
-	Data      map[string]interface{} `json:"data"`
-	Event     string                 `json:"event"`
-	Timestamp time.Time              `json:"timestamp"`
+	// Data Event data payload
+	Data map[string]interface{} `json:"data"`
+
+	// Event Event name
+	Event string `json:"event"`
+
+	// Timestamp Event timestamp
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // Image defines model for Image.
 type Image struct {
-	CreatedAt     time.Time      `json:"created_at"`
-	Description   *string        `json:"description,omitempty"`
-	Exif          *ImageEXIF     `json:"exif,omitempty"`
-	Favourited    *bool          `json:"favourited,omitempty"`
+	// CreatedAt Creation time
+	CreatedAt time.Time `json:"created_at"`
+
+	// Description Image description
+	Description *string    `json:"description,omitempty"`
+	Exif        *ImageEXIF `json:"exif,omitempty"`
+
+	// Favourited Is favourited
+	Favourited *bool `json:"favourited,omitempty"`
+
+	// Height Image height
 	Height        int32          `json:"height"`
 	ImageMetadata *ImageMetadata `json:"image_metadata,omitempty"`
 	ImagePaths    ImagePaths     `json:"image_paths"`
-	Name          string         `json:"name"`
-	Owner         *User          `json:"owner,omitempty"`
-	Private       bool           `json:"private"`
-	Processed     bool           `json:"processed"`
-	TakenAt       *time.Time     `json:"taken_at"`
-	Uid           string         `json:"uid"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	UploadedBy    *User          `json:"uploaded_by,omitempty"`
-	Width         int32          `json:"width"`
+
+	// Name Image name
+	Name  string `json:"name"`
+	Owner *User  `json:"owner,omitempty"`
+
+	// Private Is private
+	Private bool `json:"private"`
+
+	// Processed Is processed
+	Processed bool `json:"processed"`
+
+	// TakenAt Taken time
+	TakenAt *time.Time `json:"taken_at"`
+
+	// Uid Image UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
+	UpdatedAt  time.Time `json:"updated_at"`
+	UploadedBy *User     `json:"uploaded_by,omitempty"`
+
+	// Width Image width
+	Width int32 `json:"width"`
 }
 
 // ImageEXIF defines model for ImageEXIF.
 type ImageEXIF struct {
-	Aperture                 *string `json:"aperture,omitempty"`
-	Copyright                *string `json:"copyright,omitempty"`
-	DateTime                 *string `json:"date_time,omitempty"`
-	DateTimeOriginal         *string `json:"date_time_original,omitempty"`
-	DigitalZoomRatio         *string `json:"digital_zoom_ratio,omitempty"`
-	ExifVersion              *string `json:"exif_version,omitempty"`
-	ExposureBiasValue        *string `json:"exposure_bias_value,omitempty"`
-	ExposureMode             *string `json:"exposure_mode,omitempty"`
-	ExposureProgram          *string `json:"exposure_program,omitempty"`
-	ExposureTime             *string `json:"exposure_time,omitempty"`
-	ExposureValue            *string `json:"exposure_value,omitempty"`
-	FNumber                  *string `json:"f_number,omitempty"`
-	Flash                    *int    `json:"flash,omitempty"`
-	FocalLength              *string `json:"focal_length,omitempty"`
-	FocalLengthIn35mmFormat  *string `json:"focal_length_in_35mm_format,omitempty"`
+	// Aperture Aperture
+	Aperture *string `json:"aperture,omitempty"`
+
+	// Copyright Copyright
+	Copyright *string `json:"copyright,omitempty"`
+
+	// DateTime Date and time
+	DateTime *string `json:"date_time,omitempty"`
+
+	// DateTimeOriginal Original date and time
+	DateTimeOriginal *string `json:"date_time_original,omitempty"`
+
+	// DigitalZoomRatio Digital zoom ratio
+	DigitalZoomRatio *string `json:"digital_zoom_ratio,omitempty"`
+
+	// ExifVersion EXIF version
+	ExifVersion *string `json:"exif_version,omitempty"`
+
+	// ExposureBiasValue Exposure bias value
+	ExposureBiasValue *string `json:"exposure_bias_value,omitempty"`
+
+	// ExposureMode Exposure mode
+	ExposureMode *string `json:"exposure_mode,omitempty"`
+
+	// ExposureProgram Exposure program
+	ExposureProgram *string `json:"exposure_program,omitempty"`
+
+	// ExposureTime Exposure time
+	ExposureTime *string `json:"exposure_time,omitempty"`
+
+	// ExposureValue Exposure value
+	ExposureValue *string `json:"exposure_value,omitempty"`
+
+	// FNumber F-number
+	FNumber *string `json:"f_number,omitempty"`
+
+	// Flash Flash fired
+	Flash *int `json:"flash,omitempty"`
+
+	// FocalLength Focal length
+	FocalLength *string `json:"focal_length,omitempty"`
+
+	// FocalLengthIn35mmFormat Focal length in 35mm format
+	FocalLengthIn35mmFormat *string `json:"focal_length_in_35mm_format,omitempty"`
+
+	// FocalPlaneResolutionUnit Focal plane resolution unit
 	FocalPlaneResolutionUnit *string `json:"focal_plane_resolution_unit,omitempty"`
-	FocalPlaneXResolution    *string `json:"focal_plane_x_resolution,omitempty"`
-	FocalPlaneYResolution    *string `json:"focal_plane_y_resolution,omitempty"`
-	GpsAltitude              *string `json:"gps_altitude,omitempty"`
-	GpsImgDirection          *string `json:"gps_img_direction,omitempty"`
-	GpsImgDirectionRef       *string `json:"gps_img_direction_ref,omitempty"`
-	GpsSpeed                 *string `json:"gps_speed,omitempty"`
-	GpsSpeedRef              *string `json:"gps_speed_ref,omitempty"`
-	Iso                      *string `json:"iso,omitempty"`
-	Latitude                 *string `json:"latitude,omitempty"`
-	LensMake                 *string `json:"lens_make,omitempty"`
-	LensModel                *string `json:"lens_model,omitempty"`
-	LightSource              *string `json:"light_source,omitempty"`
-	Longitude                *string `json:"longitude,omitempty"`
-	Make                     *string `json:"make,omitempty"`
-	MaxApertureValue         *string `json:"max_aperture_value,omitempty"`
-	MeteringMode             *string `json:"metering_mode,omitempty"`
-	Model                    *string `json:"model,omitempty"`
-	ModifyDate               *string `json:"modify_date,omitempty"`
-	OffsetTime               *string `json:"offset_time,omitempty"`
-	OffsetTimeDigitized      *string `json:"offset_time_digitized,omitempty"`
-	OffsetTimeOriginal       *string `json:"offset_time_original,omitempty"`
-	Orientation              *string `json:"orientation,omitempty"`
-	Rating                   *string `json:"rating,omitempty"`
-	Resolution               *string `json:"resolution,omitempty"`
-	SceneCaptureType         *string `json:"scene_capture_type,omitempty"`
-	SensingMethod            *string `json:"sensing_method,omitempty"`
-	Software                 *string `json:"software,omitempty"`
-	WhiteBalance             *string `json:"white_balance,omitempty"`
+
+	// FocalPlaneXResolution Focal plane X resolution
+	FocalPlaneXResolution *string `json:"focal_plane_x_resolution,omitempty"`
+
+	// FocalPlaneYResolution Focal plane Y resolution
+	FocalPlaneYResolution *string `json:"focal_plane_y_resolution,omitempty"`
+
+	// GpsAltitude GPS Altitude
+	GpsAltitude *string `json:"gps_altitude,omitempty"`
+
+	// GpsImgDirection GPS Image Direction
+	GpsImgDirection *string `json:"gps_img_direction,omitempty"`
+
+	// GpsImgDirectionRef GPS Image Direction Ref
+	GpsImgDirectionRef *string `json:"gps_img_direction_ref,omitempty"`
+
+	// GpsSpeed GPS Speed
+	GpsSpeed *string `json:"gps_speed,omitempty"`
+
+	// GpsSpeedRef GPS Speed Ref
+	GpsSpeedRef *string `json:"gps_speed_ref,omitempty"`
+
+	// Iso ISO speed rating
+	Iso *string `json:"iso,omitempty"`
+
+	// Latitude GPS Latitude
+	Latitude *string `json:"latitude,omitempty"`
+
+	// LensMake Lens make
+	LensMake *string `json:"lens_make,omitempty"`
+
+	// LensModel Lens model
+	LensModel *string `json:"lens_model,omitempty"`
+
+	// LightSource Light source
+	LightSource *string `json:"light_source,omitempty"`
+
+	// Longitude GPS Longitude
+	Longitude *string `json:"longitude,omitempty"`
+
+	// Make Camera make
+	Make *string `json:"make,omitempty"`
+
+	// MaxApertureValue Max aperture value
+	MaxApertureValue *string `json:"max_aperture_value,omitempty"`
+
+	// MeteringMode Metering mode
+	MeteringMode *string `json:"metering_mode,omitempty"`
+
+	// Model Camera model
+	Model *string `json:"model,omitempty"`
+
+	// ModifyDate Modify date
+	ModifyDate *string `json:"modify_date,omitempty"`
+
+	// OffsetTime Offset time
+	OffsetTime *string `json:"offset_time,omitempty"`
+
+	// OffsetTimeDigitized Offset time digitized
+	OffsetTimeDigitized *string `json:"offset_time_digitized,omitempty"`
+
+	// OffsetTimeOriginal Offset time original
+	OffsetTimeOriginal *string `json:"offset_time_original,omitempty"`
+
+	// Orientation Orientation
+	Orientation *string `json:"orientation,omitempty"`
+
+	// Rating Rating
+	Rating *string `json:"rating,omitempty"`
+
+	// Resolution Resolution
+	Resolution *string `json:"resolution,omitempty"`
+
+	// SceneCaptureType Scene capture type
+	SceneCaptureType *string `json:"scene_capture_type,omitempty"`
+
+	// SensingMethod Sensing method
+	SensingMethod *string `json:"sensing_method,omitempty"`
+
+	// Software Software
+	Software *string `json:"software,omitempty"`
+
+	// WhiteBalance White balance
+	WhiteBalance *string `json:"white_balance,omitempty"`
 }
 
 // ImageMetadata defines model for ImageMetadata.
 type ImageMetadata struct {
-	Checksum       string    `json:"checksum"`
-	ColorSpace     string    `json:"color_space"`
-	FileCreatedAt  time.Time `json:"file_created_at"`
+	// Checksum File checksum
+	Checksum string `json:"checksum"`
+
+	// ColorSpace Color space
+	ColorSpace string `json:"color_space"`
+
+	// FileCreatedAt File creation time
+	FileCreatedAt time.Time `json:"file_created_at"`
+
+	// FileModifiedAt File modification time
 	FileModifiedAt time.Time `json:"file_modified_at"`
-	FileName       string    `json:"file_name"`
-	FileSize       *int64    `json:"file_size,omitempty"`
-	FileType       string    `json:"file_type"`
-	HasIccProfile  *bool     `json:"has_icc_profile,omitempty"`
-	Keywords       *[]string `json:"keywords,omitempty"`
+
+	// FileName Original file name
+	FileName string `json:"file_name"`
+
+	// FileSize File size in bytes
+	FileSize *int64 `json:"file_size,omitempty"`
+
+	// FileType File MIME type
+	FileType string `json:"file_type"`
+
+	// HasIccProfile Has ICC profile
+	HasIccProfile *bool `json:"has_icc_profile,omitempty"`
+
+	// Keywords Keywords
+	Keywords *[]string `json:"keywords,omitempty"`
 
 	// Label User-assigned label for the image. Null = unlabeled
-	Label            *ImageMetadataLabel `json:"label"`
-	Metadata         *string             `json:"metadata,omitempty"`
-	OriginalFileName *string             `json:"original_file_name,omitempty"`
+	Label *ImageMetadataLabel `json:"label"`
+
+	// Metadata Additional metadata
+	Metadata *string `json:"metadata,omitempty"`
+
+	// OriginalFileName Original file name
+	OriginalFileName *string `json:"original_file_name,omitempty"`
 
 	// Rating User-assigned rating (0-5). Null = unrated
-	Rating    *int    `json:"rating"`
+	Rating *int `json:"rating"`
+
+	// Thumbhash Thumbhash
 	Thumbhash *string `json:"thumbhash,omitempty"`
 }
 
@@ -465,18 +746,29 @@ type ImageMetadataLabel string
 
 // ImagePaths defines model for ImagePaths.
 type ImagePaths struct {
-	Original  string  `json:"original"`
-	Preview   string  `json:"preview"`
-	Raw       *string `json:"raw,omitempty"`
-	Thumbnail string  `json:"thumbnail"`
+	// Original Path to original file
+	Original string `json:"original"`
+
+	// Preview Path to preview
+	Preview string `json:"preview"`
+
+	// Raw Path to raw file
+	Raw *string `json:"raw,omitempty"`
+
+	// Thumbnail Path to thumbnail
+	Thumbnail string `json:"thumbnail"`
 }
 
 // ImageUpdate defines model for ImageUpdate.
 type ImageUpdate struct {
-	Description   *string    `json:"description"`
-	Exif          *ImageEXIF `json:"exif,omitempty"`
-	Favourited    *bool      `json:"favourited,omitempty"`
+	// Description Image description
+	Description *string    `json:"description"`
+	Exif        *ImageEXIF `json:"exif,omitempty"`
+
+	// Favourited Is favourited
+	Favourited    *bool `json:"favourited,omitempty"`
 	ImageMetadata *struct {
+		// Keywords Keywords
 		Keywords *[]string `json:"keywords,omitempty"`
 
 		// Label User-assigned label for the image. Null = unlabeled
@@ -485,9 +777,15 @@ type ImageUpdate struct {
 		// Rating User-assigned rating (0-5). Null = unrated
 		Rating *int `json:"rating"`
 	} `json:"image_metadata,omitempty"`
-	Name     *string `json:"name,omitempty"`
+
+	// Name Image name
+	Name *string `json:"name,omitempty"`
+
+	// OwnerUid Owner UID
 	OwnerUid *string `json:"owner_uid"`
-	Private  *bool   `json:"private,omitempty"`
+
+	// Private Is private
+	Private *bool `json:"private,omitempty"`
 }
 
 // ImageUpdateImageMetadataLabel User-assigned label for the image. Null = unlabeled
@@ -495,30 +793,52 @@ type ImageUpdateImageMetadataLabel string
 
 // ImageUploadRequest defines model for ImageUploadRequest.
 type ImageUploadRequest struct {
-	Checksum *string            `json:"checksum,omitempty"`
-	Data     openapi_types.File `json:"data"`
-	FileName string             `json:"file_name"`
+	// Checksum Optional checksum of the file
+	Checksum *string `json:"checksum,omitempty"`
+
+	// Data Image file data
+	Data openapi_types.File `json:"data"`
+
+	// FileName Name of the file
+	FileName string `json:"file_name"`
 }
 
 // ImageUploadResponse defines model for ImageUploadResponse.
 type ImageUploadResponse struct {
+	// Metadata Extracted metadata
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-	Uid      string                  `json:"uid"`
+
+	// Uid UID of the uploaded image
+	Uid string `json:"uid"`
 }
 
 // ImagesListResponse defines model for ImagesListResponse.
 type ImagesListResponse struct {
-	Count *int             `json:"count,omitempty"`
-	Href  *string          `json:"href,omitempty"`
+	// Count Total count
+	Count *int `json:"count,omitempty"`
+
+	// Href Self link
+	Href *string `json:"href,omitempty"`
+
+	// Items List of items
 	Items []ImagesResponse `json:"items"`
-	Limit int              `json:"limit"`
-	Next  *string          `json:"next,omitempty"`
-	Page  int              `json:"page"`
-	Prev  *string          `json:"prev,omitempty"`
+
+	// Limit Items per page
+	Limit int `json:"limit"`
+
+	// Next Next page link
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page
+	Page int `json:"page"`
+
+	// Prev Previous page link
+	Prev *string `json:"prev,omitempty"`
 }
 
 // ImagesResponse defines model for ImagesResponse.
 type ImagesResponse struct {
+	// AddedAt Added timestamp
 	AddedAt time.Time `json:"added_at"`
 	AddedBy *User     `json:"added_by,omitempty"`
 	Image   Image     `json:"image"`
@@ -526,7 +846,10 @@ type ImagesResponse struct {
 
 // ImagineConfig defines model for ImagineConfig.
 type ImagineConfig struct {
-	BaseUrl        *string               `json:"baseUrl,omitempty"`
+	// BaseUrl Base URL of the application
+	BaseUrl *string `json:"baseUrl,omitempty"`
+
+	// BaseDirectory Base directory path
 	BaseDirectory  *string               `json:"base_directory,omitempty"`
 	Cache          *CacheConfig          `json:"cache,omitempty"`
 	Database       *DatabaseConfig       `json:"database,omitempty"`
@@ -540,79 +863,153 @@ type ImagineConfig struct {
 
 // LibvipsConfig defines model for LibvipsConfig.
 type LibvipsConfig struct {
-	CacheMaxFiles      *int  `json:"cache_max_files,omitempty"`
-	CacheMaxMemoryMb   *int  `json:"cache_max_memory_mb,omitempty"`
-	CacheMaxOperations *int  `json:"cache_max_operations,omitempty"`
-	Concurrency        *int  `json:"concurrency,omitempty"`
+	// CacheMaxFiles Cache max files
+	CacheMaxFiles *int `json:"cache_max_files,omitempty"`
+
+	// CacheMaxMemoryMb Cache max memory MB
+	CacheMaxMemoryMb *int `json:"cache_max_memory_mb,omitempty"`
+
+	// CacheMaxOperations Cache max operations
+	CacheMaxOperations *int `json:"cache_max_operations,omitempty"`
+
+	// Concurrency Concurrency level
+	Concurrency *int `json:"concurrency,omitempty"`
+
+	// MatchSystemLogging Match system logging level
 	MatchSystemLogging *bool `json:"match_system_logging,omitempty"`
-	VectorEnabled      *bool `json:"vector_enabled,omitempty"`
+
+	// VectorEnabled Vector enabled
+	VectorEnabled *bool `json:"vector_enabled,omitempty"`
 }
 
 // LoggingConfig defines model for LoggingConfig.
 type LoggingConfig struct {
+	// Level Logging level
 	Level *string `json:"level,omitempty"`
 }
 
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
+	// Message Response message
 	Message string `json:"message"`
 }
 
 // OAuthUserData defines model for OAuthUserData.
 type OAuthUserData struct {
-	Email   openapi_types.Email `json:"email"`
-	Name    string              `json:"name"`
-	Picture string              `json:"picture"`
+	// Email User email
+	Email openapi_types.Email `json:"email"`
+
+	// Name User name
+	Name string `json:"name"`
+
+	// Picture User profile picture URL
+	Picture string `json:"picture"`
 }
 
 // QueueConfig defines model for QueueConfig.
 type QueueConfig struct {
-	Db                 *int    `json:"db,omitempty"`
-	DialTimeoutSeconds *int    `json:"dial_timeout_seconds,omitempty"`
-	Enabled            *bool   `json:"enabled,omitempty"`
-	Host               *string `json:"host,omitempty"`
+	// Db Redis DB index
+	Db *int `json:"db,omitempty"`
+
+	// DialTimeoutSeconds Dial timeout
+	DialTimeoutSeconds *int `json:"dial_timeout_seconds,omitempty"`
+
+	// Enabled Is queue enabled
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Host Queue host
+	Host *string `json:"host,omitempty"`
 
 	// Password Masked password
-	Password            *string `json:"password,omitempty"`
-	PoolSize            *int    `json:"pool_size,omitempty"`
-	Port                *int    `json:"port,omitempty"`
-	ReadTimeoutSeconds  *int    `json:"read_timeout_seconds,omitempty"`
-	UseTls              *bool   `json:"use_tls,omitempty"`
-	Username            *string `json:"username,omitempty"`
-	WriteTimeoutSeconds *int    `json:"write_timeout_seconds,omitempty"`
+	Password *string `json:"password,omitempty"`
+
+	// PoolSize Connection pool size
+	PoolSize *int `json:"pool_size,omitempty"`
+
+	// Port Queue port
+	Port *int `json:"port,omitempty"`
+
+	// ReadTimeoutSeconds Read timeout
+	ReadTimeoutSeconds *int `json:"read_timeout_seconds,omitempty"`
+
+	// UseTls Use TLS
+	UseTls *bool `json:"use_tls,omitempty"`
+
+	// Username Queue username
+	Username *string `json:"username,omitempty"`
+
+	// WriteTimeoutSeconds Write timeout
+	WriteTimeoutSeconds *int `json:"write_timeout_seconds,omitempty"`
 }
 
 // SearchListResponse defines model for SearchListResponse.
 type SearchListResponse struct {
+	// Collections List of collections found
 	Collections []Collection `json:"collections"`
-	Images      []Image      `json:"images"`
+
+	// Images List of images found
+	Images []Image `json:"images"`
 }
 
 // Session defines model for Session.
 type Session struct {
-	ClientId   *string    `json:"client_id,omitempty"`
-	ClientIp   *string    `json:"client_ip,omitempty"`
-	ClientName *string    `json:"client_name,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	// ClientId Client ID
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientIp Client IP
+	ClientIp *string `json:"client_ip,omitempty"`
+
+	// ClientName Client name
+	ClientName *string `json:"client_name,omitempty"`
+
+	// CreatedAt Creation time
+	CreatedAt time.Time `json:"created_at"`
+
+	// ExpiresAt Expiry time
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// LastActive Last active time
 	LastActive *time.Time `json:"last_active,omitempty"`
-	LoginAt    *time.Time `json:"login_at,omitempty"`
-	LoginIp    *string    `json:"login_ip,omitempty"`
-	RefId      *string    `json:"ref_id,omitempty"`
-	Status     *int       `json:"status,omitempty"`
-	Timeout    *int64     `json:"timeout,omitempty"`
-	Token      string     `json:"token"`
-	Uid        string     `json:"uid"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	User       *User      `json:"user,omitempty"`
-	UserAgent  *string    `json:"user_agent,omitempty"`
-	UserUid    string     `json:"user_uid"`
+
+	// LoginAt Login time
+	LoginAt *time.Time `json:"login_at,omitempty"`
+
+	// LoginIp Login IP
+	LoginIp *string `json:"login_ip,omitempty"`
+
+	// RefId Reference ID
+	RefId *string `json:"ref_id,omitempty"`
+
+	// Status Session status
+	Status *int `json:"status,omitempty"`
+
+	// Timeout Timeout in seconds
+	Timeout *int64 `json:"timeout,omitempty"`
+
+	// Token Session token
+	Token string `json:"token"`
+
+	// Uid Session UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
+	UpdatedAt time.Time `json:"updated_at"`
+	User      *User     `json:"user,omitempty"`
+
+	// UserAgent User agent
+	UserAgent *string `json:"user_agent,omitempty"`
+
+	// UserUid User UID
+	UserUid string `json:"user_uid"`
 }
 
 // SessionUpdate defines model for SessionUpdate.
 type SessionUpdate struct {
+	// ClientName New client name
 	ClientName *string `json:"clientName"`
-	Status     *int    `json:"status"`
+
+	// Status New status
+	Status *int `json:"status"`
 }
 
 // SettingDefault Defines a setting available in the system.
@@ -683,21 +1080,34 @@ type SignDownloadRequest struct {
 
 // StorageMetricsConfig defines model for StorageMetricsConfig.
 type StorageMetricsConfig struct {
-	Enabled         *bool `json:"enabled,omitempty"`
-	IntervalSeconds *int  `json:"interval_seconds,omitempty"`
+	// Enabled Metrics enabled
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// IntervalSeconds Interval in seconds
+	IntervalSeconds *int `json:"interval_seconds,omitempty"`
 }
 
 // SuperadminSetupRequest defines model for SuperadminSetupRequest.
 type SuperadminSetupRequest struct {
-	Email     openapi_types.Email `json:"email"`
-	FirstName *string             `json:"firstName"`
-	LastName  *string             `json:"lastName"`
-	Password  string              `json:"password"`
-	Username  string              `json:"username"`
+	// Email Email address
+	Email openapi_types.Email `json:"email"`
+
+	// FirstName First name
+	FirstName *string `json:"firstName"`
+
+	// LastName Last name
+	LastName *string `json:"lastName"`
+
+	// Password Password
+	Password string `json:"password"`
+
+	// Username Desired username
+	Username string `json:"username"`
 }
 
 // SuperadminSetupResponse defines model for SuperadminSetupResponse.
 type SuperadminSetupResponse struct {
+	// Message Response message
 	Message string `json:"message"`
 
 	// SessionToken Session token for the newly created superadmin
@@ -708,9 +1118,13 @@ type SuperadminSetupResponse struct {
 // SystemStatsResponse defines model for SystemStatsResponse.
 type SystemStatsResponse struct {
 	// AllocMemory Bytes of allocated heap objects
-	AllocMemory  int64  `json:"alloc_memory"`
-	NumGoroutine int    `json:"num_goroutine"`
-	StoragePath  string `json:"storage_path"`
+	AllocMemory int64 `json:"alloc_memory"`
+
+	// NumGoroutine Number of running goroutines
+	NumGoroutine int `json:"num_goroutine"`
+
+	// StoragePath Path to storage directory
+	StoragePath string `json:"storage_path"`
 
 	// StorageUsedBytes Total size of files in the base directory
 	StorageUsedBytes int64 `json:"storage_used_bytes"`
@@ -723,7 +1137,9 @@ type SystemStatsResponse struct {
 
 	// TotalSystemSpaceBytes Total disk space on the system
 	TotalSystemSpaceBytes int64 `json:"total_system_space_bytes"`
-	UptimeSeconds         int64 `json:"uptime_seconds"`
+
+	// UptimeSeconds System uptime in seconds
+	UptimeSeconds int64 `json:"uptime_seconds"`
 }
 
 // SystemStatusResponse defines model for SystemStatusResponse.
@@ -731,52 +1147,77 @@ type SystemStatusResponse struct {
 	// AllowManualRegistration True if user registration is enabled, let's users register accounts themselves
 	AllowManualRegistration bool `json:"allow_manual_registration"`
 
-	// Initialized True if the system has been initialized (at least one user exists or first_run_complete is true).
+	// Initialized True if the system has been initialized (at least one superadmin exists and first_run_complete is true).
 	Initialized bool `json:"initialized"`
 
-	// NeedsSuperadmin True if the system requires initial superadmin setup.
+	// NeedsSuperadmin True if the system requires initial superadmin setup (no superadmin exists).
 	NeedsSuperadmin bool `json:"needs_superadmin"`
 
-	// UserOnboardingRequired True if the authenticated user needs to complete onboarding.
+	// UserOnboardingRequired True if the current user (if authenticated) still needs to complete onboarding.
 	UserOnboardingRequired bool `json:"user_onboarding_required"`
 }
 
 // UploadConfig defines model for UploadConfig.
 type UploadConfig struct {
+	// Location Upload location
 	Location *string `json:"location,omitempty"`
 }
 
 // User defines model for User.
 type User struct {
+	// CreatedAt Creation time
 	CreatedAt time.Time `json:"created_at"`
-	Email     string    `json:"email"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	Role      UserRole  `json:"role"`
-	Uid       string    `json:"uid"`
+
+	// Email Email
+	Email string `json:"email"`
+
+	// FirstName First name
+	FirstName string `json:"first_name"`
+
+	// LastName Last name
+	LastName string `json:"last_name"`
+
+	// Role User role
+	Role UserRole `json:"role"`
+
+	// Uid User UID
+	Uid string `json:"uid"`
+
+	// UpdatedAt Update time
 	UpdatedAt time.Time `json:"updated_at"`
-	Username  string    `json:"username"`
+
+	// Username Username
+	Username string `json:"username"`
 }
 
-// UserRole defines model for User.Role.
+// UserRole User role
 type UserRole string
 
 // UserCreate defines model for UserCreate.
 type UserCreate struct {
-	Email    openapi_types.Email `json:"email"`
-	Name     string              `json:"name"`
-	Password string              `json:"password"`
+	// Email Email address
+	Email openapi_types.Email `json:"email"`
+
+	// Name Full name
+	Name string `json:"name"`
+
+	// Password Password
+	Password string `json:"password"`
 }
 
 // UserManagementConfig defines model for UserManagementConfig.
 type UserManagementConfig struct {
+	// AllowManualRegistration Allow manual registration
 	AllowManualRegistration *bool `json:"allow_manual_registration,omitempty"`
 }
 
 // UserOnboardingBody defines model for UserOnboardingBody.
 type UserOnboardingBody struct {
+	// FirstName First name
 	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+
+	// LastName Last name
+	LastName string `json:"last_name"`
 
 	// Settings User-specific setting overrides
 	Settings []UserSetting `json:"settings"`
@@ -784,67 +1225,116 @@ type UserOnboardingBody struct {
 
 // UserPasswordUpdate defines model for UserPasswordUpdate.
 type UserPasswordUpdate struct {
+	// Current Current password
 	Current string `json:"current"`
-	New     string `json:"new"`
+
+	// New New password
+	New string `json:"new"`
 }
 
 // UserSetting The effective setting for a user (merged Default and Override).
 type UserSetting struct {
-	AllowedValues  *[]string `json:"allowed_values"`
-	DefaultValue   string    `json:"default_value"`
-	Description    string    `json:"description"`
-	DisplayName    string    `json:"display_name"`
-	Group          string    `json:"group"`
-	IsUserEditable *bool     `json:"is_user_editable,omitempty"`
-	Name           string    `json:"name"`
+	// AllowedValues Allowed values if enum
+	AllowedValues *[]string `json:"allowed_values"`
+
+	// DefaultValue Default value
+	DefaultValue string `json:"default_value"`
+
+	// Description Setting description
+	Description string `json:"description"`
+
+	// DisplayName Readable name
+	DisplayName string `json:"display_name"`
+
+	// Group Setting group
+	Group string `json:"group"`
+
+	// IsUserEditable Whether user can edit
+	IsUserEditable *bool `json:"is_user_editable,omitempty"`
+
+	// Name Setting unique name
+	Name string `json:"name"`
 
 	// Value The effective value (override if exists, else default).
-	Value     string `json:"value"`
+	Value string `json:"value"`
+
+	// ValueType Type of the value
 	ValueType string `json:"value_type"`
 }
 
 // UserSettingUpdateRequest defines model for UserSettingUpdateRequest.
 type UserSettingUpdateRequest struct {
+	// Settings List of settings to update
 	Settings []struct {
-		Name  string `json:"name"`
+		// Name Setting name
+		Name string `json:"name"`
+
+		// Value Setting value
 		Value string `json:"value"`
 	} `json:"settings"`
 }
 
 // UserUpdate defines model for UserUpdate.
 type UserUpdate struct {
-	Email     *openapi_types.Email `json:"email"`
-	FirstName *string              `json:"first_name"`
-	LastName  *string              `json:"last_name"`
-	Username  *string              `json:"username"`
+	// Email Email address
+	Email *openapi_types.Email `json:"email"`
+
+	// FirstName First name
+	FirstName *string `json:"first_name"`
+
+	// LastName Last name
+	LastName *string `json:"last_name"`
+
+	// Username Username
+	Username *string `json:"username"`
 }
 
 // WSBroadcastRequest defines model for WSBroadcastRequest.
 type WSBroadcastRequest struct {
-	Data  map[string]interface{} `json:"data"`
-	Event string                 `json:"event"`
+	// Data Event data payload
+	Data map[string]interface{} `json:"data"`
+
+	// Event Event name to broadcast
+	Event string `json:"event"`
 }
 
 // WSBroadcastResponse defines model for WSBroadcastResponse.
 type WSBroadcastResponse struct {
-	Clients int    `json:"clients"`
+	// Clients Number of clients reached
+	Clients int `json:"clients"`
+
+	// Message Response message
 	Message string `json:"message"`
-	Success bool   `json:"success"`
+
+	// Success Whether broadcast was successful
+	Success bool `json:"success"`
 }
 
 // WSMetricsResponse defines model for WSMetricsResponse.
 type WSMetricsResponse struct {
-	ConnectedClients int            `json:"connectedClients"`
-	EventsByType     map[string]int `json:"eventsByType"`
-	Timestamp        time.Time      `json:"timestamp"`
-	TotalEvents      int            `json:"totalEvents"`
+	// ConnectedClients Number of connected clients
+	ConnectedClients int `json:"connectedClients"`
+
+	// EventsByType Count of events by type
+	EventsByType map[string]int `json:"eventsByType"`
+
+	// Timestamp Timestamp of the metrics
+	Timestamp time.Time `json:"timestamp"`
+
+	// TotalEvents Total events processed
+	TotalEvents int `json:"totalEvents"`
 }
 
 // WSStatsResponse defines model for WSStatsResponse.
 type WSStatsResponse struct {
-	ClientIds        []string  `json:"clientIds"`
-	ConnectedClients int       `json:"connectedClients"`
-	Timestamp        time.Time `json:"timestamp"`
+	// ClientIds List of connected client IDs
+	ClientIds []string `json:"clientIds"`
+
+	// ConnectedClients Number of connected clients
+	ConnectedClients int `json:"connectedClients"`
+
+	// Timestamp Timestamp of the stats
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // WorkerInfo defines model for WorkerInfo.
@@ -864,18 +1354,41 @@ type WorkerInfo struct {
 
 // WorkerJob defines model for WorkerJob.
 type WorkerJob struct {
-	Command     *string    `json:"command"`
+	// Command Job command
+	Command *string `json:"command"`
+
+	// CompletedAt Completed timestamp
 	CompletedAt *time.Time `json:"completed_at"`
-	EnqueuedAt  time.Time  `json:"enqueued_at"`
-	ErrorCode   *string    `json:"error_code"`
-	ErrorMsg    *string    `json:"error_msg"`
-	ImageUid    *string    `json:"image_uid"`
-	Payload     *string    `json:"payload"`
-	StartedAt   *time.Time `json:"started_at"`
-	Status      string     `json:"status"`
-	Topic       string     `json:"topic"`
-	Type        string     `json:"type"`
-	Uid         string     `json:"uid"`
+
+	// EnqueuedAt Enqueued timestamp
+	EnqueuedAt time.Time `json:"enqueued_at"`
+
+	// ErrorCode Error code if failed
+	ErrorCode *string `json:"error_code"`
+
+	// ErrorMsg Error message if failed
+	ErrorMsg *string `json:"error_msg"`
+
+	// ImageUid Related image UID
+	ImageUid *string `json:"image_uid"`
+
+	// Payload Job payload
+	Payload *string `json:"payload"`
+
+	// StartedAt Started timestamp
+	StartedAt *time.Time `json:"started_at"`
+
+	// Status Job status
+	Status string `json:"status"`
+
+	// Topic Job topic
+	Topic string `json:"topic"`
+
+	// Type Job type
+	Type string `json:"type"`
+
+	// Uid Job UID
+	Uid string `json:"uid"`
 }
 
 // WorkerJobCreateRequest defines model for WorkerJobCreateRequest.
@@ -895,21 +1408,32 @@ type WorkerJobCreateRequestCommand string
 
 // WorkerJobEnqueueResponse defines model for WorkerJobEnqueueResponse.
 type WorkerJobEnqueueResponse struct {
-	Count   *int   `json:"count,omitempty"`
+	// Count Count of enqueued jobs
+	Count *int `json:"count,omitempty"`
+
+	// Message Response message
 	Message string `json:"message"`
 }
 
 // WorkerJobStatsResponse defines model for WorkerJobStatsResponse.
 type WorkerJobStatsResponse struct {
-	QueuedByTopic  map[string]int `json:"queued_by_topic"`
-	Running        int            `json:"running"`
+	// QueuedByTopic Queued jobs by topic
+	QueuedByTopic map[string]int `json:"queued_by_topic"`
+
+	// Running Total running jobs
+	Running int `json:"running"`
+
+	// RunningByTopic Running jobs by topic
 	RunningByTopic map[string]int `json:"running_by_topic"`
 }
 
 // WorkerJobsResponse defines model for WorkerJobsResponse.
 type WorkerJobsResponse struct {
+	// Items List of jobs
 	Items []WorkerJob `json:"items"`
-	Total int         `json:"total"`
+
+	// Total Total count of jobs
+	Total int `json:"total"`
 }
 
 // WorkerRegisterRequest defines model for WorkerRegisterRequest.
@@ -923,11 +1447,13 @@ type WorkerRegisterRequest struct {
 
 // WorkersListResponse defines model for WorkersListResponse.
 type WorkersListResponse struct {
+	// Items List of workers
 	Items []WorkerInfo `json:"items"`
 }
 
 // UpdateUserSettingJSONBody defines parameters for UpdateUserSetting.
 type UpdateUserSettingJSONBody struct {
+	// Value New setting value
 	Value string `json:"value"`
 }
 
@@ -945,8 +1471,11 @@ type AdminDeleteUserJSONBody struct {
 
 // LoginJSONBody defines parameters for Login.
 type LoginJSONBody struct {
-	Email    openapi_types.Email `json:"email"`
-	Password string              `json:"password"`
+	// Email User email address
+	Email openapi_types.Email `json:"email"`
+
+	// Password User password
+	Password string `json:"password"`
 }
 
 // InitiateOAuthParams defines parameters for InitiateOAuth.
@@ -980,6 +1509,7 @@ type ListCollectionsParams struct {
 
 // DeleteCollectionImagesJSONBody defines parameters for DeleteCollectionImages.
 type DeleteCollectionImagesJSONBody struct {
+	// Uids List of image UIDs
 	Uids []string `json:"uids"`
 }
 
@@ -991,6 +1521,7 @@ type ListCollectionImagesParams struct {
 
 // AddCollectionImagesJSONBody defines parameters for AddCollectionImages.
 type AddCollectionImagesJSONBody struct {
+	// Uids List of image UIDs
 	Uids []string `json:"uids"`
 }
 
@@ -1020,8 +1551,11 @@ type GetEventsSinceParams struct {
 
 // DeleteImagesBulkJSONBody defines parameters for DeleteImagesBulk.
 type DeleteImagesBulkJSONBody struct {
-	Force *bool    `json:"force,omitempty"`
-	Uids  []string `json:"uids"`
+	// Force Force deletion
+	Force *bool `json:"force,omitempty"`
+
+	// Uids List of image UIDs
+	Uids []string `json:"uids"`
 }
 
 // ListImagesParams defines parameters for ListImages.
