@@ -125,7 +125,7 @@ go build -o bin/api ./cmd/api
 ```
 
 3.  **Run**:
-    Set the `IMAGINE_FRONTEND_BUILD_PATH` environment variable to point to the built assets.
+    Set the `IMAGINE_FRONTEND_BUILD_PATH` environment variable to point to the built assets. **Viz** will serve these static files when you access the API port directly (useful for single-container deployments).
     
 ```bash
 export IMAGINE_FRONTEND_BUILD_PATH="./build/viz"

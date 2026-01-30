@@ -4,7 +4,7 @@
 
 **Viz** is a self-hosted image management and processing platform designed for photographers and media teams. It provides a modern API-driven backend (Go) and a web interface (SvelteKit) for organizing, searching, and sharing image collection
 
-![Home Page Screenshot](./docs/images/home_page_screenshot.png)
+![Home Page Screenshot](./docs/assets/collection_images_screenshot.png)
 
 > **Work in Progress** 🚧
 > 
@@ -58,7 +58,7 @@ See [**docs/BUILDING.md**](./docs/BUILDING.md) for detailed setup instructions, 
 - **Search**: PostgreSQL Full-Text Search
 - **Image Processing**: libvips
 
-### Frontend (SvelteKit)
+### Frontend (Viewfinder)
 - **Framework**: Svelte 5
 - **Styling**: SCSS
 - **Icons**: Material Design

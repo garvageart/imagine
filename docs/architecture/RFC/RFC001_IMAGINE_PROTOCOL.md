@@ -6,12 +6,14 @@
 | **Title**        | Server-to-Server Interoperability (Viz Protocol) |
 | **Author**       | Les                                              |
 | **Status**       | Draft                                            |
-| **Created**      | 2025-12-10                                       |
-| **Last Updated** | 2026-01-22                                       |
+| **Created**      | 10-01-2026                                     |
+| **Last Updated** | 30-01-2026                                       |
 
 ## Abstract
 
-This document specifies a standardized protocol for communication and interoperability between image server instances. It defines a URI scheme (`viz://`) for resource identification, a federated identity model, and a set of core capabilities including remote viewing, cross-server search, and metadata synchronization. The protocol aims to bridge the gap between enterprise Digital Asset Management (DAM) systems, professional photography workflows, and personal archiving solutions, enabling a decentralized yet unified user experience.
+This document specifies a standardized protocol for communication and interoperability between image server instances. It defines a URI scheme (`viz://`) for resource identification, a federated identity model, and a set of core capabilities including remote viewing, cross-server search, and metadata synchronization.
+
+The protocol aims to bridge the gap between enterprise Digital Asset Management (DAM) systems, professional photography workflows, and personal archiving solutions, enabling a decentralized yet unified user experience.
 
 ## 1. Introduction
 
