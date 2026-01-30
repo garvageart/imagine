@@ -159,7 +159,7 @@ func (h *FrontendHandler) serveIndex(w http.ResponseWriter, r *http.Request) {
 		h.Logger.Error("failed to get system status for injection", slog.Any("error", err))
 	}
 
-	configScript := fmt.Sprintf("<script>window.__IMAGINE_CONFIG__.system  = %s;</script>", configJson)
+	configScript := fmt.Sprintf("<script>window.__VIZ_CONFIG__.system  = %s;</script>", configJson)
 	// Inject before </head>. If </head> is missing (unlikely), it won't inject, which is acceptable fallback.
 	responseHtml = bytes.Replace(responseHtml, []byte("</head>"), []byte(configScript+"</head>"), 1)
 
