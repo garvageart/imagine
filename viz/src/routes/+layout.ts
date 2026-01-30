@@ -15,11 +15,11 @@ export async function load({ url, fetch }) {
     if (!system.fetched) {
         system.loading = true;
 
-        if (browser && window.__IMAGINE_CONFIG__) {
-            system.data = window.__IMAGINE_CONFIG__.system;
+        if (browser && window.__VIZ_CONFIG__) {
+            system.data = window.__VIZ_CONFIG__.system;
             system.fetched = true;
             // Optional: clear it so we don't rely on stale data later if we ever re-fetch?
-            window.__IMAGINE_CONFIG__ = undefined;
+            window.__VIZ_CONFIG__ = undefined;
         } else {
             const res = await getSystemStatus();
             if (res.status === 200) {

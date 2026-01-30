@@ -426,7 +426,7 @@
 {/if}
 
 {#snippet noAssetsSnippet()}
-	<div id="add_to_imagine-container">
+	<div id="add_to_viz-container">
 		<span style="margin: 1em; color: var(--viz-20); font-size: 1.2rem;"
 			>Add your first images</span
 		>
@@ -686,7 +686,7 @@
 		gap: 1rem;
 	}
 
-	#add_to_imagine-container {
+	#add_to_viz-container {
 		display: flex;
 		flex-direction: column;
 		justify-content: left;
